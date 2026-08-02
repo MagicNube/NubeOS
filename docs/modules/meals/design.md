@@ -5,7 +5,7 @@
 
 ## Propósito y límites
 
-Este diseño concreta la spec del módulo. Describe entidades, flujos, contratos y responsabilidades; no contiene código ni elige aún biblioteca SQLite o mecanismo de migraciones.
+Este diseño concreta la spec del módulo. Describe entidades, flujos, contratos y responsabilidades; no contiene código.
 
 ```text
 React → comandos Tauri → casos de uso Rust → dominio → repositorios → SQLite
@@ -132,7 +132,9 @@ Cada comando recibe y devuelve DTOs serializables, delega inmediatamente en un c
 
 SQLite persiste productos, presentaciones, comidas e ingredientes, instancias e ingredientes planificados y coberturas semanales. Las operaciones que modifican una comida con ingredientes, crean una instancia copiada o retiran un producto de varias recetas son atómicas.
 
-La biblioteca Rust y las migraciones se decidirán en una tarea posterior; si su elección tiene impacto arquitectónico significativo, se propondrá ADR antes de añadirla.
+La implementación usará `rusqlite` con la feature `bundled`, de modo que SQLite se compile junto a la aplicación y no dependa de una DLL o instalación externa del equipo. Las migraciones usarán `rusqlite_migration` y archivos SQL versionados en `src-tauri/migrations/`, registrados explícitamente desde Rust.
+
+Esta decisión concreta la ADR-001 sin cambiar la fuente de verdad local, la frontera Tauri ni la organización por módulos. Por ello no requiere una ADR adicional. No se usará `sqlx` ni un plugin SQL accesible desde React en esta etapa: el módulo no necesita infraestructura asíncrona ni debe abrir acceso directo de la interfaz a SQLite.
 
 ## Responsabilidades de React
 
@@ -154,4 +156,3 @@ Las pruebas cubren validación, conversión gramos/unidades, macros, paquetes, v
 1. Decimales de presentación para macros y kcal.
 2. Cómo editar o reiniciar coberturas cuando cambia un plan ya comprado.
 3. Resolución concreta de una comida vacía tras retirar un producto.
-4. Biblioteca SQLite y estrategia de migraciones.

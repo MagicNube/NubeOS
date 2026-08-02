@@ -9,11 +9,15 @@ Las tareas se realizan de una en una y requieren aprobación antes de implementa
 
 ## T-001 — Decidir acceso a SQLite y migraciones
 
-- Estado: Pendiente
+- Estado: Completada
 - Dependencias: ninguna
 - Alcance: evaluar las alternativas adecuadas para SQLite en Rust y elegir una biblioteca y estrategia de migraciones para NubeOS.
 - Criterios de aceptación: decisión documentada, dependencias justificadas y confirmación de si requiere ADR adicional.
 - Verificación: revisión de la decisión por Nube; no se modifica código de producción.
+
+**Resultado:** se adopta `rusqlite` con la feature `bundled` para acceder a SQLite local y compilarla junto a NubeOS. Las migraciones usarán `rusqlite_migration` y archivos SQL versionados bajo `src-tauri/migrations/`, registrados desde Rust. No requiere ADR adicional porque concreta la ADR-001 sin cambiar los límites arquitectónicos aprobados.
+
+**Decisión sobre el prototipo:** se conserva el cascarón Tauri, la navegación, iconos y estilos actuales. `src/MealPlanner.tsx` sigue siendo un prototipo de referencia y no se migrará internamente: sus datos de ejemplo, `localStorage` y cálculos React serán sustituidos gradualmente por verticales nuevos del módulo de comidas.
 
 ## T-002 — Crear el núcleo de dominio de productos y cantidades
 
