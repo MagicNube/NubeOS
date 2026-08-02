@@ -1,22 +1,120 @@
-# Tareas — Planificador de comidas y compras
+# Tareas — Planificador de comidas, compra y productos
 
-> No añadir una tarea de implementación hasta que `spec.md` y `design.md` estén revisados.
+- Estado: Aprobada por Nube
+- Última actualización: 2026-08-03
 
-## Pendientes de diseño
+## Cómo usar este documento
 
-- [ ] Completar y revisar la spec.
-- [ ] Completar y revisar el diseño.
-- [ ] Identificar ADRs necesarias.
+Las tareas se realizan de una en una y requieren aprobación antes de implementar. Cada tarea debe mantener un alcance pequeño y verificable. Las posteriores no empiezan hasta que sus dependencias estén completadas y revisadas.
 
-## Tareas aprobadas
-
-<!-- Cada tarea debe incluir alcance, criterios de aceptación y verificación. -->
-
-### Tarea M-001 — Título
+## T-001 — Decidir acceso a SQLite y migraciones
 
 - Estado: Pendiente
-- Alcance:
-- No incluye:
-- Criterios de aceptación:
-- Verificación:
-- Aprendizaje a documentar:
+- Dependencias: ninguna
+- Alcance: evaluar las alternativas adecuadas para SQLite en Rust y elegir una biblioteca y estrategia de migraciones para NubeOS.
+- Criterios de aceptación: decisión documentada, dependencias justificadas y confirmación de si requiere ADR adicional.
+- Verificación: revisión de la decisión por Nube; no se modifica código de producción.
+
+## T-002 — Crear el núcleo de dominio de productos y cantidades
+
+- Estado: Pendiente
+- Dependencias: T-001
+- Alcance: crear los tipos Rust del módulo para producto, presentación de compra y cantidades en gramos o unidades; implementar normalización a gramos y validaciones esenciales.
+- Criterios de aceptación: un producto permite convertir unidades solo si conoce gramos por unidad; los valores inválidos se rechazan.
+- Verificación: pruebas unitarias Rust para conversiones y validaciones.
+
+## T-003 — Crear la primera migración y repositorio de productos
+
+- Estado: Pendiente
+- Dependencias: T-001, T-002
+- Alcance: crear la migración SQLite de productos y presentación, y un repositorio Rust para crear, leer, editar, archivar y restaurar productos.
+- Criterios de aceptación: productos activos y archivados persisten entre aperturas; tienda, marca y presentación opcionales se conservan.
+- Verificación: pruebas de integración con SQLite temporal, incluida la migración.
+
+## T-004 — Exponer productos mediante comandos Tauri
+
+- Estado: Pendiente
+- Dependencias: T-002, T-003
+- Alcance: implementar DTOs y comandos pequeños para listar, crear, editar, archivar y restaurar productos.
+- Criterios de aceptación: React puede solicitar las operaciones sin acceso directo a SQLite; los errores de validación son serializables y comprensibles.
+- Verificación: pruebas de comandos o de sus adaptadores; nota breve en `docs/learning/tauri.md` sobre el primer comando.
+
+## T-005 — Crear la interfaz mínima de productos
+
+- Estado: Pendiente
+- Dependencias: T-004
+- Alcance: implementar catálogo, filtros por categoría y formulario de producto con presentación condicional por tipo de compra.
+- Criterios de aceptación: el usuario crea y edita productos por gramos, paquetes, venta a granel por peso o por unidad; el formulario solo muestra campos pertinentes.
+- Verificación: comprobación manual y pruebas de interfaz para el formulario si aportan cobertura útil.
+
+## T-006 — Modelar comidas e ingredientes
+
+- Estado: Pendiente
+- Dependencias: T-002
+- Alcance: crear el dominio Rust de comidas e ingredientes, con cantidades en gramos o unidades y cálculo de macros.
+- Criterios de aceptación: una comida requiere al menos un ingrediente y suma correctamente los macros normalizados.
+- Verificación: pruebas unitarias de macros, unidades y validación.
+
+## T-007 — Persistir comidas y gestionar archivado
+
+- Estado: Pendiente
+- Dependencias: T-003, T-006
+- Alcance: añadir migración y repositorio de comidas e ingredientes; implementar archivado, restauración y consulta de recetas afectadas por un producto.
+- Criterios de aceptación: archivar no borra datos; retirar un producto modifica únicamente recetas base tras confirmar el impacto.
+- Verificación: pruebas SQLite de operaciones atómicas y casos de archivado.
+
+## T-008 — Exponer e interfaz de comidas
+
+- Estado: Pendiente
+- Dependencias: T-007
+- Alcance: crear comandos Tauri y una interfaz React para listar, crear, editar, archivar y restaurar comidas.
+- Criterios de aceptación: al añadir un ingrediente, gramos es la opción inicial y unidades solo está disponible con conversión válida.
+- Verificación: pruebas de contratos y comprobación manual del flujo completo producto → comida.
+
+## T-009 — Modelar y persistir instancias planificadas
+
+- Estado: Pendiente
+- Dependencias: T-006, T-007
+- Alcance: crear el dominio, migración y repositorio de instancias semanales e ingredientes planificados; copiar la composición de una receta al planificarla.
+- Criterios de aceptación: una instancia modificada no cambia la comida base; editar una receta posterior no reescribe la instancia.
+- Verificación: pruebas de copia, modificación, orden de franja y fechas semanales.
+
+## T-010 — Exponer planificación semanal y macros
+
+- Estado: Pendiente
+- Dependencias: T-009
+- Alcance: crear comandos para consultar una semana, crear, editar, retirar y reordenar instancias, y obtener macros diarios/semanales.
+- Criterios de aceptación: las semanas se identifican de lunes a domingo y los totales usan ingredientes planificados normalizados.
+- Verificación: pruebas de dominio y contratos de comandos.
+
+## T-011 — Crear interfaz del calendario semanal
+
+- Estado: Pendiente
+- Dependencias: T-010
+- Alcance: implementar calendario, navegación entre semanas, cinco franjas, añadido de comidas e indicación de instancias modificadas.
+- Criterios de aceptación: se abre la semana actual, se puede navegar y volver a ella; varias comidas pueden ordenarse en una franja.
+- Verificación: comprobación manual y pruebas React de navegación y edición de instancia.
+
+## T-012 — Calcular y persistir cobertura de compra semanal
+
+- Estado: Pendiente
+- Dependencias: T-009
+- Alcance: implementar agregación de necesidades, compra por paquete o a granel, coste, sobrante teórico y ajustes semanales de disponibilidad o compra.
+- Criterios de aceptación: se agrupan correctamente cantidades en gramos y unidades; la compra completa cubre el pendiente en una operación y la parcial conserva el resto.
+- Verificación: pruebas unitarias de redondeo, coste, sobrantes y cobertura.
+
+## T-013 — Exponer e interfaz de lista de compra
+
+- Estado: Pendiente
+- Dependencias: T-012
+- Alcance: crear comandos y vista de lista de compra con cantidades, coste, sobrante, “ya tengo”, compra parcial y compra completa.
+- Criterios de aceptación: la interfaz muestra los cálculos de Rust y no mantiene lógica de agregación propia.
+- Verificación: pruebas de contratos y comprobación manual de los flujos de compra.
+
+## T-014 — Revisión del primer flujo vertical
+
+- Estado: Pendiente
+- Dependencias: T-005, T-008, T-011, T-013
+- Alcance: revisar calidad, casos límite, deuda técnica, aprendizaje Rust/Tauri y discrepancias entre spec, diseño e implementación.
+- Criterios de aceptación: comprobaciones disponibles ejecutadas, problemas documentados y decisiones de siguiente incremento propuestas.
+- Verificación: revisión de código y uso manual del flujo completo.

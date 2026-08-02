@@ -33,7 +33,7 @@ No contiene fechas. La prioridad es terminar un flujo vertical útil del módulo
 
 - [x] Redactar y aprobar `docs/modules/meals/spec.md`.
 - [x] Redactar y aprobar `docs/modules/meals/design.md`.
-- [ ] Crear y aprobar tareas pequeñas en `docs/modules/meals/tasks.md`.
+- [x] Crear y aprobar tareas pequeñas en `docs/modules/meals/tasks.md`.
 - [ ] Proponer una ADR solo si el diseño descubre una decisión arquitectónica nueva o de alto coste de cambio.
 
 **Salida:** el primer incremento de comidas está definido, acotado y listo para implementar.
