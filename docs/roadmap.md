@@ -31,7 +31,7 @@ No contiene fechas. La prioridad es terminar un flujo vertical útil del módulo
 
 **Objetivo:** convertir la idea del planificador semanal de comidas y compras en un alcance verificable.
 
-- [ ] Redactar y aprobar `docs/modules/meals/spec.md`.
+- [x] Redactar y aprobar `docs/modules/meals/spec.md`.
 - [ ] Redactar y aprobar `docs/modules/meals/design.md`.
 - [ ] Crear y aprobar tareas pequeñas en `docs/modules/meals/tasks.md`.
 - [ ] Proponer una ADR solo si el diseño descubre una decisión arquitectónica nueva o de alto coste de cambio.
