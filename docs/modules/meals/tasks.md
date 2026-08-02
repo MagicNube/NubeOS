@@ -21,11 +21,13 @@ Las tareas se realizan de una en una y requieren aprobación antes de implementa
 
 ## T-002 — Crear el núcleo de dominio de productos y cantidades
 
-- Estado: Pendiente
+- Estado: Completada
 - Dependencias: T-001
 - Alcance: crear los tipos Rust del módulo para producto, presentación de compra y cantidades en gramos o unidades; implementar normalización a gramos y validaciones esenciales.
 - Criterios de aceptación: un producto permite convertir unidades solo si conoce gramos por unidad; los valores inválidos se rechazan.
 - Verificación: pruebas unitarias Rust para conversiones y validaciones.
+
+**Resultado:** se añade el módulo Rust `meals::product` con tipos para producto, categoría, estado, macros por 100 g, presentación de compra y cantidad de ingrediente. `Grams` y los constructores rechazan valores no válidos; las cantidades por unidades se normalizan solo cuando la presentación conoce gramos por unidad. Las pruebas cubren conversión desde un paquete, rechazo de unidades sin conversión y validación de valores.
 
 ## T-003 — Crear la primera migración y repositorio de productos
 
