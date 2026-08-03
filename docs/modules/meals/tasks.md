@@ -312,3 +312,13 @@ Estas tareas aplican la spec y el diseño aprobados el 2026-08-03. Nube aprobó 
 - Verificación: `pnpm build` y comprobación manual del catálogo y Archivo.
 
 **Resultado:** las comidas activas muestran un icono de archivo junto al lápiz y archivan directamente al pulsarlo. El menú «…» solo queda en Archivo, donde reúne las dos acciones que siguen teniendo sentido: restaurar y eliminar definitivamente.
+
+## T-032 — Alinear los controles del catálogo de productos
+
+- Estado: Completada
+- Dependencias: T-016, T-025
+- Alcance: situar el filtro de categorías junto al buscador de Productos, siguiendo la composición ya usada en Comidas.
+- Criterios de aceptación: buscador y filtro comparten la barra izquierda; Archivo y Añadir producto permanecen como acciones de la derecha; el filtro conserva su estado y opciones.
+- Verificación: `pnpm build` y comprobación manual en pantalla ancha y estrecha.
+
+**Resultado:** el buscador y el filtro de categorías de Productos forman un grupo de controles en la barra superior, alineado con el patrón de Comidas. El filtro no cambia su estado ni su menú; en pantallas pequeñas el grupo se adapta sin mezclarlo con Archivo o Añadir producto.
