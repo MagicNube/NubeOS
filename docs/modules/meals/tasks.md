@@ -51,11 +51,13 @@ Las tareas se realizan de una en una y requieren aprobación antes de implementa
 
 ## T-005 — Crear la interfaz mínima de productos
 
-- Estado: Pendiente
+- Estado: Completada
 - Dependencias: T-004
 - Alcance: implementar catálogo, filtros por categoría y formulario de producto con presentación condicional por tipo de compra.
 - Criterios de aceptación: el usuario crea y edita productos por gramos, paquetes, venta a granel por peso o por unidad; el formulario solo muestra campos pertinentes.
 - Verificación: comprobación manual y pruebas de interfaz para el formulario si aportan cobertura útil.
+
+**Resultado:** se añade una vista React de catálogo de productos conectada exclusivamente a los comandos Tauri existentes. Permite filtrar por categoría, crear y editar productos, elegir presentación por gramos, paquete, a granel por peso o a granel por unidad, y archivar o restaurar productos. Los campos de presentación se muestran únicamente para el tipo elegido. La comprobación estática y la compilación de producción se completan con `pnpm build`; queda por realizar la comprobación manual visual en la aplicación Tauri.
 
 ## T-006 — Modelar comidas e ingredientes
 

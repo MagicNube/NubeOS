@@ -12,7 +12,7 @@ import {
   WalletCards,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import MealPlanner from "./MealPlanner";
+import ProductsPage from "./meals/products/ProductsPage";
 
 type ModuleId = "inicio" | "comidas" | "finanzas" | "documentos" | "proyectos" | "habitos" | "lectura" | "series";
 
@@ -31,7 +31,7 @@ const navigation: NavigationItem[] = [
 
 const moduleCopy: Record<ModuleId, { eyebrow: string; title: string; description: string }> = {
   inicio: { eyebrow: "TU ESPACIO", title: "Todo en su sitio.", description: "Una vista tranquila de tus módulos personales." },
-  comidas: { eyebrow: "PLANIFICACIÓN", title: "Comidas y compras", description: "Organiza la semana, revisa tus macros y compra solo lo que necesitas." },
+  comidas: { eyebrow: "PLANIFICACIÓN", title: "Comidas y compras", description: "Crea tu catálogo de productos para construir comidas y planificar la compra." },
   finanzas: { eyebrow: "PATRIMONIO PERSONAL", title: "Finanzas", description: "Registra cuentas, movimientos y presupuesto mensual." },
   documentos: { eyebrow: "ARCHIVO PERSONAL", title: "Documentos", description: "Guarda y encuentra tus documentos importantes." },
   proyectos: { eyebrow: "TRABAJO PROFUNDO", title: "Proyectos", description: "Define objetivos y mantén visibles los próximos pasos." },
@@ -91,7 +91,7 @@ export default function App() {
           <div className="avatar" aria-label="Perfil de Jesús">J</div>
         </header>
         {activeModule === "inicio" && <Dashboard openMeals={() => setActiveModule("comidas")} />}
-        {activeModule === "comidas" && <MealPlanner />}
+        {activeModule === "comidas" && <ProductsPage />}
         {activeModule !== "inicio" && activeModule !== "comidas" && <Placeholder activeModule={activeModule} />}
       </section>
     </main>

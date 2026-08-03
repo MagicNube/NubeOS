@@ -22,3 +22,10 @@ Este documento recoge conceptos de Tauri incorporados de forma consciente al pro
 - **Implicaciones de seguridad:** se registran explícitamente en `invoke_handler`; solo esos comandos quedan disponibles para la interfaz. Los mensajes de validación son comprensibles y los errores internos de SQLite se ocultan tras un mensaje genérico.
 - **Estado gestionado:** `Builder::manage` registra una única `ProductDatabase` al iniciar la aplicación. Tauri comparte ese estado con cada comando; el `Mutex` da acceso exclusivo a la conexión mientras dura una operación.
 - **Ejemplo pequeño:** React podrá usar `invoke('create_product', { input })`; el comando devuelve el producto creado o rechaza la `Promise` con un mensaje de error.
+
+### Invocar comandos desde React
+
+- **Qué es:** `invoke` de `@tauri-apps/api/core` envía una petición desde el WebView al comando Rust cuyo nombre recibe. Devuelve una `Promise` con el DTO serializado por Rust.
+- **Por qué se usa en NubeOS:** la interfaz de productos usa una pequeña capa `productApi` que concentra las cinco llamadas permitidas: listar, crear, editar, archivar y restaurar.
+- **Límite de responsabilidad:** React transforma los valores de texto del formulario en el DTO del contrato y presenta estados de carga o error. No valida reglas de dominio ni construye consultas SQL; Rust sigue siendo la fuente de verdad.
+- **Ejemplo pequeño:** `await invoke<Product>('create_product', { input })` llama al comando `create_product`. El objeto exterior debe coincidir con los argumentos del comando (`input`, o `id` e `input` al editar).
