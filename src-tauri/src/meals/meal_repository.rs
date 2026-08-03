@@ -15,6 +15,8 @@ pub enum MealRepositoryError {
     Database(rusqlite::Error),
     InvalidStoredData(MealDomainError),
     MealNotFound(String),
+    MealMustBeArchived(String),
+    MealHasPlannedInstances(String),
     InstanceNotFound(String),
     MealWouldBeEmpty(String),
 }
@@ -27,6 +29,18 @@ impl fmt::Display for MealRepositoryError {
                 write!(formatter, "Datos de comidas no válidos: {error}")
             }
             Self::MealNotFound(id) => write!(formatter, "No existe la comida {id}."),
+            Self::MealMustBeArchived(id) => {
+                write!(
+                    formatter,
+                    "La comida {id} debe estar archivada antes de eliminarla."
+                )
+            }
+            Self::MealHasPlannedInstances(id) => {
+                write!(
+                    formatter,
+                    "La comida {id} sigue apareciendo en el historial planificado."
+                )
+            }
             Self::InstanceNotFound(id) => {
                 write!(formatter, "No existe la instancia planificada {id}.")
             }
@@ -140,6 +154,40 @@ impl<'connection> MealRepository<'connection> {
     }
     pub fn restore(&mut self, id: &MealId) -> Result<(), MealRepositoryError> {
         self.change_status(id, MealStatus::Active)
+    }
+
+    pub fn delete_archived(&mut self, id: &MealId) -> Result<(), MealRepositoryError> {
+        let status = self
+            .connection
+            .query_row(
+                "SELECT status FROM meals_recipes WHERE id = ?1",
+                [id.as_str()],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?
+            .ok_or_else(|| MealRepositoryError::MealNotFound(id.as_str().to_owned()))?;
+        if status != meal_status_to_database(MealStatus::Archived) {
+            return Err(MealRepositoryError::MealMustBeArchived(
+                id.as_str().to_owned(),
+            ));
+        }
+        let planned_instances: i64 = self.connection.query_row(
+            "SELECT COUNT(*) FROM meals_planned_instances WHERE source_meal_id = ?1",
+            [id.as_str()],
+            |row| row.get(0),
+        )?;
+        if planned_instances > 0 {
+            return Err(MealRepositoryError::MealHasPlannedInstances(
+                id.as_str().to_owned(),
+            ));
+        }
+        let deleted = self
+            .connection
+            .execute("DELETE FROM meals_recipes WHERE id = ?1", [id.as_str()])?;
+        if deleted == 0 {
+            return Err(MealRepositoryError::MealNotFound(id.as_str().to_owned()));
+        }
+        Ok(())
     }
 
     pub fn affected_by_product(
@@ -696,7 +744,7 @@ mod tests {
     use super::*;
     use crate::meals::{
         product::{NutrientsPer100Grams, Product, ProductCategory},
-        repository::{apply_migrations, ProductRepository},
+        repository::{apply_migrations, ProductRepository, ProductRepositoryError},
     };
 
     fn product() -> Product {
@@ -740,6 +788,74 @@ mod tests {
             .unwrap();
         assert_eq!(archived.status(), MealStatus::Archived);
         assert_eq!(archived.ingredients().len(), 1);
+    }
+
+    #[test]
+    fn permanently_deletes_an_archived_meal_without_planned_instances() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        apply_migrations(&mut connection).unwrap();
+        ProductRepository::new(&mut connection)
+            .create(&product())
+            .unwrap();
+        let id = MealId::new("meal").unwrap();
+        let mut repository = MealRepository::new(&mut connection);
+        repository.create(&meal()).unwrap();
+        repository.archive(&id).unwrap();
+        repository.delete_archived(&id).unwrap();
+        assert!(repository.find_by_id(&id).unwrap().is_none());
+    }
+
+    #[test]
+    fn refuses_to_delete_an_archived_product_referenced_by_a_meal() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        apply_migrations(&mut connection).unwrap();
+        ProductRepository::new(&mut connection)
+            .create(&product())
+            .unwrap();
+        MealRepository::new(&mut connection)
+            .create(&meal())
+            .unwrap();
+        let id = ProductId::new("product").unwrap();
+        let mut repository = ProductRepository::new(&mut connection);
+        repository.archive(&id).unwrap();
+        assert!(matches!(
+            repository.delete_archived(&id),
+            Err(ProductRepositoryError::ProductHasReferences(_))
+        ));
+    }
+
+    #[test]
+    fn refuses_to_delete_an_archived_meal_with_planned_history() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        apply_migrations(&mut connection).unwrap();
+        ProductRepository::new(&mut connection)
+            .create(&product())
+            .unwrap();
+        MealRepository::new(&mut connection)
+            .create(&meal())
+            .unwrap();
+        let week = WeekStart::new("2026-08-03").unwrap();
+        PlanningRepository::new(&mut connection)
+            .create(
+                &PlannedInstance::new(
+                    PlannedInstanceId::new("instance").unwrap(),
+                    week,
+                    0,
+                    MealSlot::Breakfast,
+                    0,
+                    Some(MealId::new("meal").unwrap()),
+                    meal().ingredients().to_vec(),
+                )
+                .unwrap(),
+            )
+            .unwrap();
+        let id = MealId::new("meal").unwrap();
+        let mut repository = MealRepository::new(&mut connection);
+        repository.archive(&id).unwrap();
+        assert!(matches!(
+            repository.delete_archived(&id),
+            Err(MealRepositoryError::MealHasPlannedInstances(_))
+        ));
     }
 
     #[test]

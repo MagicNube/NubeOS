@@ -283,6 +283,15 @@ pub fn restore_meal(state: State<'_, ProductDatabase>, id: String) -> Result<(),
 }
 
 #[tauri::command]
+pub fn delete_meal(state: State<'_, ProductDatabase>, id: String) -> Result<(), String> {
+    with_connection(&state, |connection| {
+        MealRepository::new(connection)
+            .delete_archived(&MealId::new(id).map_err(domain_error)?)
+            .map_err(meal_error)
+    })
+}
+
+#[tauri::command]
 pub fn meals_affected_by_product(
     state: State<'_, ProductDatabase>,
     product_id: String,
@@ -773,6 +782,8 @@ fn product_error(_: super::repository::ProductRepositoryError) -> String {
 fn meal_error(error: MealRepositoryError) -> String {
     match error {
         MealRepositoryError::MealNotFound(_)
+        | MealRepositoryError::MealMustBeArchived(_)
+        | MealRepositoryError::MealHasPlannedInstances(_)
         | MealRepositoryError::InstanceNotFound(_)
         | MealRepositoryError::MealWouldBeEmpty(_)
         | MealRepositoryError::InvalidStoredData(_) => error.to_string(),

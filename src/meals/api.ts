@@ -23,6 +23,7 @@ export const mealsApi = {
   updateMeal(id: string, input: MealInput) { return invoke<Meal>("update_meal", { id, input }); },
   archiveMeal(id: string) { return invoke<void>("archive_meal", { id }); },
   restoreMeal(id: string) { return invoke<void>("restore_meal", { id }); },
+  deleteMeal(id: string) { return invoke<void>("delete_meal", { id }); },
   mealsAffectedByProduct(productId: string) { return invoke<Meal[]>("meals_affected_by_product", { productId }); },
   removeProductFromMeals(productId: string) { return invoke<void>("remove_product_from_meals", { productId, confirmed: true }); },
   listWeek(weekStart: string) { return invoke<WeeklyPlan>("list_week", { weekStart }); },

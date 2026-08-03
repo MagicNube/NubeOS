@@ -19,7 +19,7 @@ React muestra información, recoge formularios y mantiene estado visual. Rust va
 
 Un producto es un artículo reutilizable de catálogo. Tiene:
 
-- Identificador, nombre, categoría y estado activo o archivado.
+- Identificador, nombre, categoría y estado activo o archivado. La categoría interna `yogurt` se presenta como «Lácteos».
 - Macros por 100 g.
 - Supermercado opcional: Mercadona, Lidl, Consum, FamilyCash u Otro.
 - Una presentación de compra obligatoria para productos nuevos.
@@ -63,7 +63,7 @@ La cantidad normalizada se deriva, no se edita como una segunda fuente de verdad
 
 ### Comida e instancia planificada
 
-Una comida contiene nombre, estado, ingredientes y cero o más momentos recomendados. Los momentos usan el mismo conjunto cerrado que el calendario (`breakfast`, `lunch`, `snack`, `dinner`, `extra`) y se persisten en una relación propia de receta y franja.
+Una comida contiene nombre, estado, ingredientes y cero o más momentos del día. Los momentos usan el mismo conjunto cerrado que el calendario (`breakfast`, `lunch`, `snack`, `dinner`, `extra`) y se persisten en una relación propia de receta y franja.
 
 Una instancia planificada contiene semana identificada por su lunes, día, franja, posición, referencia opcional a la comida base, marca de modificación e ingredientes propios.
 
@@ -99,7 +99,7 @@ Semana + Producto 1 ── 0..1 Cobertura semanal
 macro ingrediente = macro del producto por 100 g × gramos normalizados / 100
 ```
 
-Los macros de comida, día y semana son sumas de ingredientes, instancias y días. La precisión se conserva internamente y se redondea solo al presentar.
+Los macros de comida, día y semana son sumas de ingredientes, instancias y días. La precisión se conserva internamente y se redondea solo al presentar: kcal y gramos totales como enteros; proteínas, carbohidratos y grasas con un decimal como máximo.
 
 ### Compra, coste y sobrante
 
@@ -119,6 +119,7 @@ La casilla de una línea no es una operación de compra: persiste un estado sema
 
 - Archivar una comida evita nuevos usos, conserva historial y permite restaurarla.
 - Archivar un producto evita nuevos usos, pero preserva referencias existentes.
+- Eliminar definitivamente solo se permite desde Archivo y sobre elementos archivados. Rust rechaza borrar un producto usado por una receta o instancia, o una comida usada por una instancia; de ese modo un borrado de pruebas no rompe el historial.
 - Retirar un producto de recetas primero consulta comidas afectadas y, tras confirmación, elimina los ingredientes solo de las recetas base.
 - Si una retirada dejara una comida vacía, el caso de uso impide guardar ese estado o pide una resolución explícita; esta interacción se concreta en tareas.
 
@@ -145,10 +146,11 @@ Los DTOs de productos usan nombres en `camelCase` y no exponen tipos internos de
 | `update_product` | identificador y datos completos de producto | producto guardado con su estado actual |
 | `archive_product` | identificador | confirmación sin contenido |
 | `restore_product` | identificador | confirmación sin contenido |
+| `delete_product` | identificador archivado | confirmación sin contenido |
 
 Los datos de producto incluyen nombre, categoría, supermercado, macros por 100 g y una presentación obligatoria para crear o actualizar. La presentación lleva un discriminante `kind` y uno de los dos conjuntos de datos aprobados: paquete o a granel por peso. Un error de validación devuelve un mensaje serializable y comprensible; los errores internos de SQLite se traducen a un mensaje genérico sin exponer detalles de la base de datos.
 
-Los comandos de búsqueda reciben texto opcional y filtros de categoría o producto, y devuelven solo activos salvo que se solicite explícitamente el archivo. El contrato de planificación incorporará `move_planned_instance`, con identificador, día de destino, franja de destino y posición de inserción. Rust reordenará atómicamente los elementos de origen y destino.
+Los comandos de búsqueda reciben texto opcional y filtros de categoría o producto, y devuelven solo activos salvo que se solicite explícitamente el archivo. Los comandos de borrado definitivo verifican estado archivado y referencias antes de abrir una transacción de eliminación. El contrato de planificación incorpora `move_planned_instance`, con identificador, día de destino, franja de destino y posición de inserción. Rust reordena atómicamente los elementos de origen y destino.
 
 ## Persistencia y atomicidad
 
@@ -161,8 +163,8 @@ Esta decisión concreta la ADR-001 sin cambiar la fuente de verdad local, la fro
 ## Responsabilidades de React
 
 - Catálogo: buscador, filtro de categoría visible, menú de acciones secundarias y archivo bajo demanda.
-- Comidas: buscador, filtros por producto y momento recomendado, formulario con momentos recomendados y selector de gramos/unidades condicionado por el producto. Las tarjetas reservan una altura común, muestran hasta tres ingredientes y permiten desplegar los restantes.
-- Calendario: navegación, buscador de comidas, orden por momento recomendado, arrastrar y soltar con datos explícitos en `dataTransfer`, indicación de instancia modificada y resaltado del día actual en `Europe/Madrid`. Los macros diarios aparecen bajo la fecha.
+- Comidas: buscador y filtros alineados por producto (buscable) y momento del día, formulario con momentos del día y selector de gramos/unidades condicionado por el producto. Las tarjetas reservan una altura común, muestran hasta cuatro ingredientes y permiten desplegar los restantes.
+- Calendario: navegación, buscador de comidas, orden por momento del día, arrastrar y soltar con datos explícitos en `dataTransfer` y posición calculada sobre la mitad superior o inferior de una tarjeta, indicación de instancia modificada y resaltado del día actual en `Europe/Madrid`. Los macros diarios aparecen una sola vez bajo la fecha y el control de añadido aparece bajo interacción.
 - Compra: visualización de necesidad, disponible, pendiente, recomendación, coste, sobrante y estado de comprobación; control «Tienes» en gramos o unidades cuando existe conversión. React aplica una espera breve al persistir cada pulsación para no saturar los comandos.
 
 Los filtros, búsquedas, modales, formularios sin confirmar, semana enfocada y estados de carga/error son estado efímero de React. El contenedor del módulo conserva filtros y búsquedas al cambiar de pestaña durante la sesión, pero no los guarda tras cerrar la aplicación.

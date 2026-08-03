@@ -34,6 +34,8 @@ pub enum ProductRepositoryError {
     Database(rusqlite::Error),
     InvalidStoredProduct(DomainError),
     ProductNotFound(String),
+    ProductMustBeArchived(String),
+    ProductHasReferences(String),
 }
 
 impl fmt::Display for ProductRepositoryError {
@@ -44,6 +46,16 @@ impl fmt::Display for ProductRepositoryError {
                 write!(formatter, "Un producto guardado no es válido: {error}")
             }
             Self::ProductNotFound(id) => write!(formatter, "No existe el producto {id}."),
+            Self::ProductMustBeArchived(id) => {
+                write!(
+                    formatter,
+                    "El producto {id} debe estar archivado antes de eliminarlo."
+                )
+            }
+            Self::ProductHasReferences(id) => write!(
+                formatter,
+                "El producto {id} sigue usándose en recetas o planes."
+            ),
         }
     }
 }
@@ -152,6 +164,43 @@ impl<'connection> ProductRepository<'connection> {
 
     pub fn restore(&mut self, id: &ProductId) -> Result<(), ProductRepositoryError> {
         self.change_status(id, ProductStatus::Active)
+    }
+
+    pub fn delete_archived(&mut self, id: &ProductId) -> Result<(), ProductRepositoryError> {
+        let status = self
+            .connection
+            .query_row(
+                "SELECT status FROM meals_products WHERE id = ?1",
+                [id.as_str()],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?
+            .ok_or_else(|| ProductRepositoryError::ProductNotFound(id.as_str().to_owned()))?;
+        if status != status_to_database(ProductStatus::Archived) {
+            return Err(ProductRepositoryError::ProductMustBeArchived(
+                id.as_str().to_owned(),
+            ));
+        }
+        let references: i64 = self.connection.query_row(
+            "SELECT
+                (SELECT COUNT(*) FROM meals_recipe_ingredients WHERE product_id = ?1) +
+                (SELECT COUNT(*) FROM meals_planned_ingredients WHERE product_id = ?1)",
+            [id.as_str()],
+            |row| row.get(0),
+        )?;
+        if references > 0 {
+            return Err(ProductRepositoryError::ProductHasReferences(
+                id.as_str().to_owned(),
+            ));
+        }
+        let transaction = self.connection.transaction()?;
+        transaction.execute(
+            "DELETE FROM meals_weekly_coverage WHERE product_id = ?1",
+            [id.as_str()],
+        )?;
+        transaction.execute("DELETE FROM meals_products WHERE id = ?1", [id.as_str()])?;
+        transaction.commit()?;
+        Ok(())
     }
 
     fn ids_for_status(
@@ -621,6 +670,18 @@ mod tests {
         let active = repository.list(Some(ProductStatus::Active)).unwrap();
         assert_eq!(active.len(), 1);
         assert_eq!(active[0].status(), ProductStatus::Active);
+    }
+
+    #[test]
+    fn permanently_deletes_an_archived_product_without_references() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        apply_migrations(&mut connection).unwrap();
+        let id = ProductId::new("tortillas-mercadona").unwrap();
+        let mut repository = ProductRepository::new(&mut connection);
+        repository.create(&tortillas()).unwrap();
+        repository.archive(&id).unwrap();
+        repository.delete_archived(&id).unwrap();
+        assert!(repository.find_by_id(&id).unwrap().is_none());
     }
 
     fn temporary_database_path() -> std::path::PathBuf {

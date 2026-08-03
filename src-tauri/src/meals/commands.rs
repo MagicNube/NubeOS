@@ -175,6 +175,16 @@ pub fn restore_product(state: State<'_, ProductDatabase>, id: String) -> Result<
     .map_err(command_error_message)
 }
 
+#[tauri::command]
+pub fn delete_product(state: State<'_, ProductDatabase>, id: String) -> Result<(), String> {
+    with_connection(&state, |connection| {
+        ProductRepository::new(connection)
+            .delete_archived(&ProductId::new(id)?)
+            .map_err(ProductCommandError::Repository)
+    })
+    .map_err(command_error_message)
+}
+
 fn list_products_for_connection(
     connection: &mut Connection,
     status: Option<ProductStatusDto>,
@@ -448,6 +458,12 @@ fn command_error_message(error: ProductCommandError) -> String {
         ProductCommandError::Domain(error) => error.to_string(),
         ProductCommandError::Repository(ProductRepositoryError::ProductNotFound(id)) => {
             format!("No existe el producto {id}.")
+        }
+        ProductCommandError::Repository(ProductRepositoryError::ProductMustBeArchived(_)) => {
+            "Solo puedes eliminar definitivamente un producto archivado.".to_owned()
+        }
+        ProductCommandError::Repository(ProductRepositoryError::ProductHasReferences(_)) => {
+            "No se puede eliminar porque el producto sigue usándose en recetas o comidas planificadas.".to_owned()
         }
         ProductCommandError::Repository(ProductRepositoryError::InvalidStoredProduct(_)) => {
             "Hay datos de productos guardados que ya no son válidos.".to_owned()

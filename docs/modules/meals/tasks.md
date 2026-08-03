@@ -270,3 +270,15 @@ Estas tareas aplican la spec y el diseño aprobados el 2026-08-03. Nube aprobó 
 - T-025: los productos nuevos y actualizados requieren paquete, bolsa o bandeja, o a granel por peso. Los formatos ausentes o a granel por unidad se conservan exclusivamente como datos heredados.
 - T-026: el planificador envía el identificador arrastrado mediante `dataTransfer`, mueve los totales diarios a la cabecera y añade macros compactos a las tarjetas.
 - T-027: la cobertura semanal añade un estado de comprobación por línea. Rust calcula el coste total y pendiente; React guarda «Tienes» tras una espera corta por pulsación y permite unidades cuando hay conversión.
+
+## T-028 — Refinar archivo, calendario y catálogos
+
+- Estado: Completada
+- Dependencias: T-018, T-021, T-025, T-026
+- Alcance: permitir borrado definitivo protegido desde Archivo; reparar el arrastre en cualquier dirección y posición; simplificar los resúmenes del calendario; mejorar filtros, términos, precisión numérica y jerarquía tipográfica del módulo.
+- Criterios de aceptación: solo se elimina definitivamente un elemento archivado sin referencias; una instancia se puede soltar antes o después de otra tarjeta, en otra franja o día; el calendario no duplica kcal ni muestra controles inactivos; los catálogos permiten localizar productos y momentos con claridad.
+- Verificación: pruebas Rust de las guardas de borrado y movimiento; `cargo test`, `pnpm build` y comprobación manual de archivo, arrastre y filtros.
+
+## Resultado del cuarto incremento
+
+- T-028: Archivo incorpora borrado definitivo con confirmación y validación de referencias. El calendario usa tarjetas con tabla de macros y puntos de inserción arriba o abajo; los filtros y etiquetas se normalizan alrededor de «momento del día» y «Lácteos».

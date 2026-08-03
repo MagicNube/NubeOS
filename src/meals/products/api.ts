@@ -6,7 +6,7 @@ export type ProductStatus = "active" | "archived";
 export type Supermarket = "mercadona" | "lidl" | "consum" | "familyCash" | "other";
 
 export const categoryLabels: Record<ProductCategory, string> = {
-  vegetable: "Verdura", fruit: "Fruta", yogurt: "Yogur", meat: "Carne", fish: "Pescado", other: "Otro",
+  vegetable: "Verdura", fruit: "Fruta", yogurt: "Lácteos", meat: "Carne", fish: "Pescado", other: "Otro",
 };
 
 export const supermarketLabels: Record<Supermarket, string> = {
@@ -41,4 +41,5 @@ export const productApi = {
   update(id: string, input: ProductInput) { return invoke<Product>("update_product", { id, input }); },
   archive(id: string) { return invoke<void>("archive_product", { id }); },
   restore(id: string) { return invoke<void>("restore_product", { id }); },
+  delete(id: string) { return invoke<void>("delete_product", { id }); },
 };
