@@ -26,7 +26,7 @@ export interface ProductInput {
   fatGramsPer100g: number;
   kilocaloriesPer100g: number;
   supermarket?: Supermarket;
-  presentation?: Exclude<PurchasePresentation, { kind: "bulkByUnit" }>;
+  presentation: Exclude<PurchasePresentation, { kind: "bulkByUnit" }>;
 }
 
 export interface Product extends Omit<ProductInput, "presentation"> {

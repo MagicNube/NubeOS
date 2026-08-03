@@ -32,3 +32,12 @@
 .product-removal-dialog { display: grid; gap: 17px; width: min(100%, 450px); padding: 22px; color: #9b9b9b; box-shadow: 0 24px 60px rgba(0, 0, 0, .45); }.product-removal-dialog > p { margin: 0; font-size: 12px; line-height: 1.5; }.product-removal-dialog ul { display: grid; gap: 5px; padding: 0; margin: 0; list-style: none; color: #e5e5e5; font-size: 12px; }.product-removal-dialog li::before { margin-right: 8px; color: #a78bfa; content: "•"; }
 .product-form input[type="number"]::-webkit-inner-spin-button, .product-form input[type="number"]::-webkit-outer-spin-button { margin: 0; -webkit-appearance: none; }.product-form input[type="number"] { -moz-appearance: textfield; }
 @media (max-width: 760px) { .products-toolbar, .products-catalog-heading { align-items: flex-start; flex-direction: column; }.catalog-search { width: 100%; }.toolbar-actions { width: 100%; justify-content: space-between; }.category-control, .category-button { width: 100%; }.category-menu { left: 0; right: auto; }.product-form-grid, .product-macro-grid { grid-template-columns: 1fr; }.product-field-wide { grid-column: auto; }.product-form-actions { align-items: stretch; flex-direction: column-reverse; }.product-form-actions button { width: 100%; } }
+
+/* Selectores coherentes: espacio suficiente y el mismo indicador en toda la interfaz. */
+.category-button { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.category-button::after { content: none; }
+.category-button svg { flex: 0 0 auto; color: #a78bfa; }
+.select-control { position: relative; display: block; }
+.select-control select { appearance: none; padding-right: 36px; cursor: pointer; }
+.select-control svg { position: absolute; top: 50%; right: 11px; width: 15px; height: 15px; color: #a78bfa; pointer-events: none; transform: translateY(-50%); }
+.product-field select option { color: #ededed; background: #202020; }

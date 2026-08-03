@@ -14,7 +14,8 @@ export interface PlannedInstance { id: string; weekday: number; slot: MealSlot; 
 export interface DailyMacros { weekday: number; macros: MacroTotals; }
 export interface WeeklyPlan { weekStart: string; instances: PlannedInstance[]; dailyMacros: DailyMacros[]; weeklyMacros: MacroTotals; }
 export type PurchaseRecommendation = { kind: "grams"; grams: number } | { kind: "packages"; packages: number; grams: number } | { kind: "units"; units: number; grams: number };
-export interface ShoppingEntry { product: Product; neededGrams: number; availableGrams: number; pendingGrams: number; recommendation?: PurchaseRecommendation; estimatedCostCents?: number; theoreticalLeftoverGrams?: number; }
+export interface ShoppingEntry { product: Product; neededGrams: number; availableGrams: number; pendingGrams: number; recommendation?: PurchaseRecommendation; estimatedCostCents?: number; theoreticalLeftoverGrams?: number; isChecked: boolean; }
+export interface ShoppingList { entries: ShoppingEntry[]; estimatedTotalCents?: number | null; pendingEstimatedTotalCents?: number | null; }
 
 export const mealsApi = {
   listMeals(status: MealStatus, query?: string, productId?: string) { return invoke<Meal[]>("list_meals", { status, query: query || undefined, productId }); },
@@ -29,6 +30,7 @@ export const mealsApi = {
   updatePlannedInstance(id: string, ingredients: MealIngredientInput[]) { return invoke<void>("update_planned_instance", { id, input: { ingredients } }); },
   removePlannedInstance(id: string) { return invoke<void>("remove_planned_instance", { id }); },
   movePlannedInstance(id: string, input: { weekday: number; slot: MealSlot; position: number }) { return invoke<void>("move_planned_instance", { id, input }); },
-  listShoppingList(weekStart: string) { return invoke<ShoppingEntry[]>("list_shopping_list", { weekStart }); },
-  setWeeklyAvailable(weekStart: string, productId: string, grams: number) { return invoke<void>("set_weekly_available", { weekStart, productId, input: { grams } }); },
+  listShoppingList(weekStart: string) { return invoke<ShoppingList>("list_shopping_list", { weekStart }); },
+  setWeeklyAvailable(weekStart: string, productId: string, value: number, unit: QuantityUnit) { return invoke<void>("set_weekly_available", { weekStart, productId, input: { value, unit } }); },
+  setShoppingEntryChecked(weekStart: string, productId: string, isChecked: boolean) { return invoke<void>("set_shopping_entry_checked", { weekStart, productId, input: { isChecked } }); },
 };

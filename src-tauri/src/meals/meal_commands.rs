@@ -140,7 +140,14 @@ pub struct WeeklyPlanDto {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WeeklyAvailabilityInput {
-    pub grams: f64,
+    pub value: f64,
+    pub unit: QuantityUnitDto,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ShoppingCheckInput {
+    pub is_checked: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -165,6 +172,15 @@ pub struct ShoppingEntryDto {
     pub recommendation: Option<PurchaseRecommendationDto>,
     pub estimated_cost_cents: Option<f64>,
     pub theoretical_leftover_grams: Option<f64>,
+    pub is_checked: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ShoppingListDto {
+    pub entries: Vec<ShoppingEntryDto>,
+    pub estimated_total_cents: Option<f64>,
+    pub pending_estimated_total_cents: Option<f64>,
 }
 
 #[tauri::command]
@@ -418,12 +434,23 @@ pub fn move_planned_instance(
 pub fn list_shopping_list(
     state: State<'_, ProductDatabase>,
     week_start: String,
-) -> Result<Vec<ShoppingEntryDto>, String> {
+) -> Result<ShoppingListDto, String> {
     with_connection(&state, |connection| {
-        shopping_entries(
+        let entries = shopping_entries(
             connection,
             WeekStart::new(week_start).map_err(domain_error)?,
-        )
+        )?;
+        let estimated_total_cents = entries.iter().map(|entry| entry.estimated_cost_cents).sum();
+        let pending_estimated_total_cents = entries
+            .iter()
+            .filter(|entry| !entry.is_checked)
+            .map(|entry| entry.estimated_cost_cents)
+            .sum();
+        Ok(ShoppingListDto {
+            entries,
+            estimated_total_cents,
+            pending_estimated_total_cents,
+        })
     })
 }
 
@@ -437,11 +464,34 @@ pub fn set_weekly_available(
     with_connection(&state, |connection| {
         let week_start = WeekStart::new(week_start).map_err(domain_error)?;
         let product = product_by_id(connection, &product_id)?;
-        if !input.grams.is_finite() || input.grams < 0.0 {
+        if !input.value.is_finite() || input.value < 0.0 {
             return Err("La cantidad disponible no es válida.".to_owned());
         }
+        let grams = match input.unit {
+            QuantityUnitDto::Grams => input.value,
+            QuantityUnitDto::Units => product
+                .grams_per_unit()
+                .map(|grams_per_unit| input.value * grams_per_unit.value())
+                .ok_or_else(|| "Este producto no tiene gramos por unidad definidos.".to_owned())?,
+        };
         PlanningRepository::new(connection)
-            .set_available(&week_start, product.id(), input.grams)
+            .set_available(&week_start, product.id(), grams)
+            .map_err(meal_error)
+    })
+}
+
+#[tauri::command]
+pub fn set_shopping_entry_checked(
+    state: State<'_, ProductDatabase>,
+    week_start: String,
+    product_id: String,
+    input: ShoppingCheckInput,
+) -> Result<(), String> {
+    with_connection(&state, |connection| {
+        let week_start = WeekStart::new(week_start).map_err(domain_error)?;
+        let product = product_by_id(connection, &product_id)?;
+        PlanningRepository::new(connection)
+            .set_checked(&week_start, product.id(), input.is_checked)
             .map_err(meal_error)
     })
 }
@@ -641,18 +691,19 @@ fn shopping_entries(
                 .iter()
                 .find(|product| product.id().as_str() == id)
                 .ok_or_else(|| format!("No existe el producto {id}."))?;
-            let available_grams = PlanningRepository::new(connection)
+            let coverage = PlanningRepository::new(connection)
                 .coverage(&week_start, product.id())
                 .map_err(meal_error)?;
-            let calculation = shopping::calculate(product, needed_grams, available_grams);
+            let calculation = shopping::calculate(product, needed_grams, coverage.available_grams);
             Ok(ShoppingEntryDto {
                 product: ProductDto::from(product),
                 needed_grams,
-                available_grams,
+                available_grams: coverage.available_grams,
                 pending_grams: calculation.pending_grams,
                 recommendation: calculation.recommendation.map(recommendation_to_dto),
                 estimated_cost_cents: calculation.estimated_cost_cents,
                 theoretical_leftover_grams: calculation.theoretical_leftover_grams,
+                is_checked: coverage.is_checked,
             })
         })
         .collect()

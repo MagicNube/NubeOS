@@ -22,6 +22,9 @@ pub fn apply_migrations(connection: &mut Connection) -> rusqlite_migration::Resu
         M::up(include_str!(
             "../../migrations/0003_refine_meals_daily_workflow.sql"
         )),
+        M::up(include_str!(
+            "../../migrations/0004_add_shopping_check_state.sql"
+        )),
     ])
     .to_latest(connection)
 }

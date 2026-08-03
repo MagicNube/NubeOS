@@ -11,10 +11,10 @@ Los datos se introducen manualmente, se usan sin conexión y están pensados par
 
 ## Vocabulario del módulo
 
-- **Producto:** artículo reutilizable que se usa como ingrediente. Puede ser a granel, como patata, o concreto, como tortillas de trigo de Mercadona. Tiene macros por 100 g, supermercado opcional y datos de compra opcionales.
-- **Presentación de compra:** forma opcional de comprar un producto: paquete o a granel por peso. Describe cuánto se compra y su precio estimado.
+- **Producto:** artículo reutilizable que se usa como ingrediente. Puede ser a granel, como patata, o concreto, como tortillas de trigo de Mercadona. Tiene macros por 100 g, supermercado opcional y una presentación de compra.
+- **Presentación de compra:** forma de comprar un producto: paquete, bolsa o bandeja, o a granel por peso. Describe cuánto se compra y su precio estimado.
 - **Comida:** receta reutilizable compuesta por productos y cantidades predeterminadas.
-- **Momento recomendado:** una o más franjas opcionales en las que una comida suele encajar: desayuno, comida, merienda, cena o extra. Sirven para ordenar resultados, nunca para impedir planificarla en otra franja.
+- **Momento recomendado:** una o más franjas (opcionales) en las que una comida suele encajar: desayuno, comida, merienda, cena o extra. Sirven para ordenar resultados, nunca para impedir planificarla en otra franja.
 - **Ingrediente:** uso de un producto en una comida o instancia planificada, junto con una cantidad en gramos o unidades. No es un producto independiente.
 - **Instancia planificada:** copia de una comida añadida a un día y franja concretos. Puede modificarse sin alterar la receta base.
 - **Sobrante teórico:** cantidad disponible o adquirida para una semana que no se consume según ese plan. No equivale a inventario.
@@ -33,10 +33,10 @@ Cada producto tiene como mínimo nombre, categoría y proteínas, carbohidratos,
 
 Los campos numéricos de macros y kcal se introducen en incrementos enteros, sin controles de flechas. El precio se escribe y muestra en euros, por ejemplo `2,99 €`, sin exponer céntimos en la interfaz.
 
-Cada producto tiene como máximo una presentación de compra opcional. El formulario pide solo los datos del tipo elegido:
+Cada producto nuevo tiene una presentación de compra. El formulario pide solo los datos del tipo elegido:
 
-- **Paquete, bolsa o bandeja:** peso total en gramos, precio estimado por paquete en euros y número de unidades opcional. El nombre que aparece en compra es siempre el nombre del producto; no se pide una etiqueta independiente.
-- **A granel por peso:** precio estimado por kg opcional.
+- **Paquete, bolsa o bandeja:** peso total en gramos, precio estimado por paquete en euros y número de unidades (opcional). El nombre que aparece en compra es siempre el nombre del producto; no se pide una etiqueta independiente.
+- **A granel por peso:** precio estimado por kg (opcional).
 
 El número de unidades de un paquete es opcional. Cuando se conoce junto con el peso total, la aplicación obtiene los gramos por unidad y permite utilizar unidades al crear recetas. Si no se conoce, el producto se usa en gramos.
 
@@ -48,7 +48,7 @@ Ejemplos:
 
 Los productos no tienen formatos alternativos, relaciones ni sustituciones automáticas en esta etapa.
 
-Los productos ya guardados con presentación "a granel por unidad" se conservan para no perder datos. Se muestran como un formato heredado y no se podrán crear nuevos; al editarlos, el usuario deberá escoger paquete, a granel por peso o ninguna presentación.
+Los productos antiguos sin presentación o con presentación "a granel por unidad" se conservan para no perder datos. Se muestran como datos heredados y no se pueden crear de nuevo; al editarlos, el usuario deberá escoger paquete, bolsa o bandeja, o a granel por peso.
 
 Los productos activos aparecen directamente al abrir Productos. Los archivados no compiten con el catálogo: se consultan desde una acción secundaria de archivo.
 
@@ -56,7 +56,7 @@ Los productos activos aparecen directamente al abrir Productos. Los archivados n
 
 El usuario puede crear una comida con uno o más ingredientes, añadirlos, editarlos, retirarlos, buscarla por texto o por productos contenidos y consultar sus macros. Puede asignarle cero, uno o varios momentos recomendados.
 
-Cada ingrediente empieza sin producto elegido y permite buscarlo por nombre. La cantidad se añade en gramos por defecto; si el producto tiene una conversión válida de unidad a gramos, el usuario puede seleccionar unidades. Si solo admite gramos, la unidad se presenta como texto fijo y no como un selector deshabilitado.
+Cada ingrediente empieza sin producto elegido y permite buscarlo por nombre. La cantidad se añade en gramos por defecto; si el producto tiene una conversión válida de unidad a gramos, el usuario puede seleccionar unidades. Si solo admite gramos, la unidad se presenta dentro de una caja visualmente consistente, pero no editable.
 
 Una comida puede archivarse y restaurarse. Una comida archivada no aparece en nuevas búsquedas, pero se mantiene visible donde ya estaba planificada. El archivo se consulta desde una acción secundaria, no junto al listado de recetas activas.
 
@@ -71,7 +71,7 @@ El usuario puede:
 - Quitar instancias y arrastrarlas para reordenarlas dentro de una franja o moverlas a otro día y franja.
 - Distinguir visualmente una instancia modificada de su receta base.
 
-El calendario muestra kcal y macros por cada día; no muestra un resumen semanal de macros. La columna del día actual se destaca y cambia al comenzar un nuevo día en la zona horaria `Europe/Madrid`.
+El calendario muestra bajo la fecha de cada día sus kcal y una tabla compacta de macros; cada tarjeta de comida muestra también sus macros. No muestra un resumen semanal de macros. La columna del día actual se destaca y cambia al comenzar un nuevo día en la zona horaria `Europe/Madrid`.
 
 Una modificación afecta solo a esa instancia; no altera la comida base ni las demás instancias.
 
@@ -85,10 +85,12 @@ La lista de compra semanal:
 - Normaliza las cantidades a gramos para macros, compra y coste; muestra también unidades cuando existe conversión válida.
 - Recomienda paquetes completos o cantidades a granel según la presentación.
 - Redondea paquetes hacia arriba cuando sea necesario para cubrir el plan.
-- Muestra coste estimado y sobrante teórico cuando hay datos suficientes.
+- Muestra coste estimado total y sobrante teórico cuando hay datos suficientes.
 - No inventa conversiones, precios ni formatos ausentes.
 
-Cada entrada semanal muestra una necesidad total y un único campo manual «Tienes», expresado en gramos. Al modificarlo, la recomendación se recalcula inmediatamente. No distingue inventario global, compras parciales ni compras completadas: representa únicamente la cantidad disponible para esa semana y producto.
+Cada entrada semanal muestra necesidad, pendiente y sobrante teórico en líneas separadas. Incluye un único campo manual «Tienes», expresado en gramos o en unidades cuando el paquete conoce gramos por unidad. El valor se normaliza y se guarda en gramos; al escribir, la recomendación se recalcula sin esperar a que el campo pierda el foco. La recomendación de un producto envasado siempre se expresa en paquetes, bolsas o bandejas, incluso cuando el pendiente es cero.
+
+Cada entrada tiene además una casilla de verificación semanal. Solo registra visualmente que esa línea de compra está completada; no altera la disponibilidad declarada ni crea un inventario. El coste pendiente estimado excluye las líneas marcadas y se actualiza de inmediato; el coste total planificado permanece visible como referencia.
 
 ## Reglas de negocio
 
@@ -107,7 +109,7 @@ Cada entrada semanal muestra una necesidad total y un único campo manual «Tien
 - Una semana vacía muestra macros cero y lista vacía.
 - Un paquete sin número de unidades se usa únicamente en gramos y sigue pudiendo recomendarse para la compra.
 - Una fracción de paquete redondea la compra hacia arriba y muestra el sobrante teórico.
-- Un producto sin presentación sigue apareciendo con su necesidad en gramos, sin conversión, coste ni sobrante inventados.
+- Un producto heredado sin presentación sigue apareciendo con su necesidad en gramos, sin conversión, coste ni sobrante inventados hasta que se edite.
 - Cambiar «Tienes» modifica solo la disponibilidad de esa semana y producto.
 
 ## Restricciones
@@ -127,12 +129,12 @@ Cada entrada semanal muestra una necesidad total y un único campo manual «Tien
 ## Criterios de aceptación
 
 - [ ] Se puede crear un producto con macros por 100 g y supermercado opcional de la lista prevista.
-- [ ] Se puede configurar una presentación de paquete o a granel por peso, con precio mostrado en euros.
+- [ ] Todo producto nuevo se configura como paquete, bolsa o bandeja, o a granel por peso, con precio mostrado en euros.
 - [ ] Un paquete con peso total y unidades permite añadir un ingrediente por unidades y calcular sus macros.
 - [ ] Se puede buscar y filtrar productos y comidas; una comida puede tener momentos recomendados opcionales.
 - [ ] Se pueden crear comidas y planificar una o más instancias en las cinco franjas semanales, incluyendo al arrastrarlas entre ellas.
 - [ ] Una instancia modificada no cambia la receta base y se identifica como modificada.
 - [ ] Los macros reflejan cantidades en gramos o unidades normalizadas.
 - [ ] La lista agrega productos, calcula paquetes o compra a granel, sobrantes y costes cuando existen datos suficientes.
-- [ ] Se puede indicar «Tienes» en gramos sin crear inventario global y la recomendación se recalcula.
+- [ ] Se puede indicar «Tienes» en gramos o unidades válidas sin crear inventario global; la recomendación y el coste pendiente se recalculan al escribir.
 - [ ] Una semana sin comidas no produce errores.

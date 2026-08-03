@@ -1,6 +1,6 @@
 # Tareas — Planificador de comidas, compra y productos
 
-- Estado: Segundo incremento implementado; revisión visual pendiente
+- Estado: Tercer incremento implementado; revisión visual pendiente
 - Última actualización: 2026-08-03
 
 ## Cómo usar este documento
@@ -240,3 +240,33 @@ Estas tareas aplican la spec y el diseño aprobados el 2026-08-03. Nube aprobó 
 - T-020 y T-021: Rust mueve y reindexa instancias de forma transaccional; React usa arrastrar y soltar, muestra macros diarios y resalta el día actual con la zona `Europe/Madrid`.
 - T-023: Compra usa solo «Tienes» en gramos y muestra las categorías en español. Ya no ofrece compras parciales ni completar compra.
 - T-024: `cargo test` ejecuta 21 pruebas y `pnpm build` compila correctamente. Falta comprobar visualmente el flujo en la ventana Tauri antes de dar la revisión de interfaz por cerrada.
+
+## T-025 — Afinar controles, tarjetas y filtros del catálogo
+
+- Estado: Completada
+- Dependencias: T-018, T-019
+- Alcance: estandarizar selectores y anotaciones, exigir una presentación vigente al guardar productos, normalizar tarjetas y añadir filtros visibles de comidas por producto y momento recomendado.
+- Criterios de aceptación: no se crean productos sin presentación; los selectores comparten indicador y espaciado; las tarjetas de producto y comida mantienen una composición estable; se pueden combinar los filtros de comidas.
+- Verificación: `pnpm build` y comprobación manual de formularios, filtros y tarjetas.
+
+## T-026 — Corregir interacción y resúmenes del planificador
+
+- Estado: Completada
+- Dependencias: T-021
+- Alcance: reforzar arrastrar y soltar con `dataTransfer`, reubicar los macros diarios bajo la fecha y mostrar macros en cada instancia.
+- Criterios de aceptación: una instancia se puede soltar en otra posición, día o franja; los totales diarios no ocupan Extra; las tarjetas muestran kcal y macros compactos.
+- Verificación: `pnpm build`, pruebas Rust existentes y recorrido manual de arrastre.
+
+## T-027 — Hacer reactiva y comprobable la compra semanal
+
+- Estado: Completada
+- Dependencias: T-022, T-023
+- Alcance: guardar disponibilidad reactiva en gramos o unidades válidas, persistir la casilla semanal de cada línea, mantener la unidad de recomendación y calcular costes totales y pendientes en Rust.
+- Criterios de aceptación: la recomendación de un paquete usa paquetes incluso a cero; escribir y marcar una línea actualiza la proyección; el coste pendiente excluye líneas comprobadas sin modificar disponibilidad.
+- Verificación: pruebas Rust de cálculo, migración y comandos; `pnpm build` y comprobación manual.
+
+## Resultado del tercer incremento
+
+- T-025: los productos nuevos y actualizados requieren paquete, bolsa o bandeja, o a granel por peso. Los formatos ausentes o a granel por unidad se conservan exclusivamente como datos heredados.
+- T-026: el planificador envía el identificador arrastrado mediante `dataTransfer`, mueve los totales diarios a la cabecera y añade macros compactos a las tarjetas.
+- T-027: la cobertura semanal añade un estado de comprobación por línea. Rust calcula el coste total y pendiente; React guarda «Tienes» tras una espera corta por pulsación y permite unidades cuando hay conversión.

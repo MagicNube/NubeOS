@@ -12,6 +12,7 @@ pub enum DomainError {
     EmptyProductName,
     InvalidValue { field: &'static str },
     InvalidSupermarket,
+    PurchasePresentationRequired,
     UnitsRequireGramsPerUnit,
     LegacyPresentationCannotBeSaved,
 }
@@ -23,8 +24,9 @@ impl fmt::Display for DomainError {
             Self::EmptyProductName => write!(formatter, "El nombre del producto es obligatorio."),
             Self::InvalidValue { field } => write!(formatter, "El valor de {field} no es válido."),
             Self::InvalidSupermarket => write!(formatter, "El supermercado seleccionado no es válido."),
+            Self::PurchasePresentationRequired => write!(formatter, "Elige una presentación de compra."),
             Self::UnitsRequireGramsPerUnit => write!(formatter, "Este producto no tiene gramos por unidad definidos."),
-            Self::LegacyPresentationCannotBeSaved => write!(formatter, "La presentación a granel por unidad es heredada. Elige paquete, a granel por peso o ninguna presentación."),
+            Self::LegacyPresentationCannotBeSaved => write!(formatter, "La presentación a granel por unidad es heredada. Elige paquete, bolsa o bandeja, o a granel por peso."),
         }
     }
 }

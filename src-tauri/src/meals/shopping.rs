@@ -1,6 +1,6 @@
 //! Cálculos puros para las entradas de compra semanales.
 
-use super::product::{Product, PurchasePresentationKind};
+use super::product::{Product, PurchasePresentation, PurchasePresentationKind};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum PurchaseRecommendation {
@@ -36,7 +36,7 @@ pub fn calculate(
     if pending_grams == 0.0 {
         return ShoppingCalculation {
             pending_grams,
-            recommendation: Some(PurchaseRecommendation::Grams { grams: 0.0 }),
+            recommendation: Some(zero_recommendation(product)),
             estimated_cost_cents: Some(0.0),
             theoretical_leftover_grams: Some((available_grams - needed_grams).max(0.0)),
         };
@@ -107,11 +107,25 @@ pub fn calculate(
     }
 }
 
+fn zero_recommendation(product: &Product) -> PurchaseRecommendation {
+    match product.presentation().map(PurchasePresentation::kind) {
+        Some(PurchasePresentationKind::Package { .. }) => PurchaseRecommendation::Packages {
+            packages: 0,
+            grams: 0.0,
+        },
+        Some(PurchasePresentationKind::BulkByUnit { .. }) => PurchaseRecommendation::Units {
+            units: 0,
+            grams: 0.0,
+        },
+        _ => PurchaseRecommendation::Grams { grams: 0.0 },
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::meals::product::{
-        NutrientsPer100Grams, ProductCategory, ProductId, PurchasePresentation,
+        Grams, NutrientsPer100Grams, ProductCategory, ProductId, PurchasePresentation,
     };
 
     #[test]
@@ -162,5 +176,28 @@ mod tests {
             Some(PurchaseRecommendation::Grams { grams: 450.0 })
         );
         assert_eq!(calculated.estimated_cost_cents, Some(90.0));
+    }
+
+    #[test]
+    fn package_keeps_its_recommendation_unit_when_nothing_is_pending() {
+        let product = Product::new(
+            ProductId::new("tortillas").unwrap(),
+            "Tortillas",
+            ProductCategory::Other,
+            NutrientsPer100Grams::new(0.0, 0.0, 0.0, 0.0).unwrap(),
+            None,
+            Some(
+                PurchasePresentation::package(Grams::new(320.0).unwrap(), Some(199), Some(8))
+                    .unwrap(),
+            ),
+        )
+        .unwrap();
+        assert_eq!(
+            calculate(&product, 320.0, 320.0).recommendation,
+            Some(PurchaseRecommendation::Packages {
+                packages: 0,
+                grams: 0.0
+            })
+        );
     }
 }

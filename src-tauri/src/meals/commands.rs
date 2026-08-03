@@ -254,14 +254,17 @@ fn product_from_input(id: ProductId, input: ProductInput) -> Result<Product, Pro
         input.fat_grams_per_100g,
         input.kilocalories_per_100g,
     )?;
-    let presentation = input.presentation.map(presentation_from_dto).transpose()?;
+    let presentation = match input.presentation {
+        Some(presentation) => presentation_from_dto(presentation)?,
+        None => return Err(DomainError::PurchasePresentationRequired.into()),
+    };
     Product::new(
         id,
         input.name,
         category_from_dto(input.category),
         nutrients,
         input.supermarket.map(supermarket_from_dto),
-        presentation,
+        Some(presentation),
     )
     .map_err(Into::into)
 }
@@ -483,6 +486,15 @@ mod tests {
         assert_eq!(euros_to_cents("2,99").unwrap(), 299);
         assert_eq!(euros_to_cents("2.50").unwrap(), 250);
         assert!(euros_to_cents("2,999").is_err());
+    }
+
+    #[test]
+    fn product_input_requires_a_presentation() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        apply_migrations(&mut connection).unwrap();
+        let mut input = tortilla_input();
+        input.presentation = None;
+        assert!(create_product_for_connection(&mut connection, input).is_err());
     }
 
     #[test]

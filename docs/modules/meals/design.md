@@ -22,24 +22,24 @@ Un producto es un artículo reutilizable de catálogo. Tiene:
 - Identificador, nombre, categoría y estado activo o archivado.
 - Macros por 100 g.
 - Supermercado opcional: Mercadona, Lidl, Consum, FamilyCash u Otro.
-- Una presentación de compra opcional.
+- Una presentación de compra obligatoria para productos nuevos.
 
 El nombre del producto contiene la marca cuando haga falta distinguirlo. No se modela marca como campo propio. Un producto archivado no puede usarse de nuevo, pero se conserva en recetas y planes existentes.
 
 ### Presentación de compra
 
-La presentación pertenece a un producto y no existe por separado. Solo hay una en esta etapa. Tiene uno de estos modos:
+La presentación pertenece a un producto y no existe por separado. Solo hay una en esta etapa y los productos nuevos deben elegir uno de estos modos:
 
 | Modo | Datos | Ejemplo |
 | --- | --- | --- |
-| Paquete | gramos totales, precio por paquete en euros, unidades opcionales | tortillas: 320 g, 8 uds |
-| A granel por peso | precio opcional por kg | patata: 2,00 €/kg |
+| Paquete, bolsa o bandeja | gramos totales, precio por paquete en euros, unidades (opcionales) | tortillas: 320 g, 8 uds |
+| A granel por peso | precio (opcional) por kg | patata: 2,00 €/kg |
 
 Si un paquete tiene gramos totales y número de unidades, el dominio deriva `gramos_por_unidad`. Sin ese dato, el producto solo admite cantidades en gramos. El nombre de compra se deriva del nombre actual del producto; no existe una etiqueta adicional.
 
 Los importes se introducen como texto decimal en euros, aceptando coma o punto. El comando Rust los valida y convierte a céntimos antes de persistirlos; SQLite continúa usando enteros para evitar errores de precisión monetaria. La interfaz no muestra céntimos ni controles de incremento.
 
-`bulk_by_unit` permanece en persistencia como formato heredado para leer datos existentes. Los comandos de creación y actualización no lo ofrecen; una edición debe sustituirlo por paquete, a granel por peso o ninguna presentación.
+`bulk_by_unit` y la ausencia de presentación permanecen en persistencia solo para leer datos existentes. Los comandos de creación y actualización no los ofrecen; una edición debe sustituirlos por paquete, bolsa o bandeja, o a granel por peso.
 
 La columna de marca actual se conserva temporalmente para compatibilidad de datos, pero no forma parte del nuevo contrato ni se muestra. Un supermercado guardado que no pertenezca a la lista prevista se presenta como `Otro` hasta que el producto se edite.
 
@@ -74,10 +74,11 @@ Al planificar una comida, se copia su composición. Cambiar después la receta b
 La lista de compra es una proyección de las instancias de la semana. Para cada pareja `semana + producto` se persiste un ajuste manual:
 
 - Cantidad ya disponible.
+- Estado de comprobación de la línea de compra.
 
-La disponibilidad se introduce y almacena en gramos. No es inventario global ni se traslada a otra semana. Comprar una parte y declarar que ya se tiene una cantidad son el mismo ajuste para esta versión; no se persiste un historial de compras.
+La disponibilidad se almacena en gramos. La interfaz puede recibir unidades únicamente cuando el producto deriva gramos por unidad y Rust las normaliza antes de persistir. No es inventario global ni se traslada a otra semana. No se persiste un historial de compras.
 
-La entrada calculada expone necesidad total, disponibilidad, cobertura, pendiente, recomendación de compra, coste y sobrante teórico.
+La entrada calculada expone necesidad total, disponibilidad, pendiente, recomendación de compra, coste y sobrante teórico. La proyección semanal añade coste total planificado y coste pendiente (solo líneas no marcadas como compradas).
 
 ## Relaciones
 
@@ -104,15 +105,15 @@ Los macros de comida, día y semana son sumas de ingredientes, instancias y día
 
 ```text
 necesidad total = suma de gramos normalizados planificados
-pendiente = máximo(0, necesidad - disponible - compras cubiertas)
+pendiente = máximo(0, necesidad - disponible)
 ```
 
 - Paquete: se recomienda `techo(pendiente / gramos_por_paquete)` paquetes.
-- A granel por peso o sin presentación: se recomienda el pendiente en gramos.
+- A granel por peso o presentación heredada: se recomienda el pendiente en gramos.
 
 El sobrante teórico es lo disponible menos lo planificado, más la compra recomendada cuando corresponda. El coste usa los paquetes recomendados o el precio por kg, según exista. Si faltan datos, el resultado declara ese cálculo no disponible en vez de inventarlo.
 
-No existe una operación separada de compra completa o parcial. El usuario modifica la disponibilidad y el dominio recalcula la recomendación, coste y sobrante a partir de ese valor.
+La casilla de una línea no es una operación de compra: persiste un estado semanal de comprobación y no modifica la disponibilidad. El usuario modifica la disponibilidad y el dominio recalcula recomendación, coste y sobrante. El coste pendiente suma solo las líneas no comprobadas.
 
 ### Archivado y retirada
 
@@ -129,7 +130,7 @@ No existe una operación separada de compra completa o parcial. El usuario modif
 | Comidas | listar y buscar activas, filtrar por producto, crear, editar, archivar, restaurar, consultar detalle y macros |
 | Planificación | consultar semana, crear/editar/retirar instancia, mover y reordenar entre franjas |
 | Resúmenes | consultar macros diarios y semanales |
-| Compra | consultar lista e indicar disponibilidad semanal |
+| Compra | consultar proyección semanal, indicar disponibilidad y marcar una línea como comprobada |
 
 Cada comando recibe y devuelve DTOs serializables, delega inmediatamente en un caso de uso y traduce errores de dominio. Contratos concretos se definen junto con cada tarea.
 
@@ -145,13 +146,13 @@ Los DTOs de productos usan nombres en `camelCase` y no exponen tipos internos de
 | `archive_product` | identificador | confirmación sin contenido |
 | `restore_product` | identificador | confirmación sin contenido |
 
-Los datos de producto incluyen nombre, categoría, supermercado, macros por 100 g y presentación opcional. La presentación lleva un discriminante `kind` y uno de los dos conjuntos de datos nuevos aprobados: paquete o a granel por peso. Un error de validación devuelve un mensaje serializable y comprensible; los errores internos de SQLite se traducen a un mensaje genérico sin exponer detalles de la base de datos.
+Los datos de producto incluyen nombre, categoría, supermercado, macros por 100 g y una presentación obligatoria para crear o actualizar. La presentación lleva un discriminante `kind` y uno de los dos conjuntos de datos aprobados: paquete o a granel por peso. Un error de validación devuelve un mensaje serializable y comprensible; los errores internos de SQLite se traducen a un mensaje genérico sin exponer detalles de la base de datos.
 
 Los comandos de búsqueda reciben texto opcional y filtros de categoría o producto, y devuelven solo activos salvo que se solicite explícitamente el archivo. El contrato de planificación incorporará `move_planned_instance`, con identificador, día de destino, franja de destino y posición de inserción. Rust reordenará atómicamente los elementos de origen y destino.
 
 ## Persistencia y atomicidad
 
-SQLite persiste productos, presentaciones, comidas e ingredientes, instancias e ingredientes planificados y coberturas semanales. Las operaciones que modifican una comida con ingredientes, crean una instancia copiada o retiran un producto de varias recetas son atómicas.
+SQLite persiste productos, presentaciones, comidas e ingredientes, instancias e ingredientes planificados y coberturas semanales (disponibilidad y estado de comprobación). Las operaciones que modifican una comida con ingredientes, crean una instancia copiada o retiran un producto de varias recetas son atómicas.
 
 La implementación usará `rusqlite` con la feature `bundled`, de modo que SQLite se compile junto a la aplicación y no dependa de una DLL o instalación externa del equipo. Las migraciones usarán `rusqlite_migration` y archivos SQL versionados en `src-tauri/migrations/`, registrados explícitamente desde Rust.
 
@@ -160,15 +161,15 @@ Esta decisión concreta la ADR-001 sin cambiar la fuente de verdad local, la fro
 ## Responsabilidades de React
 
 - Catálogo: buscador, filtro de categoría visible, menú de acciones secundarias y archivo bajo demanda.
-- Comidas: buscador, filtro por producto, formulario con momentos recomendados y selector de gramos/unidades condicionado por el producto.
-- Calendario: navegación, buscador de comidas, orden por momento recomendado, arrastrar y soltar, indicación de instancia modificada y resaltado del día actual en `Europe/Madrid`.
-- Compra: visualización de necesidad, disponible, pendiente, recomendación, coste y sobrante; un único control «Tienes» en gramos.
+- Comidas: buscador, filtros por producto y momento recomendado, formulario con momentos recomendados y selector de gramos/unidades condicionado por el producto. Las tarjetas reservan una altura común, muestran hasta tres ingredientes y permiten desplegar los restantes.
+- Calendario: navegación, buscador de comidas, orden por momento recomendado, arrastrar y soltar con datos explícitos en `dataTransfer`, indicación de instancia modificada y resaltado del día actual en `Europe/Madrid`. Los macros diarios aparecen bajo la fecha.
+- Compra: visualización de necesidad, disponible, pendiente, recomendación, coste, sobrante y estado de comprobación; control «Tienes» en gramos o unidades cuando existe conversión. React aplica una espera breve al persistir cada pulsación para no saturar los comandos.
 
 Los filtros, búsquedas, modales, formularios sin confirmar, semana enfocada y estados de carga/error son estado efímero de React. El contenedor del módulo conserva filtros y búsquedas al cambiar de pestaña durante la sesión, pero no los guarda tras cerrar la aplicación.
 
 ## Validación y pruebas
 
-Rust valida nombres, supermercado permitido, macros, precios en euros convertibles a céntimos y cantidades no negativas, ingredientes positivos, comidas no vacías, semanas/franjas válidas y que una cantidad por unidades disponga de gramos por unidad.
+Rust valida nombres, supermercado permitido, presentación obligatoria al guardar, macros, precios en euros convertibles a céntimos y cantidades no negativas, ingredientes positivos, comidas no vacías, semanas/franjas válidas y que una cantidad por unidades disponga de gramos por unidad.
 
 Las pruebas cubren validación, conversión gramos/unidades, macros, paquetes, venta a granel por peso, redondeo, sobrantes, archivado, copiado y movimiento de instancias, SQLite, contratos de comandos y flujos visibles de React.
 
