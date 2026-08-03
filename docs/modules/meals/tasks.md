@@ -302,3 +302,13 @@ Estas tareas aplican la spec y el diseño aprobados el 2026-08-03. Nube aprobó 
 - Verificación: `pnpm build` y comprobación manual de foco, selección y detalle.
 
 **Resultado:** los dos desplegables de producto se cierran cuando el foco abandona su contenedor y conservan la selección al pasar a una opción interna. El formulario de Comidas usa un selector incremental con el mismo límite de tres caracteres y ocho resultados. El detalle de receta presenta «Producto (250g)» o «Producto (3 uds)» antes de la tabla de macros.
+
+## T-031 — Simplificar acciones de tarjetas activas
+
+- Estado: Completada
+- Dependencias: T-018
+- Alcance: sustituir el menú de desbordamiento de una sola acción en comidas activas por un botón de archivado directo.
+- Criterios de aceptación: una tarjeta activa muestra lápiz y archivo; una tarjeta archivada conserva el menú de restauración y borrado definitivo.
+- Verificación: `pnpm build` y comprobación manual del catálogo y Archivo.
+
+**Resultado:** las comidas activas muestran un icono de archivo junto al lápiz y archivan directamente al pulsarlo. El menú «…» solo queda en Archivo, donde reúne las dos acciones que siguen teniendo sentido: restaurar y eliminar definitivamente.
