@@ -29,3 +29,11 @@ Este documento recoge solo conceptos que se utilicen realmente en NubeOS.
 - **Qué problema evitan:** representar una presentación con campos incompatibles o convertir unidades sin información suficiente. Los constructores devuelven `Result<T, DomainError>`: quien crea el dato debe manejar el error antes de continuar.
 - **¿Es idiomático?:** sí. Los tipos expresivos y `Result` son una forma habitual de codificar invariantes en Rust. Los `#[test]` dentro del mismo módulo protegen reglas pequeñas y se ejecutan con `cargo test` desde `src-tauri`.
 - **Ejemplo pequeño:** `IngredientQuantity::units(3.0)?.normalize_to_grams(&producto)?` produce gramos solo cuando el producto conoce su conversión por unidad.
+
+### Repositorio SQLite y transacciones
+
+- **Qué es:** `ProductRepository` es el adaptador que traduce entre los tipos de dominio y las filas de SQLite. Recibe una `&mut Connection`, una referencia mutable exclusiva a la conexión. `transaction()` agrupa varias sentencias en una operación atómica.
+- **Por qué se usa en NubeOS:** crear o editar un producto puede afectar a su fila y a su presentación. Si cualquiera de las dos escrituras falla, SQLite revierte ambas en lugar de dejar datos incompletos.
+- **Qué problema evita:** que exista un producto sin la presentación que se acababa de guardar, o una presentación perteneciente a un producto que no se creó correctamente. Las migraciones SQL versionadas crean el esquema una sola vez y lo conservan al reabrir la base de datos.
+- **¿Es idiomático?:** sí. Separar el repositorio del dominio mantiene SQL fuera de las reglas de producto. Usar `&mut Connection` deja explícito que una transacción necesita acceso exclusivo temporal a esa conexión.
+- **Ejemplo pequeño:** `let transaction = connection.transaction()?; ... transaction.commit()?;`. Si se devuelve un error antes de `commit`, la transacción se revierte al descartarse.

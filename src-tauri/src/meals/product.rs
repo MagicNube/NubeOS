@@ -133,7 +133,7 @@ pub struct PurchasePresentation {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-enum PurchasePresentationKind {
+pub(crate) enum PurchasePresentationKind {
     Package {
         label: String,
         total_grams: Grams,
@@ -209,6 +209,10 @@ impl PurchasePresentation {
             } => Some(*grams_per_unit),
             _ => None,
         }
+    }
+
+    pub(crate) fn kind(&self) -> &PurchasePresentationKind {
+        &self.kind
     }
 }
 
@@ -288,6 +292,29 @@ impl Product {
 
     pub fn presentation(&self) -> Option<&PurchasePresentation> {
         self.presentation.as_ref()
+    }
+
+    pub(crate) fn from_persisted(
+        id: ProductId,
+        name: String,
+        category: ProductCategory,
+        nutrients_per_100_grams: NutrientsPer100Grams,
+        store: Option<String>,
+        brand: Option<String>,
+        status: ProductStatus,
+        presentation: Option<PurchasePresentation>,
+    ) -> Result<Self, DomainError> {
+        let mut product = Self::new(
+            id,
+            name,
+            category,
+            nutrients_per_100_grams,
+            store,
+            brand,
+            presentation,
+        )?;
+        product.status = status;
+        Ok(product)
     }
 }
 

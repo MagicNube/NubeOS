@@ -31,11 +31,13 @@ Las tareas se realizan de una en una y requieren aprobación antes de implementa
 
 ## T-003 — Crear la primera migración y repositorio de productos
 
-- Estado: Pendiente
+- Estado: Completada
 - Dependencias: T-001, T-002
 - Alcance: crear la migración SQLite de productos y presentación, y un repositorio Rust para crear, leer, editar, archivar y restaurar productos.
 - Criterios de aceptación: productos activos y archivados persisten entre aperturas; tienda, marca y presentación opcionales se conservan.
 - Verificación: pruebas de integración con SQLite temporal, incluida la migración.
+
+**Resultado:** se añaden `rusqlite` con SQLite incluida en la compilación y `rusqlite_migration`, la migración `0001_create_meals_products.sql` y el repositorio `meals::repository`. El repositorio crea, consulta, lista, edita, archiva y restaura productos junto con su presentación en transacciones. Las pruebas verifican la migración, la persistencia tras reabrir un archivo SQLite y los cambios de estado.
 
 ## T-004 — Exponer productos mediante comandos Tauri
 
