@@ -37,3 +37,11 @@ Este documento recoge solo conceptos que se utilicen realmente en NubeOS.
 - **Qué problema evita:** que exista un producto sin la presentación que se acababa de guardar, o una presentación perteneciente a un producto que no se creó correctamente. Las migraciones SQL versionadas crean el esquema una sola vez y lo conservan al reabrir la base de datos.
 - **¿Es idiomático?:** sí. Separar el repositorio del dominio mantiene SQL fuera de las reglas de producto. Usar `&mut Connection` deja explícito que una transacción necesita acceso exclusivo temporal a esa conexión.
 - **Ejemplo pequeño:** `let transaction = connection.transaction()?; ... transaction.commit()?;`. Si se devuelve un error antes de `commit`, la transacción se revierte al descartarse.
+
+### Copias planificadas y agregación de macros
+
+- **Qué son:** una receta (`Meal`) contiene ingredientes reutilizables; una instancia planificada (`PlannedInstance`) guarda su propia copia de esos ingredientes. `MacroTotals` es una `struct` pequeña que acumula proteínas, carbohidratos, grasas y kcal.
+- **Por qué se usan en NubeOS:** al planificar se copia la composición de la receta. Editar después la instancia no modifica la receta ni las demás instancias, mientras que sus macros se calculan siempre con los productos actuales.
+- **Qué problema evita:** referencias compartidas que reescribirían el historial al editar una receta. La instancia conserva cantidades y orden propios y marca `is_modified` al cambiarse.
+- **¿Es idiomático?:** sí. Modelar los estados y sus invariantes con `struct`, `enum`, constructores que devuelven `Result` y pruebas unitarias hace explícitas las reglas sin depender de SQLite o React.
+- **Ejemplo pequeño:** `calculate_macros(&ingredientes, &productos)` normaliza cada cantidad antes de sumarla; React solo recibe el total ya calculado.

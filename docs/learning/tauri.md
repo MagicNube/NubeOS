@@ -29,3 +29,10 @@ Este documento recoge conceptos de Tauri incorporados de forma consciente al pro
 - **Por qué se usa en NubeOS:** la interfaz de productos usa una pequeña capa `productApi` que concentra las cinco llamadas permitidas: listar, crear, editar, archivar y restaurar.
 - **Límite de responsabilidad:** React transforma los valores de texto del formulario en el DTO del contrato y presenta estados de carga o error. No valida reglas de dominio ni construye consultas SQL; Rust sigue siendo la fuente de verdad.
 - **Ejemplo pequeño:** `await invoke<Product>('create_product', { input })` llama al comando `create_product`. El objeto exterior debe coincidir con los argumentos del comando (`input`, o `id` e `input` al editar).
+
+### DTOs para operaciones compuestas
+
+- **Qué son:** un DTO es la versión serializable de un tipo de dominio. Por ejemplo, `WeeklyPlanDto` contiene instancias planificadas y macros diarios ya resueltos, sin exponer `Meal`, `Product` ni la conexión SQLite.
+- **Por qué se usa en NubeOS:** un único comando de consulta devuelve la semana necesaria para el calendario y otro devuelve entradas de compra ya agregadas por Rust.
+- **Límite de responsabilidad:** el comando coordina repositorios y convierte el resultado a DTO; la normalización de unidades, los macros, el redondeo de paquetes y la cobertura siguen en el dominio Rust.
+- **Ejemplo pequeño:** `await invoke<WeeklyPlan>('list_week', { weekStart })` mantiene `weekStart` como un dato de interfaz y recibe un plan listo para presentar.

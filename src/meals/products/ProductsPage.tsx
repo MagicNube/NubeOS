@@ -1,6 +1,7 @@
 import { Archive, ChevronDown, Pencil, Plus, RotateCcw, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
+import { mealsApi, type Meal } from "../api";
 import {
   productApi,
   productCategories,
@@ -190,6 +191,7 @@ export default function ProductsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null | undefined>(undefined);
+  const [removal, setRemoval] = useState<{ product: Product; meals: Meal[] } | null>(null);
 
   async function loadProducts() {
     setIsLoading(true);
@@ -215,6 +217,29 @@ export default function ProductsPage() {
     setEditingProduct(undefined);
   }
 
+  async function inspectRemoval(product: Product) {
+    try {
+      const meals = await mealsApi.mealsAffectedByProduct(product.id);
+      if (!meals.length) {
+        setError(`${product.name} no aparece en ninguna comida.`);
+        return;
+      }
+      setRemoval({ product, meals });
+    } catch (reason) {
+      setError(errorMessage(reason));
+    }
+  }
+
+  async function removeFromMeals() {
+    if (!removal) return;
+    try {
+      await mealsApi.removeProductFromMeals(removal.product.id);
+      setRemoval(null);
+    } catch (reason) {
+      setError(errorMessage(reason));
+    }
+  }
+
   return (
     <section className="products-page">
       <div className="products-toolbar"><div className="products-status-tabs" aria-label="Estado de productos"><button className={status === "active" ? "product-tab active" : "product-tab"} onClick={() => setStatus("active")} type="button">Catálogo</button><button className={status === "archived" ? "product-tab active" : "product-tab"} onClick={() => setStatus("archived")} type="button">Archivados</button></div><button className="primary-button" onClick={() => setEditingProduct(null)} type="button"><Plus size={16} /> Añadir producto</button></div>
@@ -223,7 +248,8 @@ export default function ProductsPage() {
       {error && <p className="products-error" role="alert">{error}</p>}
       {isLoading && <p className="products-empty">Cargando productos…</p>}
       {!isLoading && !error && visibleProducts.length === 0 && <p className="products-empty">{status === "active" ? "Aún no tienes productos. Añade el primero para empezar tu catálogo." : "No hay productos archivados."}</p>}
-      {!isLoading && !error && visibleProducts.length > 0 && <div className="product-grid">{visibleProducts.map((product) => <article className="product-card" key={product.id}><div className="product-card-heading"><div><span className="product-category">{categoryLabels[product.category]}</span><h3>{product.name}</h3>{(product.store || product.brand) && <p>{[product.store, product.brand].filter(Boolean).join(" · ")}</p>}</div><button aria-label={`Editar ${product.name}`} className="product-icon-button" onClick={() => setEditingProduct(product)} type="button"><Pencil size={16} /></button></div><p className="product-presentation"><strong>{presentationSummary(product.presentation)}</strong></p><dl className="product-macros"><div><dt>Kcal</dt><dd>{product.kilocaloriesPer100g}</dd></div><div><dt>Prot.</dt><dd>{product.proteinGramsPer100g} g</dd></div><div><dt>Carbs.</dt><dd>{product.carbohydrateGramsPer100g} g</dd></div><div><dt>Grasas</dt><dd>{product.fatGramsPer100g} g</dd></div></dl><button className="product-status-action" onClick={() => void changeStatus(product)} type="button">{product.status === "active" ? <><Archive size={14} /> Archivar</> : <><RotateCcw size={14} /> Restaurar</>}</button></article>)}</div>}
+      {!isLoading && !error && visibleProducts.length > 0 && <div className="product-grid">{visibleProducts.map((product) => <article className="product-card" key={product.id}><div className="product-card-heading"><div><span className="product-category">{categoryLabels[product.category]}</span><h3>{product.name}</h3>{(product.store || product.brand) && <p>{[product.store, product.brand].filter(Boolean).join(" · ")}</p>}</div><button aria-label={`Editar ${product.name}`} className="product-icon-button" onClick={() => setEditingProduct(product)} type="button"><Pencil size={16} /></button></div><p className="product-presentation"><strong>{presentationSummary(product.presentation)}</strong></p><dl className="product-macros"><div><dt>Kcal</dt><dd>{product.kilocaloriesPer100g}</dd></div><div><dt>Prot.</dt><dd>{product.proteinGramsPer100g} g</dd></div><div><dt>Carbs.</dt><dd>{product.carbohydrateGramsPer100g} g</dd></div><div><dt>Grasas</dt><dd>{product.fatGramsPer100g} g</dd></div></dl><div className="product-card-actions"><button className="product-status-action" onClick={() => void changeStatus(product)} type="button">{product.status === "active" ? <><Archive size={14} /> Archivar</> : <><RotateCcw size={14} /> Restaurar</>}</button><button className="product-secondary-action" onClick={() => void inspectRemoval(product)} type="button">Retirar de recetas</button></div></article>)}</div>}
+      {removal && <div className="workspace-modal"><section className="product-removal-dialog"><div className="product-form-heading"><div><p className="section-kicker">RETIRAR PRODUCTO</p><h2>{removal.product.name}</h2></div><button aria-label="Cerrar confirmación" className="product-icon-button" onClick={() => setRemoval(null)} type="button"><X size={18} /></button></div><p>Se retirará de estas recetas base. Las comidas ya planificadas no cambian.</p><ul>{removal.meals.map((meal) => <li key={meal.id}>{meal.name}</li>)}</ul><div className="product-form-actions"><button className="secondary-button" onClick={() => setRemoval(null)} type="button">Cancelar</button><button className="primary-button" onClick={() => void removeFromMeals()} type="button">Confirmar retirada</button></div></section></div>}
     </section>
   );
 }

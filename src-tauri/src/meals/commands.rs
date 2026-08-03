@@ -16,7 +16,7 @@ use super::{
 };
 
 pub struct ProductDatabase {
-    connection: Mutex<Connection>,
+    pub(crate) connection: Mutex<Connection>,
 }
 
 impl ProductDatabase {

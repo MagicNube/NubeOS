@@ -12,9 +12,14 @@ use super::product::{
 
 pub fn apply_migrations(connection: &mut Connection) -> rusqlite_migration::Result<()> {
     connection.pragma_update(None, "foreign_keys", "ON")?;
-    Migrations::new(vec![M::up(include_str!(
-        "../../migrations/0001_create_meals_products.sql"
-    ))])
+    Migrations::new(vec![
+        M::up(include_str!(
+            "../../migrations/0001_create_meals_products.sql"
+        )),
+        M::up(include_str!(
+            "../../migrations/0002_create_meals_and_planning.sql"
+        )),
+    ])
     .to_latest(connection)
 }
 
@@ -466,12 +471,16 @@ mod tests {
         let table_count: i64 = connection
             .query_row(
                 "SELECT count(*) FROM sqlite_master
-                 WHERE type = 'table' AND name IN ('meals_products', 'meals_product_presentations')",
+                WHERE type = 'table' AND name IN (
+                    'meals_products', 'meals_product_presentations', 'meals_recipes',
+                    'meals_recipe_ingredients', 'meals_planned_instances',
+                    'meals_planned_ingredients', 'meals_weekly_coverage'
+                 )",
                 [],
                 |row| row.get(0),
             )
             .unwrap();
-        assert_eq!(table_count, 2);
+        assert_eq!(table_count, 7);
     }
 
     #[test]

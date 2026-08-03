@@ -12,7 +12,7 @@ import {
   WalletCards,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import ProductsPage from "./meals/products/ProductsPage";
+import MealsWorkspace from "./meals/MealsWorkspace";
 
 type ModuleId = "inicio" | "comidas" | "finanzas" | "documentos" | "proyectos" | "habitos" | "lectura" | "series";
 
@@ -91,7 +91,7 @@ export default function App() {
           <div className="avatar" aria-label="Perfil de Jesús">J</div>
         </header>
         {activeModule === "inicio" && <Dashboard openMeals={() => setActiveModule("comidas")} />}
-        {activeModule === "comidas" && <ProductsPage />}
+        {activeModule === "comidas" && <MealsWorkspace />}
         {activeModule !== "inicio" && activeModule !== "comidas" && <Placeholder activeModule={activeModule} />}
       </section>
     </main>

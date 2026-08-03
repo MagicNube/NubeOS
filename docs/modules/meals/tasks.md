@@ -61,72 +61,90 @@ Las tareas se realizan de una en una y requieren aprobación antes de implementa
 
 ## T-006 — Modelar comidas e ingredientes
 
-- Estado: Pendiente
+- Estado: Completada
 - Dependencias: T-002
 - Alcance: crear el dominio Rust de comidas e ingredientes, con cantidades en gramos o unidades y cálculo de macros.
 - Criterios de aceptación: una comida requiere al menos un ingrediente y suma correctamente los macros normalizados.
 - Verificación: pruebas unitarias de macros, unidades y validación.
 
+**Resultado:** se añaden `Meal`, `MealIngredient`, `MealId` y `MacroTotals` al dominio Rust. Una comida no puede estar vacía y sus macros normalizan primero gramos o unidades con el producto correspondiente. Las pruebas cubren rechazo de recetas vacías y macros por unidades.
+
 ## T-007 — Persistir comidas y gestionar archivado
 
-- Estado: Pendiente
+- Estado: Completada
 - Dependencias: T-003, T-006
 - Alcance: añadir migración y repositorio de comidas e ingredientes; implementar archivado, restauración y consulta de recetas afectadas por un producto.
 - Criterios de aceptación: archivar no borra datos; retirar un producto modifica únicamente recetas base tras confirmar el impacto.
 - Verificación: pruebas SQLite de operaciones atómicas y casos de archivado.
 
+**Resultado:** la migración `0002` incorpora recetas, ingredientes, instancias planificadas y cobertura semanal. Los repositorios persisten recetas con transacciones, archivan sin borrar sus ingredientes, consultan las recetas afectadas y rechazan retirar un producto si una receta quedaría vacía.
+
 ## T-008 — Exponer e interfaz de comidas
 
-- Estado: Pendiente
+- Estado: Completada
 - Dependencias: T-007
 - Alcance: crear comandos Tauri y una interfaz React para listar, crear, editar, archivar y restaurar comidas.
 - Criterios de aceptación: al añadir un ingrediente, gramos es la opción inicial y unidades solo está disponible con conversión válida.
 - Verificación: pruebas de contratos y comprobación manual del flujo completo producto → comida.
 
+**Resultado:** se exponen comandos para crear, listar, editar, archivar, restaurar y consultar afectadas. La pestaña de comidas permite crear recetas desde productos activos; gramos es la unidad inicial y la opción de unidades depende del peso unitario del producto. El catálogo permite revisar las recetas afectadas y confirmar la retirada.
+
 ## T-009 — Modelar y persistir instancias planificadas
 
-- Estado: Pendiente
+- Estado: Completada
 - Dependencias: T-006, T-007
 - Alcance: crear el dominio, migración y repositorio de instancias semanales e ingredientes planificados; copiar la composición de una receta al planificarla.
 - Criterios de aceptación: una instancia modificada no cambia la comida base; editar una receta posterior no reescribe la instancia.
 - Verificación: pruebas de copia, modificación, orden de franja y fechas semanales.
 
+**Resultado:** `WeekStart` valida lunes en formato ISO, `PlannedInstance` copia ingredientes de una receta y la persistencia guarda franja, posición y origen. Editar ingredientes marca la instancia como modificada sin alterar la receta base; una prueba verifica esta independencia.
+
 ## T-010 — Exponer planificación semanal y macros
 
-- Estado: Pendiente
+- Estado: Completada
 - Dependencias: T-009
 - Alcance: crear comandos para consultar una semana, crear, editar, retirar y reordenar instancias, y obtener macros diarios/semanales.
 - Criterios de aceptación: las semanas se identifican de lunes a domingo y los totales usan ingredientes planificados normalizados.
 - Verificación: pruebas de dominio y contratos de comandos.
 
+**Resultado:** los comandos consultan la semana, crean instancias desde una receta, editan ingredientes, retiran, reordenan y devuelven macros diarios y semanales calculados por Rust.
+
 ## T-011 — Crear interfaz del calendario semanal
 
-- Estado: Pendiente
+- Estado: Completada
 - Dependencias: T-010
 - Alcance: implementar calendario, navegación entre semanas, cinco franjas, añadido de comidas e indicación de instancias modificadas.
 - Criterios de aceptación: se abre la semana actual, se puede navegar y volver a ella; varias comidas pueden ordenarse en una franja.
 - Verificación: comprobación manual y pruebas React de navegación y edición de instancia.
 
+**Resultado:** el calendario real abre la semana actual, navega en ambos sentidos y vuelve a hoy. Tiene cinco franjas, permite varias comidas por celda, añadir desde recetas, editar la copia, retirar, reordenar y distinguir una instancia modificada. Requiere comprobación visual manual en la ventana Tauri.
+
 ## T-012 — Calcular y persistir cobertura de compra semanal
 
-- Estado: Pendiente
+- Estado: Completada
 - Dependencias: T-009
 - Alcance: implementar agregación de necesidades, compra por paquete o a granel, coste, sobrante teórico y ajustes semanales de disponibilidad o compra.
 - Criterios de aceptación: se agrupan correctamente cantidades en gramos y unidades; la compra completa cubre el pendiente en una operación y la parcial conserva el resto.
 - Verificación: pruebas unitarias de redondeo, coste, sobrantes y cobertura.
 
+**Resultado:** Rust agrupa ingredientes planificados por producto, normaliza unidades y calcula pendiente, recomendación, coste y sobrante. Paquetes y unidades se redondean hacia arriba; la cobertura semanal conserva cantidad disponible y compras parciales sin crear inventario global.
+
 ## T-013 — Exponer e interfaz de lista de compra
 
-- Estado: Pendiente
+- Estado: Completada
 - Dependencias: T-012
 - Alcance: crear comandos y vista de lista de compra con cantidades, coste, sobrante, “ya tengo”, compra parcial y compra completa.
 - Criterios de aceptación: la interfaz muestra los cálculos de Rust y no mantiene lógica de agregación propia.
 - Verificación: pruebas de contratos y comprobación manual de los flujos de compra.
 
+**Resultado:** la pestaña de compra presenta la proyección calculada por Rust y permite indicar “ya tengo”, registrar una compra parcial o completar el pendiente de una vez. Los controles admiten unidades cuando el producto tiene conversión válida. Requiere comprobación visual manual en la ventana Tauri.
+
 ## T-014 — Revisión del primer flujo vertical
 
-- Estado: Pendiente
+- Estado: Completada
 - Dependencias: T-005, T-008, T-011, T-013
 - Alcance: revisar calidad, casos límite, deuda técnica, aprendizaje Rust/Tauri y discrepancias entre spec, diseño e implementación.
 - Criterios de aceptación: comprobaciones disponibles ejecutadas, problemas documentados y decisiones de siguiente incremento propuestas.
 - Verificación: revisión de código y uso manual del flujo completo.
+
+**Resultado de revisión:** las reglas de negocio, agregaciones y persistencia permanecen en Rust; React mantiene estado visual y usa comandos Tauri mediante DTOs. `cargo test` cubre dominio, migración, repositorios, copia de instancias, cobertura y cálculos (19 pruebas); `pnpm build` valida TypeScript y la compilación de producción. Pendiente: recorrer manualmente en la ventana Tauri el flujo producto → comida → calendario → compra y revisar el comportamiento visual en tamaños pequeños.

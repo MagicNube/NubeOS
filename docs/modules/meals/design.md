@@ -165,8 +165,8 @@ Rust valida nombres, macros, precios y cantidades no negativas, ingredientes pos
 
 Las pruebas cubren validación, conversión gramos/unidades, macros, paquetes, venta a granel, redondeo, sobrantes, archivado, copiado de instancias, SQLite, contratos de comandos y flujos visibles de React.
 
-## Decisiones pendientes
+## Decisiones concretadas durante el primer vertical
 
-1. Decimales de presentación para macros y kcal.
-2. Cómo editar o reiniciar coberturas cuando cambia un plan ya comprado.
-3. Resolución concreta de una comida vacía tras retirar un producto.
+1. Los cálculos conservan precisión `f64` en Rust; la interfaz muestra macros con un decimal y kcal sin decimales. No se redondean valores antes de agregarlos.
+2. La cobertura semanal se conserva si el plan cambia. La necesidad y el pendiente se recalculan contra el plan vigente; un control explícito para reiniciar cobertura queda fuera de esta versión.
+3. Retirar un producto se rechaza si alguna receta base quedaría sin ingredientes. El usuario puede conservarla, sustituir el producto o archivarla antes de repetir la retirada.
