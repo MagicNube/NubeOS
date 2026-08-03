@@ -14,7 +14,7 @@ export interface PlannedInstance { id: string; weekday: number; slot: MealSlot; 
 export interface DailyMacros { weekday: number; macros: MacroTotals; }
 export interface WeeklyPlan { weekStart: string; instances: PlannedInstance[]; dailyMacros: DailyMacros[]; weeklyMacros: MacroTotals; }
 export type PurchaseRecommendation = { kind: "grams"; grams: number } | { kind: "packages"; packages: number; grams: number } | { kind: "units"; units: number; grams: number };
-export interface ShoppingEntry { product: Product; neededGrams: number; availableGrams: number; pendingGrams: number; recommendation?: PurchaseRecommendation; estimatedCostCents?: number; theoreticalLeftoverGrams?: number; isChecked: boolean; }
+export interface ShoppingEntry { product: Product; neededGrams: number; plannedNeededGrams: number; manualNeededGrams: number; availableGrams: number; pendingGrams: number; recommendation?: PurchaseRecommendation; estimatedCostCents?: number; theoreticalLeftoverGrams?: number; isChecked: boolean; }
 export interface ShoppingList { entries: ShoppingEntry[]; estimatedTotalCents?: number | null; pendingEstimatedTotalCents?: number | null; }
 
 export const mealsApi = {
@@ -34,4 +34,6 @@ export const mealsApi = {
   listShoppingList(weekStart: string) { return invoke<ShoppingList>("list_shopping_list", { weekStart }); },
   setWeeklyAvailable(weekStart: string, productId: string, value: number, unit: QuantityUnit) { return invoke<void>("set_weekly_available", { weekStart, productId, input: { value, unit } }); },
   setShoppingEntryChecked(weekStart: string, productId: string, isChecked: boolean) { return invoke<void>("set_shopping_entry_checked", { weekStart, productId, input: { isChecked } }); },
+  addManualShoppingNeed(weekStart: string, productId: string, value: number, unit: QuantityUnit) { return invoke<void>("add_manual_shopping_need", { weekStart, productId, input: { value, unit } }); },
+  removeManualShoppingNeed(weekStart: string, productId: string) { return invoke<void>("remove_manual_shopping_need", { weekStart, productId }); },
 };

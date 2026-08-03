@@ -58,7 +58,7 @@ El usuario puede crear una comida con uno o más ingredientes, añadirlos, edita
 
 El filtro por producto de Comidas se usa como una búsqueda incremental: vacío no aplica ningún filtro y las sugerencias solo aparecen al escribir al menos tres caracteres. Así el control sigue siendo manejable aunque el catálogo tenga muchos productos.
 
-Las tarjetas del catálogo muestran como máximo tres ingredientes y mantienen una altura común. Al pulsar una tarjeta o «Ver detalle», el usuario abre un detalle de la comida con todos sus ingredientes, las cantidades, los macros de cada ingrediente y los macros totales.
+Las tarjetas del catálogo muestran como máximo tres ingredientes y mantienen una altura común. Al pulsar una tarjeta, el usuario abre un detalle de la comida con todos sus ingredientes, las cantidades, los macros de cada ingrediente y los macros totales.
 
 Cada ingrediente empieza sin producto elegido y permite buscarlo por nombre. El selector de producto del formulario aplica la misma búsqueda incremental: no muestra sugerencias hasta escribir tres caracteres. La cantidad se añade en gramos por defecto; si el producto tiene una conversión válida de unidad a gramos, el usuario puede seleccionar unidades. Si solo admite gramos, la unidad se presenta dentro de una caja visualmente consistente, pero no editable.
 
@@ -86,13 +86,17 @@ Los resúmenes diarios muestran proteínas, carbohidratos, grasas y kcal de las 
 La lista de compra semanal:
 
 - Agrupa cada producto usado en varias comidas, días o franjas.
+- Permite añadir una necesidad manual semanal eligiendo un producto activo del catálogo mediante buscador e indicando una cantidad válida en gramos o unidades.
+- Suma esa necesidad manual a la misma entrada del producto cuando también procede de una comida; no crea líneas duplicadas.
 - Normaliza las cantidades a gramos para macros, compra y coste; muestra también unidades cuando existe conversión válida.
 - Recomienda paquetes completos o cantidades a granel según la presentación.
 - Redondea paquetes hacia arriba cuando sea necesario para cubrir el plan.
 - Muestra coste estimado total y sobrante teórico cuando hay datos suficientes.
 - No inventa conversiones, precios ni formatos ausentes.
 
-Cada entrada semanal muestra necesidad, pendiente y sobrante teórico en líneas separadas. Incluye un único campo manual «Tienes», expresado en gramos o en unidades cuando el paquete conoce gramos por unidad. El valor se normaliza y se guarda en gramos; al escribir, la recomendación se recalcula sin esperar a que el campo pierda el foco. La recomendación de un producto envasado siempre se expresa en paquetes, bolsas o bandejas, incluso cuando el pendiente es cero.
+Cada entrada semanal muestra de forma destacada la compra recomendada y su precio estimado. Junto al campo «Tienes» presenta necesidad, pendiente y sobrante teórico. Incluye un único campo manual «Tienes», expresado en gramos o en unidades cuando el paquete conoce gramos por unidad. El valor se normaliza y se guarda en gramos; al escribir, la recomendación se recalcula sin esperar a que el campo pierda el foco. La recomendación de un producto envasado siempre se expresa en paquetes, bolsas o bandejas, incluso cuando el pendiente es cero. Los campos numéricos del módulo se escriben directamente y no muestran controles nativos de incremento o decremento.
+
+Si una entrada incluye una cantidad añadida manualmente, muestra la indicación «Añadido manualmente — no forma parte del plan de comidas». El usuario puede retirar esa aportación manual sin alterar recetas, instancias planificadas ni la parte de la necesidad que proceda del plan.
 
 Cada entrada tiene además una casilla de verificación semanal. Solo registra visualmente que esa línea de compra está completada; no altera la disponibilidad declarada ni crea un inventario. El coste pendiente estimado excluye las líneas marcadas y se actualiza de inmediato; el coste total planificado permanece visible como referencia.
 
@@ -104,7 +108,7 @@ Cada entrada tiene además una casilla de verificación semanal. Solo registra v
 - Las unidades solo se permiten si el producto conoce gramos por unidad, derivados de una presentación o introducidos como peso aproximado.
 - La edición de macros, peso unitario o presentación de un producto actualiza los cálculos de comidas y planes existentes.
 - Archivar preserva productos, comidas y planes existentes. Retirar un producto de recetas modifica solo recetas base, tras confirmación, nunca instancias ya planificadas.
-- La lista de compra representa lo planificado y el progreso de esa semana; no representa consumo real ni inventario.
+- La lista de compra representa lo planificado, las necesidades manuales y el progreso de esa semana; no representa consumo real ni inventario.
 - Los momentos del día de una comida no restringen dónde puede planificarse.
 
 ## Casos límite
@@ -115,6 +119,7 @@ Cada entrada tiene además una casilla de verificación semanal. Solo registra v
 - Una fracción de paquete redondea la compra hacia arriba y muestra el sobrante teórico.
 - Un producto heredado sin presentación sigue apareciendo con su necesidad en gramos, sin conversión, coste ni sobrante inventados hasta que se edite.
 - Cambiar «Tienes» modifica solo la disponibilidad de esa semana y producto.
+- Añadir o retirar una necesidad manual modifica solo la lista de la semana enfocada. Para añadirla, el producto debe existir y estar activo en el catálogo.
 
 ## Restricciones
 
@@ -142,4 +147,5 @@ Cada entrada tiene además una casilla de verificación semanal. Solo registra v
 - [ ] Los macros reflejan cantidades en gramos o unidades normalizadas.
 - [ ] La lista agrega productos, calcula paquetes o compra a granel, sobrantes y costes cuando existen datos suficientes.
 - [ ] Se puede indicar «Tienes» en gramos o unidades válidas sin crear inventario global; la recomendación y el coste pendiente se recalculan al escribir.
+- [ ] Se puede añadir y retirar una necesidad manual semanal desde productos activos del catálogo; se agrega a la línea existente e identifica visualmente que no procede del plan.
 - [ ] Una semana sin comidas no produce errores.

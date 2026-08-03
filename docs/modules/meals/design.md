@@ -71,12 +71,13 @@ Al planificar una comida, se copia su composición. Cambiar después la receta b
 
 ### Cobertura de compra semanal
 
-La lista de compra es una proyección de las instancias de la semana. Para cada pareja `semana + producto` se persiste un ajuste manual:
+La lista de compra es una proyección de las instancias de la semana. Para cada pareja `semana + producto` se persisten dos ajustes manuales independientes:
 
 - Cantidad ya disponible.
 - Estado de comprobación de la línea de compra.
+- Cantidad añadida expresamente a la compra, aunque no proceda de una instancia planificada.
 
-La disponibilidad se almacena en gramos. La interfaz puede recibir unidades únicamente cuando el producto deriva gramos por unidad y Rust las normaliza antes de persistir. No es inventario global ni se traslada a otra semana. No se persiste un historial de compras.
+La disponibilidad y la necesidad manual se almacenan en gramos. La interfaz puede recibir unidades únicamente cuando el producto deriva gramos por unidad y Rust las normaliza antes de persistir. La necesidad manual se identifica por semana y producto, se acumula con la necesidad planificada y se puede retirar sin tocar recetas ni planificación. Ninguno de los dos datos es inventario global ni se traslada a otra semana. No se persiste un historial de compras.
 
 La entrada calculada expone necesidad total, disponibilidad, pendiente, recomendación de compra, coste y sobrante teórico. La proyección semanal añade coste total planificado y coste pendiente (solo líneas no marcadas como compradas).
 
@@ -89,6 +90,7 @@ Comida 1 ── 0..N Momento recomendado
 Instancia 1 ── 1..N Ingrediente planificado ── 1 Producto
 Instancia N ── 0..1 Comida base
 Semana + Producto 1 ── 0..1 Cobertura semanal
+Semana + Producto 1 ── 0..1 Necesidad manual semanal
 ```
 
 ## Cálculos de dominio
@@ -104,7 +106,8 @@ Los macros de comida, día y semana son sumas de ingredientes, instancias y día
 ### Compra, coste y sobrante
 
 ```text
-necesidad total = suma de gramos normalizados planificados
+necesidad planificada = suma de gramos normalizados planificados
+necesidad total = necesidad planificada + necesidad manual semanal
 pendiente = máximo(0, necesidad - disponible)
 ```
 
@@ -131,7 +134,7 @@ La casilla de una línea no es una operación de compra: persiste un estado sema
 | Comidas | listar y buscar activas, filtrar por producto, crear, editar, archivar, restaurar, consultar detalle y macros |
 | Planificación | consultar semana, crear/editar/retirar instancia, mover y reordenar entre franjas |
 | Resúmenes | consultar macros diarios y semanales |
-| Compra | consultar proyección semanal, indicar disponibilidad y marcar una línea como comprobada |
+| Compra | consultar proyección semanal, indicar disponibilidad, añadir o retirar una necesidad manual y marcar una línea como comprobada |
 
 Cada comando recibe y devuelve DTOs serializables, delega inmediatamente en un caso de uso y traduce errores de dominio. Contratos concretos se definen junto con cada tarea.
 
@@ -156,7 +159,7 @@ Los comandos de búsqueda reciben texto opcional y filtros de categoría o produ
 
 ## Persistencia y atomicidad
 
-SQLite persiste productos, presentaciones, comidas e ingredientes, instancias e ingredientes planificados y coberturas semanales (disponibilidad y estado de comprobación). Las operaciones que modifican una comida con ingredientes, crean una instancia copiada o retiran un producto de varias recetas son atómicas.
+SQLite persiste productos, presentaciones, comidas e ingredientes, instancias e ingredientes planificados, coberturas semanales (disponibilidad y estado de comprobación) y necesidades manuales semanales. Las operaciones que modifican una comida con ingredientes, crean una instancia copiada o retiran un producto de varias recetas son atómicas.
 
 La implementación usará `rusqlite` con la feature `bundled`, de modo que SQLite se compile junto a la aplicación y no dependa de una DLL o instalación externa del equipo. Las migraciones usarán `rusqlite_migration` y archivos SQL versionados en `src-tauri/migrations/`, registrados explícitamente desde Rust.
 
@@ -165,9 +168,9 @@ Esta decisión concreta la ADR-001 sin cambiar la fuente de verdad local, la fro
 ## Responsabilidades de React
 
 - Catálogo: buscador, filtro de categoría visible, menú de acciones secundarias y archivo bajo demanda.
-- Comidas: buscador y filtros alineados por producto (búsqueda incremental desde tres caracteres) y momento del día, formulario con momentos del día, selector de producto por ingrediente con el mismo umbral y selector de gramos/unidades condicionado por el producto. Los desplegables se cierran al perder el foco salvo que este se desplace a una de sus opciones. Las tarjetas reservan una altura común y muestran hasta tres ingredientes; al pulsarlas o usar «Ver detalle», un modal presenta la receta completa y los macros por ingrediente calculados por Rust.
+- Comidas: buscador y filtros alineados por producto (búsqueda incremental desde tres caracteres) y momento del día, formulario con momentos del día, selector de producto por ingrediente con el mismo umbral y selector de gramos/unidades condicionado por el producto. Los desplegables se cierran al perder el foco salvo que este se desplace a una de sus opciones. Las tarjetas reservan una altura común y muestran hasta tres ingredientes; al pulsarlas, un modal presenta la receta completa y los macros por ingrediente calculados por Rust. La tipografía secundaria de tarjeta conserva una lectura cómoda sin competir con el título.
 - Calendario: navegación, buscador de comidas, orden por momento del día, arrastrar y soltar con datos explícitos en `dataTransfer` y posición calculada sobre la mitad superior o inferior de una tarjeta, indicación de instancia modificada y resaltado del día actual en `Europe/Madrid`. Los macros diarios aparecen una sola vez bajo la fecha y el control de añadido aparece bajo interacción.
-- Compra: visualización de necesidad, disponible, pendiente, recomendación, coste, sobrante y estado de comprobación; control «Tienes» en gramos o unidades cuando existe conversión. React aplica una espera breve al persistir cada pulsación para no saturar los comandos.
+- Compra: muestra a la izquierda la recomendación de compra y su coste; a la derecha, necesidad, pendiente, sobrante y control «Tienes». Un diálogo permite buscar un producto activo, indicar gramos o unidades válidas y añadirlo solo a la semana enfocada. La entrada agregada muestra una indicación visible de que no forma parte del plan y ofrece retirar solo esa aportación. React aplica una espera breve al persistir cada pulsación de «Tienes» para no saturar los comandos.
 
 Los filtros, búsquedas, modales, formularios sin confirmar, semana enfocada y estados de carga/error son estado efímero de React. El contenedor del módulo conserva filtros y búsquedas al cambiar de pestaña durante la sesión, pero no los guarda tras cerrar la aplicación.
 

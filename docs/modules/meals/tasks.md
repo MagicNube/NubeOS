@@ -322,3 +322,33 @@ Estas tareas aplican la spec y el diseño aprobados el 2026-08-03. Nube aprobó 
 - Verificación: `pnpm build` y comprobación manual en pantalla ancha y estrecha.
 
 **Resultado:** el buscador y el filtro de categorías de Productos forman un grupo de controles en la barra superior, alineado con el patrón de Comidas. El filtro no cambia su estado ni su menú; en pantallas pequeñas el grupo se adapta sin mezclarlo con Archivo o Añadir producto.
+
+## T-033 — Añadir necesidades manuales a la compra semanal
+
+- Estado: Completada
+- Dependencias: T-012, T-027
+- Alcance: persistir una necesidad manual por semana y producto, sumarla a la proyección calculada y ofrecer desde Compra un diálogo de búsqueda de producto activo con cantidad en gramos o unidades válidas.
+- Criterios de aceptación: una aportación manual se agrega a la línea ya calculada para el producto, queda marcada como ajena al plan de comidas y se puede retirar sin cambiar recetas, instancias ni la necesidad planificada. La recomendación, el coste y el progreso semanal se recalculan con la suma.
+- Verificación: pruebas Rust de acumulación, aislamiento por semana y proyección; `cargo test`, `pnpm build` y comprobación manual de añadir, retirar y editar «Tienes».
+
+**Resultado:** la migración `0005` añade una necesidad manual por producto y semana. Los comandos Rust validan productos activos y cantidades en gramos o unidades, normalizan a gramos y agregan la cantidad a la entrada calculada. Compra ofrece un diálogo de búsqueda incremental, una recomendación y precio destacados bajo cada producto y una marca visible para toda entrada con aportación manual; retirarla deja intactos recetas, planificación y la parte planificada de la necesidad.
+
+## T-034 — Afinar tipografía y detalle de los catálogos
+
+- Estado: Completada
+- Dependencias: T-029, T-032
+- Alcance: igualar la tipografía visible de los controles de Productos a Comidas, mejorar la lectura de la información secundaria de tarjetas de comidas y simplificar el acceso al detalle.
+- Criterios de aceptación: buscador y filtro de categoría de Productos usan el tamaño de fuente de los controles de Comidas; la cantidad de ingredientes y el momento del día se leen cómodamente; no aparece un botón redundante de «Ver detalle» y el clic en la tarjeta conserva el acceso al detalle.
+- Verificación: `pnpm build` y comprobación manual de ambas vistas de catálogo.
+
+**Resultado:** Productos adopta la escala tipográfica de controles de Comidas. Las tarjetas de comida aumentan la información secundaria y mantienen el detalle al hacer clic, sin una acción duplicada dentro de la tarjeta.
+
+## T-035 — Pulir búsqueda incremental y cantidad manual de compra
+
+- Estado: Completada
+- Dependencias: T-030, T-033
+- Alcance: retirar mensajes transitorios que ocultan el contenido bajo los buscadores incrementales y ajustar el control de cantidad del diálogo de compra manual.
+- Criterios de aceptación: los selectores no muestran «Escribe al menos 3 caracteres»; la unidad fija de gramos es una caja legible; ningún campo numérico del módulo muestra flechas nativas de incremento o decremento.
+- Verificación: `pnpm build` y comprobación manual de buscadores, cantidad manual y formularios numéricos.
+
+**Resultado:** los buscadores permanecen silenciosos hasta que hay al menos tres caracteres y conservan el mensaje de ausencia de coincidencias. La compra manual muestra una unidad fija estable y todos los campos numéricos de Comidas y compras omiten los controles nativos.

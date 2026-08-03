@@ -147,6 +147,13 @@ pub struct WeeklyAvailabilityInput {
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct WeeklyManualNeedInput {
+    pub value: f64,
+    pub unit: QuantityUnitDto,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ShoppingCheckInput {
     pub is_checked: bool,
 }
@@ -168,6 +175,8 @@ pub enum PurchaseRecommendationDto {
 pub struct ShoppingEntryDto {
     pub product: ProductDto,
     pub needed_grams: f64,
+    pub planned_needed_grams: f64,
+    pub manual_needed_grams: f64,
     pub available_grams: f64,
     pub pending_grams: f64,
     pub recommendation: Option<PurchaseRecommendationDto>,
@@ -506,6 +515,44 @@ pub fn set_shopping_entry_checked(
     })
 }
 
+#[tauri::command]
+pub fn add_manual_shopping_need(
+    state: State<'_, ProductDatabase>,
+    week_start: String,
+    product_id: String,
+    input: WeeklyManualNeedInput,
+) -> Result<(), String> {
+    with_connection(&state, |connection| {
+        let week_start = WeekStart::new(week_start).map_err(domain_error)?;
+        let product = product_by_id(connection, &product_id)?;
+        if product.status() != ProductStatus::Active {
+            return Err("Solo se pueden añadir productos activos a la compra manual.".to_owned());
+        }
+        let grams = quantity_from_input(input.value, input.unit, &product)?
+            .normalize_to_grams(&product)
+            .map_err(|error| error.to_string())?
+            .value();
+        PlanningRepository::new(connection)
+            .add_manual_need(&week_start, product.id(), grams)
+            .map_err(meal_error)
+    })
+}
+
+#[tauri::command]
+pub fn remove_manual_shopping_need(
+    state: State<'_, ProductDatabase>,
+    week_start: String,
+    product_id: String,
+) -> Result<(), String> {
+    with_connection(&state, |connection| {
+        let week_start = WeekStart::new(week_start).map_err(domain_error)?;
+        let product = product_by_id(connection, &product_id)?;
+        PlanningRepository::new(connection)
+            .remove_manual_need(&week_start, product.id())
+            .map_err(meal_error)
+    })
+}
+
 fn with_connection<T>(
     state: &ProductDatabase,
     operation: impl FnOnce(&mut rusqlite::Connection) -> Result<T, String>,
@@ -676,7 +723,7 @@ fn shopping_entries(
         .list_week(&week_start)
         .map_err(meal_error)?;
     let products = all_products(connection)?;
-    let mut needs = BTreeMap::<String, f64>::new();
+    let mut planned_needs = BTreeMap::<String, f64>::new();
     for instance in &instances {
         for ingredient in instance.ingredients() {
             let product = products
@@ -692,16 +739,30 @@ fn shopping_entries(
                 .quantity()
                 .normalize_to_grams(product)
                 .map_err(|error| error.to_string())?;
-            *needs.entry(product.id().as_str().to_owned()).or_default() += grams.value();
+            *planned_needs
+                .entry(product.id().as_str().to_owned())
+                .or_default() += grams.value();
         }
     }
-    needs
+    let manual_needs = PlanningRepository::new(connection)
+        .manual_needs(&week_start)
+        .map_err(meal_error)?
         .into_iter()
-        .map(|(id, needed_grams)| {
+        .collect::<BTreeMap<_, _>>();
+    planned_needs
+        .keys()
+        .chain(manual_needs.keys())
+        .cloned()
+        .collect::<std::collections::BTreeSet<_>>()
+        .into_iter()
+        .map(|id| {
             let product = products
                 .iter()
                 .find(|product| product.id().as_str() == id)
                 .ok_or_else(|| format!("No existe el producto {id}."))?;
+            let planned_needed_grams = planned_needs.get(&id).copied().unwrap_or_default();
+            let manual_needed_grams = manual_needs.get(&id).copied().unwrap_or_default();
+            let needed_grams = planned_needed_grams + manual_needed_grams;
             let coverage = PlanningRepository::new(connection)
                 .coverage(&week_start, product.id())
                 .map_err(meal_error)?;
@@ -709,6 +770,8 @@ fn shopping_entries(
             Ok(ShoppingEntryDto {
                 product: ProductDto::from(product),
                 needed_grams,
+                planned_needed_grams,
+                manual_needed_grams,
                 available_grams: coverage.available_grams,
                 pending_grams: calculation.pending_grams,
                 recommendation: calculation.recommendation.map(recommendation_to_dto),
@@ -848,5 +911,59 @@ mod tests {
         let result = weekly_plan_to_dto(&mut connection, week).unwrap();
         assert_eq!(result.instances[0].ingredients[0].quantity, 100.0);
         assert_eq!(result.instances[0].ingredients[0].macros.kilocalories, 1.0);
+    }
+
+    #[test]
+    fn shopping_projection_combines_planned_and_manual_needs() {
+        let mut connection = rusqlite::Connection::open_in_memory().unwrap();
+        apply_migrations(&mut connection).unwrap();
+        let product = Product::new(
+            ProductId::new("product").unwrap(),
+            "Producto",
+            ProductCategory::Other,
+            NutrientsPer100Grams::new(1.0, 1.0, 1.0, 1.0).unwrap(),
+            None,
+            None,
+        )
+        .unwrap();
+        ProductRepository::new(&mut connection)
+            .create(&product)
+            .unwrap();
+        let meal = Meal::new(
+            MealId::new("meal").unwrap(),
+            "Receta",
+            vec![MealIngredient::new(
+                product.id().clone(),
+                IngredientQuantity::grams(100.0).unwrap(),
+                0,
+            )],
+            vec![],
+        )
+        .unwrap();
+        MealRepository::new(&mut connection).create(&meal).unwrap();
+        let week = WeekStart::new("2026-08-03").unwrap();
+        let instance = PlannedInstance::new(
+            PlannedInstanceId::new("instance").unwrap(),
+            week.clone(),
+            0,
+            MealSlot::Breakfast,
+            0,
+            Some(meal.id().clone()),
+            meal.ingredients().to_vec(),
+        )
+        .unwrap();
+        PlanningRepository::new(&mut connection)
+            .create(&instance)
+            .unwrap();
+        PlanningRepository::new(&mut connection)
+            .add_manual_need(&week, product.id(), 75.0)
+            .unwrap();
+
+        let entries = shopping_entries(&mut connection, week).unwrap();
+
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].planned_needed_grams, 100.0);
+        assert_eq!(entries[0].manual_needed_grams, 75.0);
+        assert_eq!(entries[0].needed_grams, 175.0);
     }
 }

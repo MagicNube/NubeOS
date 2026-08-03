@@ -53,3 +53,11 @@ Este documento recoge solo conceptos que se utilicen realmente en NubeOS.
 - **Qué problema evita:** cambios de modelo que borran datos del usuario o calendarios con dos instancias en la misma posición tras un fallo a mitad de operación.
 - **¿Es idiomático?:** sí. En SQLite es habitual reconstruir una tabla cuando su esquema cambia de forma no soportada directamente. En Rust, `transaction()` delimita claramente el grupo de sentencias que deben completarse o revertirse juntas.
 - **Ejemplo pequeño:** `INSERT INTO nueva_tabla ... SELECT available_grams + purchased_grams ...` conserva el total previo; `transaction.commit()?` confirma un movimiento solo después de reindexar ambos grupos.
+
+### Préstamos temporales al leer SQLite
+
+- **Qué es:** una consulta preparada (`Statement`) presta temporalmente la conexión, y el iterador de filas que devuelve `query_map` mantiene ese préstamo mientras existe.
+- **Por qué se usa en NubeOS:** al leer las necesidades manuales semanales, el repositorio recopila primero las filas en un `Vec` y solo después las devuelve.
+- **Qué problema evita:** intentar devolver directamente una expresión que aún contiene el iterador puede hacer que Rust rechace el código: la consulta se destruiría antes de que finalizara el préstamo.
+- **¿Es idiomático?:** sí. Materializar resultados pequeños de SQLite con `collect::<Result<Vec<_>, _>>()?` deja claro cuándo termina el acceso a la consulta y simplifica el resto del caso de uso.
+- **Ejemplo pequeño:** `let needs = rows.collect::<Result<Vec<_>, _>>()?; Ok(needs)`.

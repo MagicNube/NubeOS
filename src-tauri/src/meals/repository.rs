@@ -25,6 +25,9 @@ pub fn apply_migrations(connection: &mut Connection) -> rusqlite_migration::Resu
         M::up(include_str!(
             "../../migrations/0004_add_shopping_check_state.sql"
         )),
+        M::up(include_str!(
+            "../../migrations/0005_add_manual_shopping_needs.sql"
+        )),
     ])
     .to_latest(connection)
 }
@@ -196,6 +199,10 @@ impl<'connection> ProductRepository<'connection> {
         let transaction = self.connection.transaction()?;
         transaction.execute(
             "DELETE FROM meals_weekly_coverage WHERE product_id = ?1",
+            [id.as_str()],
+        )?;
+        transaction.execute(
+            "DELETE FROM meals_weekly_manual_needs WHERE product_id = ?1",
             [id.as_str()],
         )?;
         transaction.execute("DELETE FROM meals_products WHERE id = ?1", [id.as_str()])?;
@@ -521,13 +528,13 @@ mod tests {
                     'meals_products', 'meals_product_presentations', 'meals_recipes',
                     'meals_recipe_ingredients', 'meals_planned_instances',
                     'meals_planned_ingredients', 'meals_weekly_coverage',
-                    'meals_recipe_recommended_slots'
+                    'meals_recipe_recommended_slots', 'meals_weekly_manual_needs'
                  )",
                 [],
                 |row| row.get(0),
             )
             .unwrap();
-        assert_eq!(table_count, 8);
+        assert_eq!(table_count, 9);
     }
 
     #[test]

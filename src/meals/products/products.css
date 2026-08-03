@@ -49,6 +49,7 @@
 .product-card-heading p, .product-presentation { font-size: 14px; }
 .product-macros dd { font-size: 14px; }
 .product-field, .product-field input, .product-field select { font-size: 14px; }
+.product-catalog-controls .catalog-search input, .category-button, .category-menu button { font-size: 14px; }
 .product-field input::placeholder { color: #777; opacity: 1; }
 .danger-menu-action { color: #fda4af !important; }
 .danger-menu-action:hover { color: #fff1f2 !important; background: rgba(244, 63, 94, .16) !important; }

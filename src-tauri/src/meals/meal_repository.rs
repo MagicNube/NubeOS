@@ -495,6 +495,46 @@ impl<'connection> PlanningRepository<'connection> {
         Ok(())
     }
 
+    pub fn manual_needs(
+        &mut self,
+        week_start: &WeekStart,
+    ) -> Result<Vec<(String, f64)>, MealRepositoryError> {
+        let mut statement = self.connection.prepare(
+            "SELECT product_id, grams FROM meals_weekly_manual_needs WHERE week_start = ?1",
+        )?;
+        let needs = statement
+            .query_map([week_start.as_str()], |row| Ok((row.get(0)?, row.get(1)?)))?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(MealRepositoryError::Database)?;
+        Ok(needs)
+    }
+
+    pub fn add_manual_need(
+        &mut self,
+        week_start: &WeekStart,
+        product_id: &ProductId,
+        grams: f64,
+    ) -> Result<(), MealRepositoryError> {
+        self.connection.execute(
+            "INSERT INTO meals_weekly_manual_needs (week_start, product_id, grams) VALUES (?1, ?2, ?3)
+             ON CONFLICT(week_start, product_id) DO UPDATE SET grams = grams + excluded.grams",
+            params![week_start.as_str(), product_id.as_str(), grams],
+        )?;
+        Ok(())
+    }
+
+    pub fn remove_manual_need(
+        &mut self,
+        week_start: &WeekStart,
+        product_id: &ProductId,
+    ) -> Result<(), MealRepositoryError> {
+        self.connection.execute(
+            "DELETE FROM meals_weekly_manual_needs WHERE week_start = ?1 AND product_id = ?2",
+            params![week_start.as_str(), product_id.as_str()],
+        )?;
+        Ok(())
+    }
+
     fn to_instance(
         &mut self,
         stored: StoredInstance,
@@ -949,6 +989,37 @@ mod tests {
         let coverage = repository.coverage(&week, &product_id).unwrap();
         assert_eq!(coverage.available_grams, 120.0);
         assert!(coverage.is_checked);
+    }
+
+    #[test]
+    fn manual_needs_accumulate_and_are_scoped_to_a_week() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        apply_migrations(&mut connection).unwrap();
+        ProductRepository::new(&mut connection)
+            .create(&product())
+            .unwrap();
+        let first_week = WeekStart::new("2026-08-03").unwrap();
+        let second_week = WeekStart::new("2026-08-10").unwrap();
+        let product_id = ProductId::new("product").unwrap();
+        let mut repository = PlanningRepository::new(&mut connection);
+
+        repository
+            .add_manual_need(&first_week, &product_id, 150.0)
+            .unwrap();
+        repository
+            .add_manual_need(&first_week, &product_id, 50.0)
+            .unwrap();
+
+        assert_eq!(
+            repository.manual_needs(&first_week).unwrap(),
+            [("product".to_owned(), 200.0)]
+        );
+        assert!(repository.manual_needs(&second_week).unwrap().is_empty());
+
+        repository
+            .remove_manual_need(&first_week, &product_id)
+            .unwrap();
+        assert!(repository.manual_needs(&first_week).unwrap().is_empty());
     }
 
     #[test]
