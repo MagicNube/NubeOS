@@ -1,6 +1,6 @@
 //! Cálculos puros para las entradas de compra semanales.
 
-use super::product::{Grams, Product, PurchasePresentationKind};
+use super::product::{Product, PurchasePresentationKind};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum PurchaseRecommendation {
@@ -31,17 +31,14 @@ pub fn calculate(
     product: &Product,
     needed_grams: f64,
     available_grams: f64,
-    purchased_grams: f64,
 ) -> ShoppingCalculation {
-    let pending_grams = (needed_grams - available_grams - purchased_grams).max(0.0);
+    let pending_grams = (needed_grams - available_grams).max(0.0);
     if pending_grams == 0.0 {
         return ShoppingCalculation {
             pending_grams,
             recommendation: Some(PurchaseRecommendation::Grams { grams: 0.0 }),
             estimated_cost_cents: Some(0.0),
-            theoretical_leftover_grams: Some(
-                (available_grams + purchased_grams - needed_grams).max(0.0),
-            ),
+            theoretical_leftover_grams: Some((available_grams - needed_grams).max(0.0)),
         };
     }
 
@@ -68,9 +65,7 @@ pub fn calculate(
                 pending_grams,
                 recommendation: Some(PurchaseRecommendation::Packages { packages, grams }),
                 estimated_cost_cents: price_cents.map(|price| f64::from(packages) * price as f64),
-                theoretical_leftover_grams: Some(
-                    (available_grams + purchased_grams + grams - needed_grams).max(0.0),
-                ),
+                theoretical_leftover_grams: Some((available_grams + grams - needed_grams).max(0.0)),
             }
         }
         PurchasePresentationKind::BulkByWeight {
@@ -95,9 +90,7 @@ pub fn calculate(
                 recommendation: Some(PurchaseRecommendation::Units { units, grams }),
                 estimated_cost_cents: price_cents_per_unit
                     .map(|price| f64::from(units) * price as f64),
-                theoretical_leftover_grams: Some(
-                    (available_grams + purchased_grams + grams - needed_grams).max(0.0),
-                ),
+                theoretical_leftover_grams: Some((available_grams + grams - needed_grams).max(0.0)),
             }
         }
         PurchasePresentationKind::BulkByUnit {
@@ -112,13 +105,6 @@ pub fn calculate(
             theoretical_leftover_grams: None,
         },
     }
-}
-
-pub fn complete_purchase_grams(calculation: &ShoppingCalculation) -> Option<Grams> {
-    calculation
-        .recommendation
-        .as_ref()
-        .and_then(|recommendation| Grams::new(recommendation.grams()).ok())
 }
 
 #[cfg(test)]
@@ -136,11 +122,9 @@ mod tests {
             ProductCategory::Other,
             NutrientsPer100Grams::new(0.0, 0.0, 0.0, 0.0).unwrap(),
             None,
-            None,
             Some(
                 PurchasePresentation::package(
-                    "Bolsa",
-                    Grams::new(320.0).unwrap(),
+                    super::super::product::Grams::new(320.0).unwrap(),
                     Some(199),
                     Some(8),
                 )
@@ -148,7 +132,7 @@ mod tests {
             ),
         )
         .unwrap();
-        let calculated = calculate(&product, 400.0, 0.0, 0.0);
+        let calculated = calculate(&product, 400.0, 0.0);
         assert_eq!(
             calculated.recommendation,
             Some(PurchaseRecommendation::Packages {
@@ -161,18 +145,17 @@ mod tests {
     }
 
     #[test]
-    fn available_and_partial_purchase_reduce_the_pending_amount() {
+    fn availability_reduces_the_pending_amount() {
         let product = Product::new(
             ProductId::new("patata").unwrap(),
             "Patata",
             ProductCategory::Vegetable,
             NutrientsPer100Grams::new(0.0, 0.0, 0.0, 0.0).unwrap(),
             None,
-            None,
             Some(PurchasePresentation::bulk_by_weight(Some(200))),
         )
         .unwrap();
-        let calculated = calculate(&product, 800.0, 100.0, 250.0);
+        let calculated = calculate(&product, 800.0, 350.0);
         assert_eq!(calculated.pending_grams, 450.0);
         assert_eq!(
             calculated.recommendation,

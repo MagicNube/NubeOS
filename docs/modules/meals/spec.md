@@ -1,6 +1,6 @@
 # Spec — Planificador de comidas, compra y productos
 
-- Estado: Borrador para revisión
+- Estado: Aprobada por Nube
 - Última actualización: 2026-08-03
 
 ## Objetivo

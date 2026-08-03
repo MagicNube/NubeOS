@@ -84,6 +84,11 @@ impl<'connection> MealRepository<'connection> {
             [meal.id().as_str()],
         )?;
         insert_recipe_ingredients(&transaction, meal.id(), meal.ingredients())?;
+        transaction.execute(
+            "DELETE FROM meals_recipe_recommended_slots WHERE meal_id = ?1",
+            [meal.id().as_str()],
+        )?;
+        insert_recommended_slots(&transaction, meal.id(), meal.recommended_slots())?;
         transaction.commit()?;
         Ok(())
     }
@@ -101,19 +106,30 @@ impl<'connection> MealRepository<'connection> {
     }
 
     pub fn list(&mut self, status: Option<MealStatus>) -> Result<Vec<Meal>, MealRepositoryError> {
-        let sql = if status.is_some() {
-            "SELECT id, name, status FROM meals_recipes WHERE status = ?1 ORDER BY name COLLATE NOCASE"
-        } else {
-            "SELECT id, name, status FROM meals_recipes ORDER BY name COLLATE NOCASE"
-        };
+        self.list_matching(status, None, None)
+    }
+
+    pub fn list_matching(
+        &mut self,
+        status: Option<MealStatus>,
+        search: Option<&str>,
+        product_id: Option<&ProductId>,
+    ) -> Result<Vec<Meal>, MealRepositoryError> {
+        let status = status.map(meal_status_to_database);
+        let search = search.unwrap_or("").trim();
+        let product_id = product_id.map(ProductId::as_str);
+        let sql = "SELECT recipe.id, recipe.name, recipe.status FROM meals_recipes recipe
+            WHERE (?1 IS NULL OR recipe.status = ?1)
+              AND (?2 = '' OR recipe.name LIKE '%' || ?2 || '%' COLLATE NOCASE)
+              AND (?3 IS NULL OR EXISTS (
+                  SELECT 1 FROM meals_recipe_ingredients ingredient
+                  WHERE ingredient.meal_id = recipe.id AND ingredient.product_id = ?3
+              ))
+            ORDER BY recipe.name COLLATE NOCASE";
         let stored = {
             let mut statement = self.connection.prepare(sql)?;
-            let rows = match status {
-                Some(status) => {
-                    statement.query_map([meal_status_to_database(status)], StoredMeal::from_row)?
-                }
-                None => statement.query_map([], StoredMeal::from_row)?,
-            };
+            let rows =
+                statement.query_map(params![status, search, product_id], StoredMeal::from_row)?;
             rows.collect::<Result<Vec<_>, _>>()?
         };
         stored.into_iter().map(|meal| self.to_meal(meal)).collect()
@@ -184,11 +200,13 @@ impl<'connection> MealRepository<'connection> {
     fn to_meal(&mut self, stored: StoredMeal) -> Result<Meal, MealRepositoryError> {
         let id = MealId::new(stored.id)?;
         let ingredients = load_recipe_ingredients(self.connection, &id)?;
+        let recommended_slots = load_recommended_slots(self.connection, &id)?;
         Meal::from_persisted(
             id,
             stored.name,
             meal_status_from_database(&stored.status)?,
             ingredients,
+            recommended_slots,
         )
         .map_err(Into::into)
     }
@@ -285,15 +303,21 @@ impl<'connection> PlanningRepository<'connection> {
     }
 
     pub fn remove(&mut self, id: &PlannedInstanceId) -> Result<(), MealRepositoryError> {
-        let changed = self.connection.execute(
+        let instance = self
+            .find_by_id(id)?
+            .ok_or_else(|| MealRepositoryError::InstanceNotFound(id.as_str().to_owned()))?;
+        let transaction = self.connection.transaction()?;
+        transaction.execute(
             "DELETE FROM meals_planned_instances WHERE id = ?1",
             [id.as_str()],
         )?;
-        if changed == 0 {
-            return Err(MealRepositoryError::InstanceNotFound(
-                id.as_str().to_owned(),
-            ));
-        }
+        reindex_instances(
+            &transaction,
+            instance.week_start(),
+            instance.weekday(),
+            instance.slot(),
+        )?;
+        transaction.commit()?;
         Ok(())
     }
 
@@ -324,15 +348,68 @@ impl<'connection> PlanningRepository<'connection> {
         Ok(())
     }
 
+    pub fn move_to(
+        &mut self,
+        id: &PlannedInstanceId,
+        target_weekday: u8,
+        target_slot: MealSlot,
+        requested_position: u32,
+    ) -> Result<(), MealRepositoryError> {
+        if target_weekday > 6 {
+            return Err(MealDomainError::InvalidWeekday.into());
+        }
+        let stored = self.connection.query_row(
+            "SELECT id, week_start, weekday, slot, position, source_meal_id, is_modified FROM meals_planned_instances WHERE id = ?1",
+            [id.as_str()], StoredInstance::from_row,
+        ).optional()?.ok_or_else(|| MealRepositoryError::InstanceNotFound(id.as_str().to_owned()))?;
+        let source_slot = MealSlot::from_database(&stored.slot)?;
+        let same_slot = stored.weekday == target_weekday && source_slot == target_slot;
+        if same_slot {
+            return self.reorder(id, requested_position);
+        }
+        let count: u32 = self.connection.query_row(
+            "SELECT COUNT(*) FROM meals_planned_instances WHERE week_start = ?1 AND weekday = ?2 AND slot = ?3",
+            params![stored.week_start, target_weekday, target_slot.as_str()], |row| row.get(0),
+        )?;
+        let target_position = requested_position.min(count);
+        let transaction = self.connection.transaction()?;
+        transaction.execute(
+            "UPDATE meals_planned_instances SET position = position - 1
+             WHERE week_start = ?1 AND weekday = ?2 AND slot = ?3 AND position > ?4",
+            params![
+                stored.week_start,
+                stored.weekday,
+                stored.slot,
+                stored.position
+            ],
+        )?;
+        transaction.execute(
+            "UPDATE meals_planned_instances SET position = position + 1
+             WHERE week_start = ?1 AND weekday = ?2 AND slot = ?3 AND position >= ?4",
+            params![
+                stored.week_start,
+                target_weekday,
+                target_slot.as_str(),
+                target_position
+            ],
+        )?;
+        transaction.execute(
+            "UPDATE meals_planned_instances SET weekday = ?2, slot = ?3, position = ?4 WHERE id = ?1",
+            params![id.as_str(), target_weekday, target_slot.as_str(), target_position],
+        )?;
+        transaction.commit()?;
+        Ok(())
+    }
+
     pub fn coverage(
         &mut self,
         week_start: &WeekStart,
         product_id: &ProductId,
-    ) -> Result<(f64, f64), MealRepositoryError> {
+    ) -> Result<f64, MealRepositoryError> {
         self.connection.query_row(
-            "SELECT available_grams, purchased_grams FROM meals_weekly_coverage WHERE week_start = ?1 AND product_id = ?2",
-            params![week_start.as_str(), product_id.as_str()], |row| Ok((row.get(0)?, row.get(1)?)),
-        ).optional().map(|coverage| coverage.unwrap_or((0.0, 0.0))).map_err(Into::into)
+            "SELECT available_grams FROM meals_weekly_coverage WHERE week_start = ?1 AND product_id = ?2",
+            params![week_start.as_str(), product_id.as_str()], |row| row.get(0),
+        ).optional().map(|coverage| coverage.unwrap_or(0.0)).map_err(Into::into)
     }
 
     pub fn set_available(
@@ -342,22 +419,8 @@ impl<'connection> PlanningRepository<'connection> {
         grams: f64,
     ) -> Result<(), MealRepositoryError> {
         self.connection.execute(
-            "INSERT INTO meals_weekly_coverage (week_start, product_id, available_grams, purchased_grams) VALUES (?1, ?2, ?3, 0)
+            "INSERT INTO meals_weekly_coverage (week_start, product_id, available_grams) VALUES (?1, ?2, ?3)
              ON CONFLICT(week_start, product_id) DO UPDATE SET available_grams = excluded.available_grams",
-            params![week_start.as_str(), product_id.as_str(), grams],
-        )?;
-        Ok(())
-    }
-
-    pub fn add_purchase(
-        &mut self,
-        week_start: &WeekStart,
-        product_id: &ProductId,
-        grams: f64,
-    ) -> Result<(), MealRepositoryError> {
-        self.connection.execute(
-            "INSERT INTO meals_weekly_coverage (week_start, product_id, available_grams, purchased_grams) VALUES (?1, ?2, 0, ?3)
-             ON CONFLICT(week_start, product_id) DO UPDATE SET purchased_grams = purchased_grams + excluded.purchased_grams",
             params![week_start.as_str(), product_id.as_str(), grams],
         )?;
         Ok(())
@@ -392,7 +455,22 @@ fn insert_meal(transaction: &Transaction<'_>, meal: &Meal) -> Result<(), MealRep
             meal_status_to_database(meal.status())
         ],
     )?;
-    insert_recipe_ingredients(transaction, meal.id(), meal.ingredients())
+    insert_recipe_ingredients(transaction, meal.id(), meal.ingredients())?;
+    insert_recommended_slots(transaction, meal.id(), meal.recommended_slots())
+}
+
+fn insert_recommended_slots(
+    transaction: &Transaction<'_>,
+    meal_id: &MealId,
+    slots: &[MealSlot],
+) -> Result<(), MealRepositoryError> {
+    for slot in slots {
+        transaction.execute(
+            "INSERT INTO meals_recipe_recommended_slots (meal_id, slot) VALUES (?1, ?2)",
+            params![meal_id.as_str(), slot.as_str()],
+        )?;
+    }
+    Ok(())
 }
 
 fn insert_recipe_ingredients(
@@ -437,6 +515,20 @@ fn load_recipe_ingredients(
     ingredients
 }
 
+fn load_recommended_slots(
+    connection: &Connection,
+    meal_id: &MealId,
+) -> Result<Vec<MealSlot>, MealRepositoryError> {
+    let mut statement = connection.prepare(
+        "SELECT slot FROM meals_recipe_recommended_slots WHERE meal_id = ?1 ORDER BY slot",
+    )?;
+    let slots = statement
+        .query_map([meal_id.as_str()], |row| row.get::<_, String>(0))?
+        .map(|slot| MealSlot::from_database(&slot?).map_err(MealRepositoryError::from))
+        .collect();
+    slots
+}
+
 fn load_planned_ingredients(
     connection: &Connection,
     instance_id: &PlannedInstanceId,
@@ -464,6 +556,31 @@ fn reindex_recipe_ingredients(
         transaction.execute(
             "UPDATE meals_recipe_ingredients SET position = ?1 WHERE rowid = ?2",
             params![position as u32, rowid],
+        )?;
+    }
+    Ok(())
+}
+
+fn reindex_instances(
+    transaction: &Transaction<'_>,
+    week_start: &WeekStart,
+    weekday: u8,
+    slot: MealSlot,
+) -> Result<(), MealRepositoryError> {
+    let mut statement = transaction.prepare(
+        "SELECT id FROM meals_planned_instances WHERE week_start = ?1 AND weekday = ?2 AND slot = ?3 ORDER BY position",
+    )?;
+    let ids = statement
+        .query_map(
+            params![week_start.as_str(), weekday, slot.as_str()],
+            |row| row.get::<_, String>(0),
+        )?
+        .collect::<Result<Vec<_>, _>>()?;
+    drop(statement);
+    for (position, id) in ids.into_iter().enumerate() {
+        transaction.execute(
+            "UPDATE meals_planned_instances SET position = ?1 WHERE id = ?2",
+            params![position as u32, id],
         )?;
     }
     Ok(())
@@ -569,7 +686,6 @@ mod tests {
             NutrientsPer100Grams::new(1.0, 1.0, 1.0, 1.0).unwrap(),
             None,
             None,
-            None,
         )
         .unwrap()
     }
@@ -582,6 +698,7 @@ mod tests {
                 IngredientQuantity::grams(100.0).unwrap(),
                 0,
             )],
+            vec![],
         )
         .unwrap()
     }
@@ -602,6 +719,37 @@ mod tests {
             .unwrap();
         assert_eq!(archived.status(), MealStatus::Archived);
         assert_eq!(archived.ingredients().len(), 1);
+    }
+
+    #[test]
+    fn recipes_persist_recommended_slots_and_filter_by_name_or_product() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        apply_migrations(&mut connection).unwrap();
+        ProductRepository::new(&mut connection)
+            .create(&product())
+            .unwrap();
+        let breakfast = Meal::new(
+            MealId::new("breakfast").unwrap(),
+            "Tostada de prueba",
+            meal().ingredients().to_vec(),
+            vec![MealSlot::Breakfast, MealSlot::Snack],
+        )
+        .unwrap();
+        MealRepository::new(&mut connection)
+            .create(&breakfast)
+            .unwrap();
+        let found = MealRepository::new(&mut connection)
+            .list_matching(
+                Some(MealStatus::Active),
+                Some("tostada"),
+                Some(&ProductId::new("product").unwrap()),
+            )
+            .unwrap();
+        assert_eq!(found.len(), 1);
+        assert_eq!(
+            found[0].recommended_slots(),
+            &[MealSlot::Breakfast, MealSlot::Snack]
+        );
     }
 
     #[test]
@@ -660,10 +808,90 @@ mod tests {
         let product_id = ProductId::new("product").unwrap();
         let mut repository = PlanningRepository::new(&mut connection);
         repository.set_available(&week, &product_id, 120.0).unwrap();
-        repository.add_purchase(&week, &product_id, 250.0).unwrap();
+        assert_eq!(repository.coverage(&week, &product_id).unwrap(), 120.0);
+    }
+
+    #[test]
+    fn moving_instances_between_slots_reindexes_both_lists() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        apply_migrations(&mut connection).unwrap();
+        ProductRepository::new(&mut connection)
+            .create(&product())
+            .unwrap();
+        MealRepository::new(&mut connection)
+            .create(&meal())
+            .unwrap();
+        let week = WeekStart::new("2026-08-03").unwrap();
+        for (id, slot, position) in [
+            ("breakfast-first", MealSlot::Breakfast, 0),
+            ("breakfast-second", MealSlot::Breakfast, 1),
+            ("dinner-first", MealSlot::Dinner, 0),
+        ] {
+            PlanningRepository::new(&mut connection)
+                .create(
+                    &PlannedInstance::new(
+                        PlannedInstanceId::new(id).unwrap(),
+                        week.clone(),
+                        0,
+                        slot,
+                        position,
+                        Some(MealId::new("meal").unwrap()),
+                        meal().ingredients().to_vec(),
+                    )
+                    .unwrap(),
+                )
+                .unwrap();
+        }
+
+        let moved = PlannedInstanceId::new("breakfast-second").unwrap();
+        PlanningRepository::new(&mut connection)
+            .move_to(&moved, 0, MealSlot::Dinner, 0)
+            .unwrap();
+        let after_first_move = PlanningRepository::new(&mut connection)
+            .list_week(&week)
+            .unwrap();
+        let breakfast = after_first_move
+            .iter()
+            .filter(|item| item.slot() == MealSlot::Breakfast)
+            .collect::<Vec<_>>();
+        let dinner = after_first_move
+            .iter()
+            .filter(|item| item.slot() == MealSlot::Dinner)
+            .collect::<Vec<_>>();
+        assert_eq!(breakfast.len(), 1);
+        assert_eq!(breakfast[0].position(), 0);
         assert_eq!(
-            repository.coverage(&week, &product_id).unwrap(),
-            (120.0, 250.0)
+            dinner
+                .iter()
+                .map(|item| item.position())
+                .collect::<Vec<_>>(),
+            vec![0, 1]
         );
+        assert_eq!(dinner[0].id().as_str(), "breakfast-second");
+
+        PlanningRepository::new(&mut connection)
+            .move_to(&moved, 0, MealSlot::Breakfast, 1)
+            .unwrap();
+        let after_second_move = PlanningRepository::new(&mut connection)
+            .list_week(&week)
+            .unwrap();
+        let breakfast = after_second_move
+            .iter()
+            .filter(|item| item.slot() == MealSlot::Breakfast)
+            .collect::<Vec<_>>();
+        let dinner = after_second_move
+            .iter()
+            .filter(|item| item.slot() == MealSlot::Dinner)
+            .collect::<Vec<_>>();
+        assert_eq!(
+            breakfast
+                .iter()
+                .map(|item| item.position())
+                .collect::<Vec<_>>(),
+            vec![0, 1]
+        );
+        assert_eq!(breakfast[1].id().as_str(), "breakfast-second");
+        assert_eq!(dinner.len(), 1);
+        assert_eq!(dinner[0].position(), 0);
     }
 }

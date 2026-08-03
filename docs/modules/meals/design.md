@@ -1,6 +1,6 @@
 # Diseño — Planificador de comidas, compra y productos
 
-- Estado: Borrador para revisión
+- Estado: Aprobado por Nube
 - Última actualización: 2026-08-03
 
 ## Propósito y límites

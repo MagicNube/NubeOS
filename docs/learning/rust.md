@@ -45,3 +45,11 @@ Este documento recoge solo conceptos que se utilicen realmente en NubeOS.
 - **Qué problema evita:** referencias compartidas que reescribirían el historial al editar una receta. La instancia conserva cantidades y orden propios y marca `is_modified` al cambiarse.
 - **¿Es idiomático?:** sí. Modelar los estados y sus invariantes con `struct`, `enum`, constructores que devuelven `Result` y pruebas unitarias hace explícitas las reglas sin depender de SQLite o React.
 - **Ejemplo pequeño:** `calculate_macros(&ingredientes, &productos)` normaliza cada cantidad antes de sumarla; React solo recibe el total ya calculado.
+
+### Migraciones que transforman datos y reordenamiento atómico
+
+- **Qué es:** una migración SQLite puede transformar datos existentes además de crear tablas. Al simplificar la compra, la migración crea una tabla nueva de disponibilidad semanal, copia en ella `disponible + comprado` y después sustituye la tabla anterior. El movimiento de una instancia usa una transacción para actualizar el origen y el destino juntos.
+- **Por qué se usa en NubeOS:** una versión anterior guardaba por separado lo que ya había y las compras parciales. Ahora ambos valores significan simplemente «Tienes» para esa semana. La transformación mantiene el valor total en vez de perder el progreso guardado. Mover una comida entre días o franjas tampoco debe dejar posiciones repetidas.
+- **Qué problema evita:** cambios de modelo que borran datos del usuario o calendarios con dos instancias en la misma posición tras un fallo a mitad de operación.
+- **¿Es idiomático?:** sí. En SQLite es habitual reconstruir una tabla cuando su esquema cambia de forma no soportada directamente. En Rust, `transaction()` delimita claramente el grupo de sentencias que deben completarse o revertirse juntas.
+- **Ejemplo pequeño:** `INSERT INTO nueva_tabla ... SELECT available_grams + purchased_grams ...` conserva el total previo; `transaction.commit()?` confirma un movimiento solo después de reindexar ambos grupos.

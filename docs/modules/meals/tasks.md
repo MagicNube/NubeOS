@@ -1,6 +1,6 @@
 # Tareas — Planificador de comidas, compra y productos
 
-- Estado: Aprobada por Nube
+- Estado: Segundo incremento implementado; revisión visual pendiente
 - Última actualización: 2026-08-03
 
 ## Cómo usar este documento
@@ -148,3 +148,95 @@ Las tareas se realizan de una en una y requieren aprobación antes de implementa
 - Verificación: revisión de código y uso manual del flujo completo.
 
 **Resultado de revisión:** las reglas de negocio, agregaciones y persistencia permanecen en Rust; React mantiene estado visual y usa comandos Tauri mediante DTOs. `cargo test` cubre dominio, migración, repositorios, copia de instancias, cobertura y cálculos (19 pruebas); `pnpm build` valida TypeScript y la compilación de producción. Pendiente: recorrer manualmente en la ventana Tauri el flujo producto → comida → calendario → compra y revisar el comportamiento visual en tamaños pequeños.
+
+## Segundo incremento — Refinamiento de uso diario
+
+Estas tareas aplican la spec y el diseño aprobados el 2026-08-03. Nube aprobó excepcionalmente ejecutar este segundo incremento completo en un único lote; el flujo habitual posterior vuelve a ser una tarea cada vez.
+
+## T-015 — Adaptar el modelo y contratos de productos
+
+- Estado: Completada
+- Dependencias: T-004
+- Alcance: adaptar dominio, migración SQLite, repositorio y DTOs para supermercado controlado, precios de entrada en euros, eliminación de marca y etiqueta de paquete del contrato, y compatibilidad de datos existentes `bulk_by_unit`.
+- Criterios de aceptación: se crean y editan productos nuevos solo como paquete, a granel por peso o sin presentación; el precio acepta coma o punto y se persiste con precisión; los productos y presentaciones antiguos no se pierden.
+- Verificación: pruebas Rust de conversión de euros, validación de supermercado, migración de datos existentes y lectura del formato heredado.
+
+## T-016 — Refinar navegación y catálogo de productos
+
+- Estado: Completada
+- Dependencias: T-015
+- Alcance: ordenar las pestañas del módulo como Planificador, Compra, Productos y Comidas; conservar filtros y búsquedas durante la sesión; crear catálogo de productos con buscador, filtro visible oscuro, formulario simplificado y menú de acciones secundarias.
+- Criterios de aceptación: Productos abre directamente el catálogo activo; Archivo no aparece como pestaña principal; el filtro muestra el valor activo y no se pierde al visitar otra pestaña; lápiz y menú `…` separan edición y acciones infrecuentes.
+- Verificación: comprobación manual de navegación, filtros, búsqueda, formulario de precio y menú de acciones.
+
+## T-017 — Persistir momentos recomendados y consultas de comidas
+
+- Estado: Completada
+- Dependencias: T-007
+- Alcance: añadir migración, dominio, repositorio y comandos para cero o más momentos recomendados por comida, búsqueda textual de comidas y filtro por producto contenido.
+- Criterios de aceptación: los momentos se conservan al crear y editar; una búsqueda y un filtro por producto devuelven solo comidas activas coincidentes; ningún momento restringe la planificación posterior.
+- Verificación: pruebas SQLite y de comandos para persistencia, filtrado y ausencia de restricciones de franja.
+
+## T-018 — Refinar catálogo, búsqueda y archivo de comidas
+
+- Estado: Completada
+- Dependencias: T-017
+- Alcance: implementar buscador de comidas, filtro por producto, acceso secundario al archivo y tarjetas con ingredientes y tabla de macros legible.
+- Criterios de aceptación: se puede localizar una receta por nombre o ingrediente; Archivo no compite con el listado activo; las tarjetas presentan ingredientes y macros con legibilidad consistente con Productos.
+- Verificación: comprobación manual de búsquedas, filtro combinado, archivo y tamaños de texto.
+
+## T-019 — Refinar el formulario de comidas e ingredientes
+
+- Estado: Completada
+- Dependencias: T-017
+- Alcance: añadir selector múltiple de momentos recomendados y un selector de producto inicialmente vacío y buscable; simplificar la unidad de ingrediente según haya o no gramos por unidad.
+- Criterios de aceptación: una nueva fila de ingrediente no selecciona automáticamente un producto; solo muestra selector de unidad cuando procede; se pueden seleccionar varios momentos o ninguno.
+- Verificación: comprobación manual de producto sin conversión, paquete con unidades y selección múltiple de momentos.
+
+## T-020 — Implementar movimiento planificado en Rust
+
+- Estado: Completada
+- Dependencias: T-009, T-010
+- Alcance: crear el caso de uso, repositorio y comando `move_planned_instance` para cambiar día, franja y posición de una instancia, reordenando ambos destinos en una transacción.
+- Criterios de aceptación: mover dentro de una franja o a otra conserva ingredientes, origen de receta y marca de modificación; no quedan posiciones duplicadas ni huecos lógicos.
+- Verificación: pruebas Rust de movimiento hacia delante, hacia atrás, entre franjas y entre días.
+
+## T-021 — Refinar el calendario semanal
+
+- Estado: Completada
+- Dependencias: T-017, T-020
+- Alcance: sustituir flechas por arrastrar y soltar, añadir buscador y orden por momento recomendado al selector de comidas, mostrar macros diarios y destacar el día actual en `Europe/Madrid`.
+- Criterios de aceptación: se puede arrastrar una instancia a cualquier posición y franja válida; el selector prioriza coincidencias de momento; cada día muestra sus propios totales y la semana no muestra un resumen global de macros.
+- Verificación: comprobación manual de arrastre, búsqueda, prioridad, navegación semanal y cambio visual de día actual.
+
+## T-022 — Simplificar disponibilidad y cálculo de compra
+
+- Estado: Completada
+- Dependencias: T-012
+- Alcance: sustituir cobertura de compras parciales y completas por una única disponibilidad semanal en gramos; migrar sin pérdida el progreso existente y adaptar los comandos y cálculos Rust.
+- Criterios de aceptación: el valor previo disponible y comprado se conserva como disponibilidad total; editar «Tienes» recalcula pendiente, recomendación, coste y sobrante; no se exponen operaciones de compra parcial o completa.
+- Verificación: pruebas de migración, disponibilidad cero, paquetes redondeados, a granel por peso y recalculo tras editar el plan.
+
+## T-023 — Refinar la lista de compra
+
+- Estado: Completada
+- Dependencias: T-016, T-022
+- Alcance: rediseñar la lista de compra con categorías en español, recomendación destacada, campo «Tienes» y eliminación de controles e iconos que no aportan al flujo.
+- Criterios de aceptación: cada entrada deja clara necesidad, disponible, pendiente y recomendación; editar «Tienes» actualiza la proyección; no aparecen términos de categoría en inglés ni acciones de compra parcial/completa.
+- Verificación: comprobación manual de producto por paquete, a granel y sin presentación.
+
+## T-024 — Revisar el segundo incremento de comidas
+
+- Estado: Completada con comprobación visual manual pendiente
+- Dependencias: T-016, T-018, T-019, T-021, T-023
+- Alcance: revisar coherencia entre documentación, migraciones, contratos, interfaz, accesibilidad básica y flujos de uso diario.
+- Criterios de aceptación: verificaciones disponibles ejecutadas, deuda o discrepancias documentadas y aprendizaje Rust/Tauri actualizado cuando corresponda.
+- Verificación: revisión de código, `cargo test`, `pnpm build` y recorrido manual producto → comida → planificador → compra.
+
+## Resultado del segundo incremento
+
+- T-015 y T-022: la migración `0003` conserva la cobertura previa como un único valor de disponibilidad semanal; los precios se reciben como euros con coma o punto y se persisten como céntimos. Las presentaciones heredadas a granel por unidad se pueden leer, pero no crear ni volver a guardar.
+- T-016 a T-019: los catálogos activos abren directamente, Archivo es una acción secundaria, se conservan los filtros durante la sesión y se añaden búsquedas, filtro de comidas por producto y momentos recomendados.
+- T-020 y T-021: Rust mueve y reindexa instancias de forma transaccional; React usa arrastrar y soltar, muestra macros diarios y resalta el día actual con la zona `Europe/Madrid`.
+- T-023: Compra usa solo «Tienes» en gramos y muestra las categorías en español. Ya no ofrece compras parciales ni completar compra.
+- T-024: `cargo test` ejecuta 21 pruebas y `pnpm build` compila correctamente. Falta comprobar visualmente el flujo en la ventana Tauri antes de dar la revisión de interfaz por cerrada.

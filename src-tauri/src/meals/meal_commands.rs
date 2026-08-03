@@ -45,6 +45,7 @@ pub struct MealIngredientDto {
 pub struct MealInput {
     pub name: String,
     pub ingredients: Vec<MealIngredientInput>,
+    pub recommended_slots: Vec<MealSlotDto>,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
@@ -71,6 +72,7 @@ pub struct MealDto {
     pub status: MealStatusDto,
     pub ingredients: Vec<MealIngredientDto>,
     pub macros: MacroTotalsDto,
+    pub recommended_slots: Vec<MealSlotDto>,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
@@ -96,6 +98,14 @@ pub struct CreatePlannedInstanceInput {
 #[serde(rename_all = "camelCase")]
 pub struct UpdatePlannedInstanceInput {
     pub ingredients: Vec<MealIngredientInput>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MovePlannedInstanceInput {
+    pub weekday: u8,
+    pub slot: MealSlotDto,
+    pub position: u32,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -129,9 +139,8 @@ pub struct WeeklyPlanDto {
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct CoverageQuantityInput {
-    pub value: f64,
-    pub unit: QuantityUnitDto,
+pub struct WeeklyAvailabilityInput {
+    pub grams: f64,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -152,7 +161,6 @@ pub struct ShoppingEntryDto {
     pub product: ProductDto,
     pub needed_grams: f64,
     pub available_grams: f64,
-    pub purchased_grams: f64,
     pub pending_grams: f64,
     pub recommendation: Option<PurchaseRecommendationDto>,
     pub estimated_cost_cents: Option<f64>,
@@ -163,10 +171,20 @@ pub struct ShoppingEntryDto {
 pub fn list_meals(
     state: State<'_, ProductDatabase>,
     status: Option<MealStatusDto>,
+    query: Option<String>,
+    product_id: Option<String>,
 ) -> Result<Vec<MealDto>, String> {
     with_connection(&state, |connection| {
+        let product_id = product_id
+            .map(ProductId::new)
+            .transpose()
+            .map_err(|error| error.to_string())?;
         let meals = MealRepository::new(connection)
-            .list(status.map(meal_status_from_dto))
+            .list_matching(
+                status.map(meal_status_from_dto),
+                query.as_deref(),
+                product_id.as_ref(),
+            )
             .map_err(meal_error)?;
         let products = all_products(connection)?;
         meals
@@ -184,6 +202,11 @@ pub fn create_meal(state: State<'_, ProductDatabase>, input: MealInput) -> Resul
             MealId::new(Uuid::new_v4().to_string()).map_err(domain_error)?,
             input.name,
             ingredients,
+            input
+                .recommended_slots
+                .into_iter()
+                .map(slot_from_dto)
+                .collect(),
         )
         .map_err(domain_error)?;
         MealRepository::new(connection)
@@ -207,7 +230,17 @@ pub fn update_meal(
             .ok_or_else(|| format!("No existe la comida {}.", id.as_str()))?;
         let (ingredients, products) =
             ingredients_from_input(connection, &input.ingredients, existing.ingredients())?;
-        let meal = Meal::new(id, input.name, ingredients).map_err(domain_error)?;
+        let meal = Meal::new(
+            id,
+            input.name,
+            ingredients,
+            input
+                .recommended_slots
+                .into_iter()
+                .map(slot_from_dto)
+                .collect(),
+        )
+        .map_err(domain_error)?;
         MealRepository::new(connection)
             .update(&meal)
             .map_err(meal_error)?;
@@ -364,6 +397,24 @@ pub fn reorder_planned_instance(
 }
 
 #[tauri::command]
+pub fn move_planned_instance(
+    state: State<'_, ProductDatabase>,
+    id: String,
+    input: MovePlannedInstanceInput,
+) -> Result<(), String> {
+    with_connection(&state, |connection| {
+        PlanningRepository::new(connection)
+            .move_to(
+                &PlannedInstanceId::new(id).map_err(domain_error)?,
+                input.weekday,
+                slot_from_dto(input.slot),
+                input.position,
+            )
+            .map_err(meal_error)
+    })
+}
+
+#[tauri::command]
 pub fn list_shopping_list(
     state: State<'_, ProductDatabase>,
     week_start: String,
@@ -381,57 +432,17 @@ pub fn set_weekly_available(
     state: State<'_, ProductDatabase>,
     week_start: String,
     product_id: String,
-    quantity: CoverageQuantityInput,
+    input: WeeklyAvailabilityInput,
 ) -> Result<(), String> {
     with_connection(&state, |connection| {
         let week_start = WeekStart::new(week_start).map_err(domain_error)?;
         let product = product_by_id(connection, &product_id)?;
-        let grams = coverage_grams(&product, quantity, true)?;
-        PlanningRepository::new(connection)
-            .set_available(&week_start, product.id(), grams)
-            .map_err(meal_error)
-    })
-}
-
-#[tauri::command]
-pub fn add_partial_purchase(
-    state: State<'_, ProductDatabase>,
-    week_start: String,
-    product_id: String,
-    quantity: CoverageQuantityInput,
-) -> Result<(), String> {
-    with_connection(&state, |connection| {
-        let week_start = WeekStart::new(week_start).map_err(domain_error)?;
-        let product = product_by_id(connection, &product_id)?;
-        let grams = coverage_grams(&product, quantity, false)?;
-        PlanningRepository::new(connection)
-            .add_purchase(&week_start, product.id(), grams)
-            .map_err(meal_error)
-    })
-}
-
-#[tauri::command]
-pub fn complete_shopping_entry(
-    state: State<'_, ProductDatabase>,
-    week_start: String,
-    product_id: String,
-) -> Result<(), String> {
-    with_connection(&state, |connection| {
-        let week_start = WeekStart::new(week_start).map_err(domain_error)?;
-        let product = product_by_id(connection, &product_id)?;
-        let needed = needed_grams_for_week(connection, &week_start, product.id())?;
-        let (available, purchased) = PlanningRepository::new(connection)
-            .coverage(&week_start, product.id())
-            .map_err(meal_error)?;
-        let calculation = shopping::calculate(&product, needed, available, purchased);
-        if let Some(grams) = shopping::complete_purchase_grams(&calculation) {
-            if grams.value() > 0.0 {
-                PlanningRepository::new(connection)
-                    .add_purchase(&week_start, product.id(), grams.value())
-                    .map_err(meal_error)?;
-            }
+        if !input.grams.is_finite() || input.grams < 0.0 {
+            return Err("La cantidad disponible no es válida.".to_owned());
         }
-        Ok(())
+        PlanningRepository::new(connection)
+            .set_available(&week_start, product.id(), input.grams)
+            .map_err(meal_error)
     })
 }
 
@@ -491,25 +502,6 @@ fn quantity_from_input(
     Ok(quantity)
 }
 
-fn coverage_grams(
-    product: &Product,
-    input: CoverageQuantityInput,
-    allow_zero: bool,
-) -> Result<f64, String> {
-    if !input.value.is_finite() || input.value < 0.0 || (!allow_zero && input.value == 0.0) {
-        return Err("La cantidad de cobertura no es válida.".to_owned());
-    }
-    if input.value == 0.0 {
-        return Ok(0.0);
-    }
-    quantity_from_input(input.value, input.unit, product).and_then(|quantity| {
-        quantity
-            .normalize_to_grams(product)
-            .map(|grams| grams.value())
-            .map_err(|error| error.to_string())
-    })
-}
-
 fn product_by_id(connection: &mut rusqlite::Connection, id: &str) -> Result<Product, String> {
     let id = ProductId::new(id.to_owned()).map_err(|error| error.to_string())?;
     ProductRepository::new(connection)
@@ -531,6 +523,12 @@ fn meal_to_dto(meal: &Meal, products: &[Product]) -> Result<MealDto, String> {
         status: meal_status_to_dto(meal.status()),
         ingredients: ingredients_to_dto(meal.ingredients(), products)?,
         macros: macros_to_dto(meal.macros(products).map_err(domain_error)?),
+        recommended_slots: meal
+            .recommended_slots()
+            .iter()
+            .copied()
+            .map(slot_to_dto)
+            .collect(),
     })
 }
 
@@ -609,32 +607,6 @@ fn weekly_plan_to_dto(
     })
 }
 
-fn needed_grams_for_week(
-    connection: &mut rusqlite::Connection,
-    week_start: &WeekStart,
-    product_id: &ProductId,
-) -> Result<f64, String> {
-    let instances = PlanningRepository::new(connection)
-        .list_week(week_start)
-        .map_err(meal_error)?;
-    let products = all_products(connection)?;
-    let product = products
-        .iter()
-        .find(|product| product.id() == product_id)
-        .ok_or_else(|| format!("No existe el producto {}.", product_id.as_str()))?;
-    instances
-        .iter()
-        .flat_map(|instance| instance.ingredients())
-        .filter(|ingredient| ingredient.product_id() == product_id)
-        .try_fold(0.0, |total, ingredient| {
-            ingredient
-                .quantity()
-                .normalize_to_grams(product)
-                .map(|grams| total + grams.value())
-                .map_err(|error| error.to_string())
-        })
-}
-
 fn shopping_entries(
     connection: &mut rusqlite::Connection,
     week_start: WeekStart,
@@ -669,16 +641,14 @@ fn shopping_entries(
                 .iter()
                 .find(|product| product.id().as_str() == id)
                 .ok_or_else(|| format!("No existe el producto {id}."))?;
-            let (available_grams, purchased_grams) = PlanningRepository::new(connection)
+            let available_grams = PlanningRepository::new(connection)
                 .coverage(&week_start, product.id())
                 .map_err(meal_error)?;
-            let calculation =
-                shopping::calculate(product, needed_grams, available_grams, purchased_grams);
+            let calculation = shopping::calculate(product, needed_grams, available_grams);
             Ok(ShoppingEntryDto {
                 product: ProductDto::from(product),
                 needed_grams,
                 available_grams,
-                purchased_grams,
                 pending_grams: calculation.pending_grams,
                 recommendation: calculation.recommendation.map(recommendation_to_dto),
                 estimated_cost_cents: calculation.estimated_cost_cents,
@@ -770,41 +740,6 @@ mod tests {
     };
 
     #[test]
-    fn coverage_accepts_zero_only_when_setting_available() {
-        let product = Product::new(
-            ProductId::new("product").unwrap(),
-            "Producto",
-            ProductCategory::Other,
-            NutrientsPer100Grams::new(0.0, 0.0, 0.0, 0.0).unwrap(),
-            None,
-            None,
-            None,
-        )
-        .unwrap();
-        assert_eq!(
-            coverage_grams(
-                &product,
-                CoverageQuantityInput {
-                    value: 0.0,
-                    unit: QuantityUnitDto::Grams
-                },
-                true
-            )
-            .unwrap(),
-            0.0
-        );
-        assert!(coverage_grams(
-            &product,
-            CoverageQuantityInput {
-                value: 0.0,
-                unit: QuantityUnitDto::Grams
-            },
-            false
-        )
-        .is_err());
-    }
-
-    #[test]
     fn plan_command_copies_the_recipe_ingredients() {
         let mut connection = rusqlite::Connection::open_in_memory().unwrap();
         apply_migrations(&mut connection).unwrap();
@@ -813,7 +748,6 @@ mod tests {
             "Producto",
             ProductCategory::Other,
             NutrientsPer100Grams::new(1.0, 1.0, 1.0, 1.0).unwrap(),
-            None,
             None,
             None,
         )
@@ -829,6 +763,7 @@ mod tests {
                 IngredientQuantity::grams(100.0).unwrap(),
                 0,
             )],
+            vec![MealSlot::Breakfast],
         )
         .unwrap();
         MealRepository::new(&mut connection).create(&meal).unwrap();

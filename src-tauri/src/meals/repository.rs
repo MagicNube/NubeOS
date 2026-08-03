@@ -19,6 +19,9 @@ pub fn apply_migrations(connection: &mut Connection) -> rusqlite_migration::Resu
         M::up(include_str!(
             "../../migrations/0002_create_meals_and_planning.sql"
         )),
+        M::up(include_str!(
+            "../../migrations/0003_refine_meals_daily_workflow.sql"
+        )),
     ])
     .to_latest(connection)
 }
@@ -74,7 +77,7 @@ impl<'connection> ProductRepository<'connection> {
             .connection
             .query_row(
                 "SELECT id, name, category, protein_grams_per_100g, carbohydrate_grams_per_100g, \
-                 fat_grams_per_100g, kilocalories_per_100g, store, brand, status \
+                 fat_grams_per_100g, kilocalories_per_100g, store, status \
                  FROM meals_products WHERE id = ?1",
                 [id.as_str()],
                 StoredProduct::from_row,
@@ -109,7 +112,7 @@ impl<'connection> ProductRepository<'connection> {
             "UPDATE meals_products
              SET name = ?2, category = ?3, protein_grams_per_100g = ?4,
                  carbohydrate_grams_per_100g = ?5, fat_grams_per_100g = ?6,
-                 kilocalories_per_100g = ?7, store = ?8, brand = ?9
+                 kilocalories_per_100g = ?7, store = ?8
              WHERE id = ?1",
             params![
                 product.id().as_str(),
@@ -119,8 +122,9 @@ impl<'connection> ProductRepository<'connection> {
                 product.nutrients_per_100_grams().carbohydrate_grams(),
                 product.nutrients_per_100_grams().fat_grams(),
                 product.nutrients_per_100_grams().kilocalories(),
-                product.store(),
-                product.brand(),
+                product
+                    .supermarket()
+                    .map(|supermarket| supermarket.as_str()),
             ],
         )?;
 
@@ -205,8 +209,9 @@ impl<'connection> ProductRepository<'connection> {
             stored.name,
             category_from_database(&stored.category)?,
             nutrients,
-            stored.store,
-            stored.brand,
+            stored
+                .store
+                .map(|store| super::product::Supermarket::from_database(&store)),
             status_from_database(&stored.status)?,
             presentation,
         )
@@ -220,7 +225,7 @@ impl<'connection> ProductRepository<'connection> {
         let stored = self
             .connection
             .query_row(
-                "SELECT kind, label, total_grams, price_cents, units_per_package,
+                "SELECT kind, total_grams, price_cents, units_per_package,
                         price_cents_per_kilogram, grams_per_unit, price_cents_per_unit
                  FROM meals_product_presentations WHERE product_id = ?1",
                 [product_id],
@@ -249,8 +254,10 @@ fn insert_product(
             product.nutrients_per_100_grams().carbohydrate_grams(),
             product.nutrients_per_100_grams().fat_grams(),
             product.nutrients_per_100_grams().kilocalories(),
-            product.store(),
-            product.brand(),
+            product
+                .supermarket()
+                .map(|supermarket| supermarket.as_str()),
+            Option::<String>::None,
             status_to_database(product.status()),
         ],
     )?;
@@ -267,7 +274,6 @@ fn insert_presentation(
 
     match presentation.kind() {
         PurchasePresentationKind::Package {
-            label,
             total_grams,
             price_cents,
             units_per_package,
@@ -278,7 +284,7 @@ fn insert_presentation(
              ) VALUES (?1, 'package', ?2, ?3, ?4, ?5, NULL, NULL, NULL)",
             params![
                 product.id().as_str(),
-                label,
+                product.name(),
                 total_grams.value(),
                 price_cents,
                 units_per_package,
@@ -321,7 +327,6 @@ struct StoredProduct {
     fat_grams: f64,
     kilocalories: f64,
     store: Option<String>,
-    brand: Option<String>,
     status: String,
 }
 
@@ -336,15 +341,13 @@ impl StoredProduct {
             fat_grams: row.get(5)?,
             kilocalories: row.get(6)?,
             store: row.get(7)?,
-            brand: row.get(8)?,
-            status: row.get(9)?,
+            status: row.get(8)?,
         })
     }
 }
 
 struct StoredPresentation {
     kind: String,
-    label: Option<String>,
     total_grams: Option<f64>,
     price_cents: Option<u64>,
     units_per_package: Option<u32>,
@@ -357,21 +360,18 @@ impl StoredPresentation {
     fn from_row(row: &Row<'_>) -> rusqlite::Result<Self> {
         Ok(Self {
             kind: row.get(0)?,
-            label: row.get(1)?,
-            total_grams: row.get(2)?,
-            price_cents: row.get(3)?,
-            units_per_package: row.get(4)?,
-            price_cents_per_kilogram: row.get(5)?,
-            grams_per_unit: row.get(6)?,
-            price_cents_per_unit: row.get(7)?,
+            total_grams: row.get(1)?,
+            price_cents: row.get(2)?,
+            units_per_package: row.get(3)?,
+            price_cents_per_kilogram: row.get(4)?,
+            grams_per_unit: row.get(5)?,
+            price_cents_per_unit: row.get(6)?,
         })
     }
 
     fn to_domain(self) -> Result<PurchasePresentation, ProductRepositoryError> {
         match self.kind.as_str() {
             "package" => PurchasePresentation::package(
-                self.label
-                    .ok_or_else(|| invalid_stored("etiqueta del paquete"))?,
                 Grams::new(
                     self.total_grams
                         .ok_or_else(|| invalid_stored("gramos totales del paquete"))?,
@@ -384,7 +384,7 @@ impl StoredPresentation {
             "bulk_by_weight" => Ok(PurchasePresentation::bulk_by_weight(
                 self.price_cents_per_kilogram,
             )),
-            "bulk_by_unit" => Ok(PurchasePresentation::bulk_by_unit(
+            "bulk_by_unit" => Ok(PurchasePresentation::legacy_bulk_by_unit(
                 self.grams_per_unit
                     .map(Grams::new)
                     .transpose()
@@ -448,16 +448,10 @@ mod tests {
             "Tortillas de trigo",
             ProductCategory::Other,
             NutrientsPer100Grams::new(8.0, 50.0, 7.0, 300.0).unwrap(),
-            Some("Mercadona".into()),
-            Some("Hacendado".into()),
+            Some(super::super::product::Supermarket::Mercadona),
             Some(
-                PurchasePresentation::package(
-                    "Bolsa de tortillas",
-                    Grams::new(320.0).unwrap(),
-                    Some(199),
-                    Some(8),
-                )
-                .unwrap(),
+                PurchasePresentation::package(Grams::new(320.0).unwrap(), Some(199), Some(8))
+                    .unwrap(),
             ),
         )
         .unwrap()
@@ -474,13 +468,69 @@ mod tests {
                 WHERE type = 'table' AND name IN (
                     'meals_products', 'meals_product_presentations', 'meals_recipes',
                     'meals_recipe_ingredients', 'meals_planned_instances',
-                    'meals_planned_ingredients', 'meals_weekly_coverage'
+                    'meals_planned_ingredients', 'meals_weekly_coverage',
+                    'meals_recipe_recommended_slots'
                  )",
                 [],
                 |row| row.get(0),
             )
             .unwrap();
-        assert_eq!(table_count, 7);
+        assert_eq!(table_count, 8);
+    }
+
+    #[test]
+    fn refinement_migration_preserves_previous_available_and_purchased_grams() {
+        let connection = Connection::open_in_memory().unwrap();
+        connection
+            .execute_batch(
+                "CREATE TABLE meals_products (id TEXT PRIMARY KEY);
+             CREATE TABLE meals_recipes (id TEXT PRIMARY KEY);
+             CREATE TABLE meals_weekly_coverage (
+                week_start TEXT NOT NULL,
+                product_id TEXT NOT NULL,
+                available_grams REAL NOT NULL,
+                purchased_grams REAL NOT NULL,
+                PRIMARY KEY (week_start, product_id)
+             );
+             INSERT INTO meals_products VALUES ('product');
+             INSERT INTO meals_weekly_coverage VALUES ('2026-08-03', 'product', 100, 250);",
+            )
+            .unwrap();
+        connection
+            .execute_batch(include_str!(
+                "../../migrations/0003_refine_meals_daily_workflow.sql"
+            ))
+            .unwrap();
+        let available: f64 = connection
+            .query_row(
+                "SELECT available_grams FROM meals_weekly_coverage WHERE product_id = 'product'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(available, 350.0);
+    }
+
+    #[test]
+    fn legacy_bulk_by_unit_presentation_is_read_without_being_recreated() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        apply_migrations(&mut connection).unwrap();
+        connection.execute(
+            "INSERT INTO meals_products (id, name, category, protein_grams_per_100g, carbohydrate_grams_per_100g, fat_grams_per_100g, kilocalories_per_100g, store, brand, status)
+             VALUES ('legacy', 'Huevos', 'other', 0, 0, 0, 0, NULL, NULL, 'active')",
+            [],
+        ).unwrap();
+        connection.execute(
+            "INSERT INTO meals_product_presentations (product_id, kind, grams_per_unit, price_cents_per_unit)
+             VALUES ('legacy', 'bulk_by_unit', 60, 30)",
+            [],
+        ).unwrap();
+        let product = ProductRepository::new(&mut connection)
+            .find_by_id(&ProductId::new("legacy").unwrap())
+            .unwrap()
+            .unwrap();
+        assert!(product.presentation().unwrap().is_legacy());
+        assert_eq!(product.grams_per_unit(), Some(Grams::new(60.0).unwrap()));
     }
 
     #[test]
@@ -502,8 +552,10 @@ mod tests {
             .unwrap();
 
         assert_eq!(product.name(), "Tortillas de trigo");
-        assert_eq!(product.store(), Some("Mercadona"));
-        assert_eq!(product.brand(), Some("Hacendado"));
+        assert_eq!(
+            product.supermarket(),
+            Some(super::super::product::Supermarket::Mercadona)
+        );
         assert_eq!(product.grams_per_unit(), Some(Grams::new(40.0).unwrap()));
         drop(connection);
         std::fs::remove_file(path).unwrap();
@@ -518,7 +570,6 @@ mod tests {
             "Patata a granel",
             ProductCategory::Vegetable,
             NutrientsPer100Grams::new(2.0, 17.0, 0.0, 77.0).unwrap(),
-            None,
             None,
             None,
         )
@@ -547,7 +598,6 @@ mod tests {
             "Tortillas integrales",
             ProductCategory::Other,
             NutrientsPer100Grams::new(9.0, 45.0, 6.0, 280.0).unwrap(),
-            None,
             None,
             Some(PurchasePresentation::bulk_by_weight(Some(350))),
         )

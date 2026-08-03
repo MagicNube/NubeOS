@@ -7,10 +7,10 @@ use meals::commands::{
     ProductDatabase,
 };
 use meals::meal_commands::{
-    add_partial_purchase, archive_meal, complete_shopping_entry, create_meal,
-    create_planned_instance, list_meals, list_shopping_list, list_week, meals_affected_by_product,
-    remove_planned_instance, remove_product_from_meals, reorder_planned_instance, restore_meal,
-    set_weekly_available, update_meal, update_planned_instance,
+    archive_meal, create_meal, create_planned_instance, list_meals, list_shopping_list, list_week,
+    meals_affected_by_product, move_planned_instance, remove_planned_instance,
+    remove_product_from_meals, reorder_planned_instance, restore_meal, set_weekly_available,
+    update_meal, update_planned_instance,
 };
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -42,10 +42,9 @@ pub fn run() {
             update_planned_instance,
             remove_planned_instance,
             reorder_planned_instance,
+            move_planned_instance,
             list_shopping_list,
             set_weekly_available,
-            add_partial_purchase,
-            complete_shopping_entry,
         ])
         .run(tauri::generate_context!())
         .expect("error while running NubeOS");

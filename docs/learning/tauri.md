@@ -36,3 +36,11 @@ Este documento recoge conceptos de Tauri incorporados de forma consciente al pro
 - **Por qué se usa en NubeOS:** un único comando de consulta devuelve la semana necesaria para el calendario y otro devuelve entradas de compra ya agregadas por Rust.
 - **Límite de responsabilidad:** el comando coordina repositorios y convierte el resultado a DTO; la normalización de unidades, los macros, el redondeo de paquetes y la cobertura siguen en el dominio Rust.
 - **Ejemplo pequeño:** `await invoke<WeeklyPlan>('list_week', { weekStart })` mantiene `weekStart` como un dato de interfaz y recibe un plan listo para presentar.
+
+### Evolución de contratos de comandos
+
+- **Qué es:** los DTOs de un comando son contratos entre TypeScript y Rust. Pueden evolucionar cuando una tarea cambia el producto, siempre que Rust valide la nueva entrada y las migraciones preserven los datos guardados.
+- **Por qué se usa en NubeOS:** el formulario envía precios como texto en euros (`"2,99"`) y el comando los convierte a céntimos antes de SQLite. También existe `move_planned_instance`, un comando pequeño que recibe solo la instancia y su destino; el reordenamiento real vive en Rust.
+- **Límite de responsabilidad:** React puede conservar un borrador de texto y representar un arrastre, pero no convierte dinero, calcula compra ni decide las posiciones finales del calendario.
+- **Implicaciones de seguridad:** Rust sigue comprobando que la cantidad es válida, que el supermercado pertenece al conjunto permitido y que el día y la franja de destino son correctos, aunque React haya limitado los controles visuales.
+- **Ejemplo pequeño:** `invoke('move_planned_instance', { id, input: { weekday, slot, position } })` expresa la intención; el comando delega en una transacción del repositorio.

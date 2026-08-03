@@ -1,5 +1,6 @@
 //! Reglas de dominio para recetas, ingredientes y sus macros.
 
+use super::planning::MealSlot;
 use super::product::{DomainError, IngredientQuantity, Product, ProductId};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -140,6 +141,7 @@ pub struct Meal {
     name: String,
     status: MealStatus,
     ingredients: Vec<MealIngredient>,
+    recommended_slots: Vec<MealSlot>,
 }
 
 impl Meal {
@@ -147,8 +149,9 @@ impl Meal {
         id: MealId,
         name: impl Into<String>,
         ingredients: Vec<MealIngredient>,
+        recommended_slots: Vec<MealSlot>,
     ) -> Result<Self, MealDomainError> {
-        Self::from_persisted(id, name, MealStatus::Active, ingredients)
+        Self::from_persisted(id, name, MealStatus::Active, ingredients, recommended_slots)
     }
 
     pub fn from_persisted(
@@ -156,6 +159,7 @@ impl Meal {
         name: impl Into<String>,
         status: MealStatus,
         mut ingredients: Vec<MealIngredient>,
+        mut recommended_slots: Vec<MealSlot>,
     ) -> Result<Self, MealDomainError> {
         let name = name.into();
         if name.trim().is_empty() {
@@ -165,11 +169,14 @@ impl Meal {
             return Err(MealDomainError::MealRequiresIngredients);
         }
         ingredients.sort_by_key(MealIngredient::position);
+        recommended_slots.sort_by_key(|slot| slot.as_str());
+        recommended_slots.dedup();
         Ok(Self {
             id,
             name,
             status,
             ingredients,
+            recommended_slots,
         })
     }
 
@@ -184,6 +191,9 @@ impl Meal {
     }
     pub fn ingredients(&self) -> &[MealIngredient] {
         &self.ingredients
+    }
+    pub fn recommended_slots(&self) -> &[MealSlot] {
+        &self.recommended_slots
     }
 
     pub fn macros(&self, products: &[Product]) -> Result<MacroTotals, MealDomainError> {
@@ -222,18 +232,14 @@ mod tests {
             ProductCategory::Meat,
             NutrientsPer100Grams::new(20.0, 0.0, 5.0, 130.0).unwrap(),
             None,
-            None,
-            Some(PurchasePresentation::bulk_by_unit(
-                Some(Grams::new(150.0).unwrap()),
-                None,
-            )),
+            Some(PurchasePresentation::package(Grams::new(150.0).unwrap(), None, Some(1)).unwrap()),
         )
         .unwrap()
     }
 
     #[test]
     fn a_meal_requires_an_ingredient() {
-        let result = Meal::new(MealId::new("meal").unwrap(), "Cena", vec![]);
+        let result = Meal::new(MealId::new("meal").unwrap(), "Cena", vec![], vec![]);
         assert_eq!(
             result.unwrap_err(),
             MealDomainError::MealRequiresIngredients
@@ -247,7 +253,13 @@ mod tests {
             IngredientQuantity::units(2.0).unwrap(),
             0,
         );
-        let meal = Meal::new(MealId::new("meal").unwrap(), "Pollo", vec![ingredient]).unwrap();
+        let meal = Meal::new(
+            MealId::new("meal").unwrap(),
+            "Pollo",
+            vec![ingredient],
+            vec![],
+        )
+        .unwrap();
         let totals = meal.macros(&[chicken()]).unwrap();
 
         assert_eq!(totals.protein_grams(), 60.0);

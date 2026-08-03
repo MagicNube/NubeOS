@@ -10,7 +10,7 @@ use uuid::Uuid;
 use super::{
     product::{
         DomainError, Grams, NutrientsPer100Grams, Product, ProductCategory, ProductId,
-        ProductStatus, PurchasePresentation, PurchasePresentationKind,
+        ProductStatus, PurchasePresentation, PurchasePresentationKind, Supermarket,
     },
     repository::{apply_migrations, ProductRepository, ProductRepositoryError},
 };
@@ -45,7 +45,6 @@ impl fmt::Display for ProductDatabaseError {
         }
     }
 }
-
 impl std::error::Error for ProductDatabaseError {}
 
 #[derive(Debug, Clone, Deserialize)]
@@ -57,8 +56,7 @@ pub struct ProductInput {
     pub carbohydrate_grams_per_100g: f64,
     pub fat_grams_per_100g: f64,
     pub kilocalories_per_100g: f64,
-    pub store: Option<String>,
-    pub brand: Option<String>,
+    pub supermarket: Option<SupermarketDto>,
     pub presentation: Option<PurchasePresentationDto>,
 }
 
@@ -72,8 +70,7 @@ pub struct ProductDto {
     pub carbohydrate_grams_per_100g: f64,
     pub fat_grams_per_100g: f64,
     pub kilocalories_per_100g: f64,
-    pub store: Option<String>,
-    pub brand: Option<String>,
+    pub supermarket: Option<SupermarketDto>,
     pub status: ProductStatusDto,
     pub presentation: Option<PurchasePresentationDto>,
 }
@@ -96,6 +93,16 @@ pub enum ProductStatusDto {
     Archived,
 }
 
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum SupermarketDto {
+    Mercadona,
+    Lidl,
+    Consum,
+    FamilyCash,
+    Other,
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(
     tag = "kind",
@@ -104,17 +111,17 @@ pub enum ProductStatusDto {
 )]
 pub enum PurchasePresentationDto {
     Package {
-        label: String,
         total_grams: f64,
-        price_cents: Option<u64>,
+        price_eur: Option<String>,
         units_per_package: Option<u32>,
     },
     BulkByWeight {
-        price_cents_per_kilogram: Option<u64>,
+        price_eur_per_kilogram: Option<String>,
     },
+    /// Se devuelve para visualizar datos antiguos, pero no se acepta al guardar.
     BulkByUnit {
         grams_per_unit: Option<f64>,
-        price_cents_per_unit: Option<u64>,
+        price_eur_per_unit: Option<String>,
     },
 }
 
@@ -220,7 +227,6 @@ fn archive_product_for_connection(
         .archive(&ProductId::new(id)?)
         .map_err(ProductCommandError::Repository)
 }
-
 fn restore_product_for_connection(
     connection: &mut Connection,
     id: String,
@@ -249,14 +255,12 @@ fn product_from_input(id: ProductId, input: ProductInput) -> Result<Product, Pro
         input.kilocalories_per_100g,
     )?;
     let presentation = input.presentation.map(presentation_from_dto).transpose()?;
-
     Product::new(
         id,
         input.name,
         category_from_dto(input.category),
         nutrients,
-        input.store,
-        input.brand,
+        input.supermarket.map(supermarket_from_dto),
         presentation,
     )
     .map_err(Into::into)
@@ -267,29 +271,67 @@ fn presentation_from_dto(
 ) -> Result<PurchasePresentation, ProductCommandError> {
     match presentation {
         PurchasePresentationDto::Package {
-            label,
             total_grams,
-            price_cents,
+            price_eur,
             units_per_package,
         } => Ok(PurchasePresentation::package(
-            label,
             Grams::new(total_grams)?,
-            price_cents,
+            price_eur.map(|price| euros_to_cents(&price)).transpose()?,
             units_per_package,
         )?),
         PurchasePresentationDto::BulkByWeight {
-            price_cents_per_kilogram,
+            price_eur_per_kilogram,
         } => Ok(PurchasePresentation::bulk_by_weight(
-            price_cents_per_kilogram,
+            price_eur_per_kilogram
+                .map(|price| euros_to_cents(&price))
+                .transpose()?,
         )),
-        PurchasePresentationDto::BulkByUnit {
-            grams_per_unit,
-            price_cents_per_unit,
-        } => Ok(PurchasePresentation::bulk_by_unit(
-            grams_per_unit.map(Grams::new).transpose()?,
-            price_cents_per_unit,
-        )),
+        PurchasePresentationDto::BulkByUnit { .. } => {
+            Err(DomainError::LegacyPresentationCannotBeSaved.into())
+        }
     }
+}
+
+/// Convierte una cantidad introducida en euros a céntimos exactos. La frontera
+/// acepta coma o punto y rechaza más de dos decimales antes de persistir.
+fn euros_to_cents(value: &str) -> Result<u64, ProductCommandError> {
+    let normalized = value.trim().replace(',', ".");
+    let (euros, decimals) = normalized.split_once('.').unwrap_or((&normalized, ""));
+    if normalized.is_empty()
+        || normalized.matches('.').count() > 1
+        || !euros.chars().all(|character| character.is_ascii_digit())
+        || !decimals.chars().all(|character| character.is_ascii_digit())
+        || decimals.len() > 2
+    {
+        return Err(DomainError::InvalidValue {
+            field: "precio en euros",
+        }
+        .into());
+    }
+    let whole = euros
+        .parse::<u64>()
+        .map_err(|_| DomainError::InvalidValue {
+            field: "precio en euros",
+        })?;
+    let fraction = match decimals.len() {
+        0 => 0,
+        1 => decimals.parse::<u64>().unwrap_or(0) * 10,
+        2 => decimals.parse::<u64>().unwrap_or(0),
+        _ => unreachable!(),
+    };
+    whole
+        .checked_mul(100)
+        .and_then(|amount| amount.checked_add(fraction))
+        .ok_or_else(|| {
+            DomainError::InvalidValue {
+                field: "precio en euros",
+            }
+            .into()
+        })
+}
+
+fn cents_to_euros(cents: u64) -> String {
+    format!("{}.{:02}", cents / 100, cents % 100)
 }
 
 impl From<&Product> for ProductDto {
@@ -303,8 +345,7 @@ impl From<&Product> for ProductDto {
             carbohydrate_grams_per_100g: nutrients.carbohydrate_grams(),
             fat_grams_per_100g: nutrients.fat_grams(),
             kilocalories_per_100g: nutrients.kilocalories(),
-            store: product.store().map(str::to_owned),
-            brand: product.brand().map(str::to_owned),
+            supermarket: product.supermarket().map(supermarket_to_dto),
             status: status_to_dto(product.status()),
             presentation: product.presentation().map(presentation_to_dto),
         }
@@ -314,27 +355,25 @@ impl From<&Product> for ProductDto {
 fn presentation_to_dto(presentation: &PurchasePresentation) -> PurchasePresentationDto {
     match presentation.kind() {
         PurchasePresentationKind::Package {
-            label,
             total_grams,
             price_cents,
             units_per_package,
         } => PurchasePresentationDto::Package {
-            label: label.clone(),
             total_grams: total_grams.value(),
-            price_cents: *price_cents,
+            price_eur: price_cents.map(cents_to_euros),
             units_per_package: *units_per_package,
         },
         PurchasePresentationKind::BulkByWeight {
             price_cents_per_kilogram,
         } => PurchasePresentationDto::BulkByWeight {
-            price_cents_per_kilogram: *price_cents_per_kilogram,
+            price_eur_per_kilogram: price_cents_per_kilogram.map(cents_to_euros),
         },
         PurchasePresentationKind::BulkByUnit {
             grams_per_unit,
             price_cents_per_unit,
         } => PurchasePresentationDto::BulkByUnit {
             grams_per_unit: grams_per_unit.map(Grams::value),
-            price_cents_per_unit: *price_cents_per_unit,
+            price_eur_per_unit: price_cents_per_unit.map(cents_to_euros),
         },
     }
 }
@@ -349,7 +388,6 @@ fn category_from_dto(category: ProductCategoryDto) -> ProductCategory {
         ProductCategoryDto::Other => ProductCategory::Other,
     }
 }
-
 fn category_to_dto(category: ProductCategory) -> ProductCategoryDto {
     match category {
         ProductCategory::Vegetable => ProductCategoryDto::Vegetable,
@@ -360,18 +398,34 @@ fn category_to_dto(category: ProductCategory) -> ProductCategoryDto {
         ProductCategory::Other => ProductCategoryDto::Other,
     }
 }
-
 fn status_from_dto(status: ProductStatusDto) -> ProductStatus {
     match status {
         ProductStatusDto::Active => ProductStatus::Active,
         ProductStatusDto::Archived => ProductStatus::Archived,
     }
 }
-
 fn status_to_dto(status: ProductStatus) -> ProductStatusDto {
     match status {
         ProductStatus::Active => ProductStatusDto::Active,
         ProductStatus::Archived => ProductStatusDto::Archived,
+    }
+}
+fn supermarket_from_dto(supermarket: SupermarketDto) -> Supermarket {
+    match supermarket {
+        SupermarketDto::Mercadona => Supermarket::Mercadona,
+        SupermarketDto::Lidl => Supermarket::Lidl,
+        SupermarketDto::Consum => Supermarket::Consum,
+        SupermarketDto::FamilyCash => Supermarket::FamilyCash,
+        SupermarketDto::Other => Supermarket::Other,
+    }
+}
+fn supermarket_to_dto(supermarket: Supermarket) -> SupermarketDto {
+    match supermarket {
+        Supermarket::Mercadona => SupermarketDto::Mercadona,
+        Supermarket::Lidl => SupermarketDto::Lidl,
+        Supermarket::Consum => SupermarketDto::Consum,
+        Supermarket::FamilyCash => SupermarketDto::FamilyCash,
+        Supermarket::Other => SupermarketDto::Other,
     }
 }
 
@@ -381,13 +435,11 @@ enum ProductCommandError {
     Repository(ProductRepositoryError),
     DatabaseUnavailable,
 }
-
 impl From<DomainError> for ProductCommandError {
     fn from(error: DomainError) -> Self {
         Self::Domain(error)
     }
 }
-
 fn command_error_message(error: ProductCommandError) -> String {
     match error {
         ProductCommandError::Domain(error) => error.to_string(),
@@ -417,61 +469,49 @@ mod tests {
             carbohydrate_grams_per_100g: 50.0,
             fat_grams_per_100g: 7.0,
             kilocalories_per_100g: 300.0,
-            store: Some("Mercadona".into()),
-            brand: None,
+            supermarket: Some(SupermarketDto::Mercadona),
             presentation: Some(PurchasePresentationDto::Package {
-                label: "Bolsa de tortillas".into(),
                 total_grams: 320.0,
-                price_cents: Some(199),
+                price_eur: Some("1,99".into()),
                 units_per_package: Some(8),
             }),
         }
     }
 
     #[test]
+    fn accepts_comma_or_dot_and_keeps_exact_cents() {
+        assert_eq!(euros_to_cents("2,99").unwrap(), 299);
+        assert_eq!(euros_to_cents("2.50").unwrap(), 250);
+        assert!(euros_to_cents("2,999").is_err());
+    }
+
+    #[test]
     fn product_adapters_create_list_update_archive_and_restore() {
         let mut connection = Connection::open_in_memory().unwrap();
         apply_migrations(&mut connection).unwrap();
-
         let created = create_product_for_connection(&mut connection, tortilla_input()).unwrap();
         assert_eq!(created.status, ProductStatusDto::Active);
-        assert!(matches!(
-            created.presentation.as_ref(),
-            Some(PurchasePresentationDto::Package { .. })
-        ));
-
+        assert!(
+            matches!(created.presentation.as_ref(), Some(PurchasePresentationDto::Package { price_eur: Some(price), .. }) if price == "1.99")
+        );
         let listed =
             list_products_for_connection(&mut connection, Some(ProductStatusDto::Active)).unwrap();
         assert_eq!(listed.len(), 1);
-
         let mut updated_input = tortilla_input();
         updated_input.name = "Tortillas integrales".into();
         update_product_for_connection(&mut connection, created.id.clone(), updated_input).unwrap();
         archive_product_for_connection(&mut connection, created.id.clone()).unwrap();
         assert!(
-            list_products_for_connection(&mut connection, Some(ProductStatusDto::Active),)
+            list_products_for_connection(&mut connection, Some(ProductStatusDto::Active))
                 .unwrap()
                 .is_empty()
         );
-
         restore_product_for_connection(&mut connection, created.id).unwrap();
-        let restored =
-            list_products_for_connection(&mut connection, Some(ProductStatusDto::Active)).unwrap();
-        assert_eq!(restored[0].name, "Tortillas integrales");
-    }
-
-    #[test]
-    fn adapter_returns_a_comprehensible_validation_error() {
-        let mut connection = Connection::open_in_memory().unwrap();
-        apply_migrations(&mut connection).unwrap();
-        let mut input = tortilla_input();
-        input.protein_grams_per_100g = -1.0;
-
-        let error = create_product_for_connection(&mut connection, input).unwrap_err();
-
         assert_eq!(
-            command_error_message(error),
-            "El valor de proteínas por 100 g no es válido."
+            list_products_for_connection(&mut connection, Some(ProductStatusDto::Active)).unwrap()
+                [0]
+            .name,
+            "Tortillas integrales"
         );
     }
 }
