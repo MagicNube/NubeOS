@@ -128,6 +128,20 @@ Al completar una entrada, el caso de uso cubre de una vez el pendiente actual us
 
 Cada comando recibe y devuelve DTOs serializables, delega inmediatamente en un caso de uso y traduce errores de dominio. Contratos concretos se definen junto con cada tarea.
 
+### Contratos de productos
+
+Los DTOs de productos usan nombres en `camelCase` y no exponen tipos internos de dominio. Las categorías y estados se representan como valores cerrados: `vegetable`, `fruit`, `yogurt`, `meat`, `fish`, `other`; y `active` o `archived`.
+
+| Comando | Entrada | Salida |
+| --- | --- | --- |
+| `list_products` | estado opcional | productos ordenados por nombre |
+| `create_product` | datos de producto sin identificador | producto creado con identificador generado por Rust |
+| `update_product` | identificador y datos completos de producto | producto guardado con su estado actual |
+| `archive_product` | identificador | confirmación sin contenido |
+| `restore_product` | identificador | confirmación sin contenido |
+
+Los datos de producto incluyen nombre, categoría, macros por 100 g, tienda, marca y presentación opcional. La presentación lleva un discriminante `kind` y uno de los tres conjuntos de datos aprobados: paquete, a granel por peso o a granel por unidad. Un error de validación devuelve un mensaje serializable y comprensible; los errores internos de SQLite se traducen a un mensaje genérico sin exponer detalles de la base de datos.
+
 ## Persistencia y atomicidad
 
 SQLite persiste productos, presentaciones, comidas e ingredientes, instancias e ingredientes planificados y coberturas semanales. Las operaciones que modifican una comida con ingredientes, crean una instancia copiada o retiran un producto de varias recetas son atómicas.

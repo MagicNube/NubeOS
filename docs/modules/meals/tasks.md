@@ -41,11 +41,13 @@ Las tareas se realizan de una en una y requieren aprobación antes de implementa
 
 ## T-004 — Exponer productos mediante comandos Tauri
 
-- Estado: Pendiente
+- Estado: Completada
 - Dependencias: T-002, T-003
 - Alcance: implementar DTOs y comandos pequeños para listar, crear, editar, archivar y restaurar productos.
 - Criterios de aceptación: React puede solicitar las operaciones sin acceso directo a SQLite; los errores de validación son serializables y comprensibles.
 - Verificación: pruebas de comandos o de sus adaptadores; nota breve en `docs/learning/tauri.md` sobre el primer comando.
+
+**Resultado:** se añaden los comandos `list_products`, `create_product`, `update_product`, `archive_product` y `restore_product`, registrados en la aplicación Tauri. Los DTOs usan `camelCase`; Rust genera los identificadores UUID y valida la entrada antes de delegar en el repositorio. La conexión SQLite se abre y migra al arrancar en el directorio de datos de la aplicación, protegida por un `Mutex`. Las pruebas de adaptador cubren el ciclo de vida del producto y un error de validación serializable.
 
 ## T-005 — Crear la interfaz mínima de productos
 
