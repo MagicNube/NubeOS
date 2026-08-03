@@ -1,6 +1,6 @@
 # Tareas — Planificador de comidas, compra y productos
 
-- Estado: Tercer incremento implementado; revisión visual pendiente
+- Estado: Refinamiento de comidas implementado; comprobación visual pendiente
 - Última actualización: 2026-08-03
 
 ## Cómo usar este documento
@@ -282,3 +282,23 @@ Estas tareas aplican la spec y el diseño aprobados el 2026-08-03. Nube aprobó 
 ## Resultado del cuarto incremento
 
 - T-028: Archivo incorpora borrado definitivo con confirmación y validación de referencias. El calendario usa tarjetas con tabla de macros y puntos de inserción arriba o abajo; los filtros y etiquetas se normalizan alrededor de «momento del día» y «Lácteos».
+
+## T-029 — Refinar el catálogo y detalle de comidas
+
+- Estado: Completada
+- Dependencias: T-018, T-025
+- Alcance: hacer escalable el filtro de comidas por producto, unificar visualmente los controles del catálogo y sustituir la expansión de tarjetas por un detalle de receta.
+- Criterios de aceptación: un filtro vacío no limita recetas y no ofrece sugerencias hasta tres caracteres; las tarjetas muestran como máximo tres ingredientes sin cambiar de altura; al pulsar una tarjeta o «Ver detalle» se abre un modal con todos los ingredientes, sus cantidades, sus macros y el total de la comida.
+- Verificación: prueba de contrato del DTO de macros por ingrediente, `cargo test`, `pnpm build` y comprobación manual de filtros, detalle y acciones de tarjeta.
+
+**Resultado:** el filtro de producto no muestra un listado completo: vacío equivale a no filtrar y, desde tres caracteres, ofrece como máximo ocho coincidencias. Las tarjetas de comidas tienen altura fija y solo muestran tres ingredientes; el detalle accesible desde la tarjeta presenta el resto junto con una tabla de macros por ingrediente y el total. El DTO recibe esos macros calculados por Rust, sin duplicar la regla en React.
+
+## T-030 — Completar la interacción de búsquedas de comidas
+
+- Estado: Completada
+- Dependencias: T-019, T-029
+- Alcance: cerrar los desplegables de producto al abandonar el control, reutilizar la búsqueda incremental en el selector de ingrediente de Comidas y ajustar la lectura de cantidades en el detalle.
+- Criterios de aceptación: el mensaje de ayuda desaparece al perder el foco; un ingrediente no propone productos antes de tres caracteres; el detalle muestra cada cantidad junto al nombre entre paréntesis.
+- Verificación: `pnpm build` y comprobación manual de foco, selección y detalle.
+
+**Resultado:** los dos desplegables de producto se cierran cuando el foco abandona su contenedor y conservan la selección al pasar a una opción interna. El formulario de Comidas usa un selector incremental con el mismo límite de tres caracteres y ocho resultados. El detalle de receta presenta «Producto (250g)» o «Producto (3 uds)» antes de la tabla de macros.

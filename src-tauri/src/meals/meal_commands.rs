@@ -38,6 +38,7 @@ pub struct MealIngredientDto {
     pub product_name: String,
     pub quantity: f64,
     pub unit: QuantityUnitDto,
+    pub macros: MacroTotalsDto,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -628,6 +629,7 @@ fn ingredients_to_dto(
                 product_name: product.name().to_owned(),
                 quantity: ingredient.quantity().value(),
                 unit: quantity_unit_to_dto(ingredient.quantity().unit()),
+                macros: macros_to_dto(ingredient.macros(product).map_err(domain_error)?),
             })
         })
         .collect()
@@ -845,5 +847,6 @@ mod tests {
             .unwrap();
         let result = weekly_plan_to_dto(&mut connection, week).unwrap();
         assert_eq!(result.instances[0].ingredients[0].quantity, 100.0);
+        assert_eq!(result.instances[0].ingredients[0].macros.kilocalories, 1.0);
     }
 }

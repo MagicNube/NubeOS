@@ -56,7 +56,11 @@ Los productos activos aparecen directamente al abrir Productos. Los archivados n
 
 El usuario puede crear una comida con uno o más ingredientes, añadirlos, editarlos, retirarlos, buscarla por texto o por productos contenidos y consultar sus macros. Puede asignarle cero, uno o varios momentos del día.
 
-Cada ingrediente empieza sin producto elegido y permite buscarlo por nombre. La cantidad se añade en gramos por defecto; si el producto tiene una conversión válida de unidad a gramos, el usuario puede seleccionar unidades. Si solo admite gramos, la unidad se presenta dentro de una caja visualmente consistente, pero no editable.
+El filtro por producto de Comidas se usa como una búsqueda incremental: vacío no aplica ningún filtro y las sugerencias solo aparecen al escribir al menos tres caracteres. Así el control sigue siendo manejable aunque el catálogo tenga muchos productos.
+
+Las tarjetas del catálogo muestran como máximo tres ingredientes y mantienen una altura común. Al pulsar una tarjeta o «Ver detalle», el usuario abre un detalle de la comida con todos sus ingredientes, las cantidades, los macros de cada ingrediente y los macros totales.
+
+Cada ingrediente empieza sin producto elegido y permite buscarlo por nombre. El selector de producto del formulario aplica la misma búsqueda incremental: no muestra sugerencias hasta escribir tres caracteres. La cantidad se añade en gramos por defecto; si el producto tiene una conversión válida de unidad a gramos, el usuario puede seleccionar unidades. Si solo admite gramos, la unidad se presenta dentro de una caja visualmente consistente, pero no editable.
 
 Una comida puede archivarse y restaurarse. Una comida archivada no aparece en nuevas búsquedas, pero se mantiene visible donde ya estaba planificada. Desde Archivo puede eliminarse definitivamente si no está referenciada por ninguna instancia planificada; así no se rompe el historial. El archivo se consulta desde una acción secundaria, no junto al listado de recetas activas.
 

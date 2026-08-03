@@ -7,7 +7,7 @@ export type MealSlot = "breakfast" | "lunch" | "snack" | "dinner" | "extra";
 
 export interface MacroTotals { proteinGrams: number; carbohydrateGrams: number; fatGrams: number; kilocalories: number; }
 export interface MealIngredientInput { productId: string; quantity: number; unit: QuantityUnit; }
-export interface MealIngredient extends MealIngredientInput { productName: string; }
+export interface MealIngredient extends MealIngredientInput { productName: string; macros: MacroTotals; }
 export interface MealInput { name: string; ingredients: MealIngredientInput[]; recommendedSlots: MealSlot[]; }
 export interface Meal { id: string; name: string; status: MealStatus; ingredients: MealIngredient[]; macros: MacroTotals; recommendedSlots: MealSlot[]; }
 export interface PlannedInstance { id: string; weekday: number; slot: MealSlot; position: number; sourceMealId?: string; isModified: boolean; ingredients: MealIngredient[]; macros: MacroTotals; }

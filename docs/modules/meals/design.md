@@ -135,6 +135,8 @@ La casilla de una línea no es una operación de compra: persiste un estado sema
 
 Cada comando recibe y devuelve DTOs serializables, delega inmediatamente en un caso de uso y traduce errores de dominio. Contratos concretos se definen junto con cada tarea.
 
+Los ingredientes devueltos en una comida o instancia incluyen también sus macros calculados por Rust a partir de la cantidad normalizada y del producto actual. De este modo, el detalle de una receta puede desglosar sus macros sin que React replique el cálculo de dominio.
+
 ### Contratos de productos
 
 Los DTOs de productos usan nombres en `camelCase` y no exponen tipos internos de dominio. Las categorías y estados se representan como valores cerrados: `vegetable`, `fruit`, `yogurt`, `meat`, `fish`, `other`; y `active` o `archived`.
@@ -163,7 +165,7 @@ Esta decisión concreta la ADR-001 sin cambiar la fuente de verdad local, la fro
 ## Responsabilidades de React
 
 - Catálogo: buscador, filtro de categoría visible, menú de acciones secundarias y archivo bajo demanda.
-- Comidas: buscador y filtros alineados por producto (buscable) y momento del día, formulario con momentos del día y selector de gramos/unidades condicionado por el producto. Las tarjetas reservan una altura común, muestran hasta cuatro ingredientes y permiten desplegar los restantes.
+- Comidas: buscador y filtros alineados por producto (búsqueda incremental desde tres caracteres) y momento del día, formulario con momentos del día, selector de producto por ingrediente con el mismo umbral y selector de gramos/unidades condicionado por el producto. Los desplegables se cierran al perder el foco salvo que este se desplace a una de sus opciones. Las tarjetas reservan una altura común y muestran hasta tres ingredientes; al pulsarlas o usar «Ver detalle», un modal presenta la receta completa y los macros por ingrediente calculados por Rust.
 - Calendario: navegación, buscador de comidas, orden por momento del día, arrastrar y soltar con datos explícitos en `dataTransfer` y posición calculada sobre la mitad superior o inferior de una tarjeta, indicación de instancia modificada y resaltado del día actual en `Europe/Madrid`. Los macros diarios aparecen una sola vez bajo la fecha y el control de añadido aparece bajo interacción.
 - Compra: visualización de necesidad, disponible, pendiente, recomendación, coste, sobrante y estado de comprobación; control «Tienes» en gramos o unidades cuando existe conversión. React aplica una espera breve al persistir cada pulsación para no saturar los comandos.
 
