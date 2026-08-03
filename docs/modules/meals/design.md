@@ -1,6 +1,6 @@
 # Diseño — Planificador de comidas, compra y productos
 
-- Estado: Aprobado por Nube
+- Estado: Borrador para revisión
 - Última actualización: 2026-08-03
 
 ## Propósito y límites
@@ -21,10 +21,10 @@ Un producto es un artículo reutilizable de catálogo. Tiene:
 
 - Identificador, nombre, categoría y estado activo o archivado.
 - Macros por 100 g.
-- Tienda y marca opcionales.
+- Supermercado opcional: Mercadona, Lidl, Consum, FamilyCash u Otro.
 - Una presentación de compra opcional.
 
-Tienda y marca pertenecen al producto porque ayudan a distinguir “nuggets Lidl” de “nuggets Mercadona”, incluso si la presentación es similar. Un producto archivado no puede usarse de nuevo, pero se conserva en recetas y planes existentes.
+El nombre del producto contiene la marca cuando haga falta distinguirlo. No se modela marca como campo propio. Un producto archivado no puede usarse de nuevo, pero se conserva en recetas y planes existentes.
 
 ### Presentación de compra
 
@@ -32,11 +32,16 @@ La presentación pertenece a un producto y no existe por separado. Solo hay una 
 
 | Modo | Datos | Ejemplo |
 | --- | --- | --- |
-| Paquete | etiqueta, gramos totales, precio por paquete, unidades opcionales | tortillas: 320 g, 8 uds |
+| Paquete | gramos totales, precio por paquete en euros, unidades opcionales | tortillas: 320 g, 8 uds |
 | A granel por peso | precio opcional por kg | patata: 2,00 €/kg |
-| A granel por unidad | gramos aproximados y precio opcional por unidad | pimiento: 80 g/ud |
 
-Si un paquete tiene gramos totales y número de unidades, el dominio deriva `gramos_por_unidad`. Para un producto a granel por unidad ese valor se registra como aproximado. Sin `gramos_por_unidad`, el producto solo admite cantidades en gramos.
+Si un paquete tiene gramos totales y número de unidades, el dominio deriva `gramos_por_unidad`. Sin ese dato, el producto solo admite cantidades en gramos. El nombre de compra se deriva del nombre actual del producto; no existe una etiqueta adicional.
+
+Los importes se introducen como texto decimal en euros, aceptando coma o punto. El comando Rust los valida y convierte a céntimos antes de persistirlos; SQLite continúa usando enteros para evitar errores de precisión monetaria. La interfaz no muestra céntimos ni controles de incremento.
+
+`bulk_by_unit` permanece en persistencia como formato heredado para leer datos existentes. Los comandos de creación y actualización no lo ofrecen; una edición debe sustituirlo por paquete, a granel por peso o ninguna presentación.
+
+La columna de marca actual se conserva temporalmente para compatibilidad de datos, pero no forma parte del nuevo contrato ni se muestra. Un supermercado guardado que no pertenezca a la lista prevista se presenta como `Otro` hasta que el producto se edite.
 
 ### Cantidad de ingrediente
 
@@ -58,19 +63,19 @@ La cantidad normalizada se deriva, no se edita como una segunda fuente de verdad
 
 ### Comida e instancia planificada
 
-Una comida contiene nombre, estado e ingredientes. Una instancia planificada contiene semana identificada por su lunes, día, franja, posición, referencia opcional a la comida base, marca de modificación e ingredientes propios.
+Una comida contiene nombre, estado, ingredientes y cero o más momentos recomendados. Los momentos usan el mismo conjunto cerrado que el calendario (`breakfast`, `lunch`, `snack`, `dinner`, `extra`) y se persisten en una relación propia de receta y franja.
+
+Una instancia planificada contiene semana identificada por su lunes, día, franja, posición, referencia opcional a la comida base, marca de modificación e ingredientes propios.
 
 Al planificar una comida, se copia su composición. Cambiar después la receta base no modifica la instancia; cambiar los macros, el peso unitario o la presentación de un producto sí recalcula macros y compra de las instancias que lo usan. La marca de modificación indica que la composición de la instancia difiere de la receta copiada inicialmente.
 
 ### Cobertura de compra semanal
 
-La lista de compra es una proyección de las instancias de la semana. Para cada pareja `semana + producto` se persisten ajustes manuales:
+La lista de compra es una proyección de las instancias de la semana. Para cada pareja `semana + producto` se persiste un ajuste manual:
 
 - Cantidad ya disponible.
-- Cantidades cubiertas con compras parciales.
-- Cobertura de compra completa.
 
-Las cantidades de cobertura también pueden introducirse en gramos o unidades cuando el producto lo permita; el dominio las normaliza a gramos. No son inventario global ni se trasladan a otra semana.
+La disponibilidad se introduce y almacena en gramos. No es inventario global ni se traslada a otra semana. Comprar una parte y declarar que ya se tiene una cantidad son el mismo ajuste para esta versión; no se persiste un historial de compras.
 
 La entrada calculada expone necesidad total, disponibilidad, cobertura, pendiente, recomendación de compra, coste y sobrante teórico.
 
@@ -79,6 +84,7 @@ La entrada calculada expone necesidad total, disponibilidad, cobertura, pendient
 ```text
 Producto 1 ── 0..1 Presentación
 Comida 1 ── 1..N Ingrediente de comida ── 1 Producto
+Comida 1 ── 0..N Momento recomendado
 Instancia 1 ── 1..N Ingrediente planificado ── 1 Producto
 Instancia N ── 0..1 Comida base
 Semana + Producto 1 ── 0..1 Cobertura semanal
@@ -102,12 +108,11 @@ pendiente = máximo(0, necesidad - disponible - compras cubiertas)
 ```
 
 - Paquete: se recomienda `techo(pendiente / gramos_por_paquete)` paquetes.
-- A granel por peso: se recomienda el pendiente en gramos.
-- A granel por unidad: se convierten los gramos a unidades y se redondea hacia arriba.
+- A granel por peso o sin presentación: se recomienda el pendiente en gramos.
 
-El sobrante teórico es lo disponible y adquirido menos lo planificado. El coste usa los paquetes recomendados, precio por kg o precio por unidad, según exista. Si faltan datos, el resultado declara ese cálculo no disponible en vez de inventarlo.
+El sobrante teórico es lo disponible menos lo planificado, más la compra recomendada cuando corresponda. El coste usa los paquetes recomendados o el precio por kg, según exista. Si faltan datos, el resultado declara ese cálculo no disponible en vez de inventarlo.
 
-Al completar una entrada, el caso de uso cubre de una vez el pendiente actual usando la mínima compra válida para su presentación. La compra parcial es una alternativa explícita y no requiere completar primero la entrada.
+No existe una operación separada de compra completa o parcial. El usuario modifica la disponibilidad y el dominio recalcula la recomendación, coste y sobrante a partir de ese valor.
 
 ### Archivado y retirada
 
@@ -120,11 +125,11 @@ Al completar una entrada, el caso de uso cubre de una vez el pendiente actual us
 
 | Área | Casos de uso |
 | --- | --- |
-| Productos | listar, crear, editar, archivar, restaurar, consultar afectadas, retirar de recetas |
-| Comidas | listar, crear, editar, archivar, restaurar, consultar detalle y macros |
-| Planificación | consultar semana, crear/editar/retirar instancia, reordenar franja |
+| Productos | listar y buscar activos, crear, editar, archivar, restaurar, consultar afectadas, retirar de recetas |
+| Comidas | listar y buscar activas, filtrar por producto, crear, editar, archivar, restaurar, consultar detalle y macros |
+| Planificación | consultar semana, crear/editar/retirar instancia, mover y reordenar entre franjas |
 | Resúmenes | consultar macros diarios y semanales |
-| Compra | consultar lista, indicar disponible, registrar parcial, completar entrada |
+| Compra | consultar lista e indicar disponibilidad semanal |
 
 Cada comando recibe y devuelve DTOs serializables, delega inmediatamente en un caso de uso y traduce errores de dominio. Contratos concretos se definen junto con cada tarea.
 
@@ -140,7 +145,9 @@ Los DTOs de productos usan nombres en `camelCase` y no exponen tipos internos de
 | `archive_product` | identificador | confirmación sin contenido |
 | `restore_product` | identificador | confirmación sin contenido |
 
-Los datos de producto incluyen nombre, categoría, macros por 100 g, tienda, marca y presentación opcional. La presentación lleva un discriminante `kind` y uno de los tres conjuntos de datos aprobados: paquete, a granel por peso o a granel por unidad. Un error de validación devuelve un mensaje serializable y comprensible; los errores internos de SQLite se traducen a un mensaje genérico sin exponer detalles de la base de datos.
+Los datos de producto incluyen nombre, categoría, supermercado, macros por 100 g y presentación opcional. La presentación lleva un discriminante `kind` y uno de los dos conjuntos de datos nuevos aprobados: paquete o a granel por peso. Un error de validación devuelve un mensaje serializable y comprensible; los errores internos de SQLite se traducen a un mensaje genérico sin exponer detalles de la base de datos.
+
+Los comandos de búsqueda reciben texto opcional y filtros de categoría o producto, y devuelven solo activos salvo que se solicite explícitamente el archivo. El contrato de planificación incorporará `move_planned_instance`, con identificador, día de destino, franja de destino y posición de inserción. Rust reordenará atómicamente los elementos de origen y destino.
 
 ## Persistencia y atomicidad
 
@@ -152,21 +159,21 @@ Esta decisión concreta la ADR-001 sin cambiar la fuente de verdad local, la fro
 
 ## Responsabilidades de React
 
-- Catálogo: filtros, formularios de producto y presentación condicional por modo.
-- Comidas: formularios y selector de gramos/unidades condicionado por el producto.
-- Calendario: navegación, franjas, borradores, orden e indicación de instancia modificada.
-- Compra: visualización de necesidad, cobertura, pendiente, coste y sobrante; controles de disponible y compras.
+- Catálogo: buscador, filtro de categoría visible, menú de acciones secundarias y archivo bajo demanda.
+- Comidas: buscador, filtro por producto, formulario con momentos recomendados y selector de gramos/unidades condicionado por el producto.
+- Calendario: navegación, buscador de comidas, orden por momento recomendado, arrastrar y soltar, indicación de instancia modificada y resaltado del día actual en `Europe/Madrid`.
+- Compra: visualización de necesidad, disponible, pendiente, recomendación, coste y sobrante; un único control «Tienes» en gramos.
 
-Los filtros, modales, formularios sin confirmar, semana enfocada y estados de carga/error son estado efímero de React.
+Los filtros, búsquedas, modales, formularios sin confirmar, semana enfocada y estados de carga/error son estado efímero de React. El contenedor del módulo conserva filtros y búsquedas al cambiar de pestaña durante la sesión, pero no los guarda tras cerrar la aplicación.
 
 ## Validación y pruebas
 
-Rust valida nombres, macros, precios y cantidades no negativas, ingredientes positivos, comidas no vacías, semanas/franjas válidas y que una cantidad por unidades disponga de gramos por unidad.
+Rust valida nombres, supermercado permitido, macros, precios en euros convertibles a céntimos y cantidades no negativas, ingredientes positivos, comidas no vacías, semanas/franjas válidas y que una cantidad por unidades disponga de gramos por unidad.
 
-Las pruebas cubren validación, conversión gramos/unidades, macros, paquetes, venta a granel, redondeo, sobrantes, archivado, copiado de instancias, SQLite, contratos de comandos y flujos visibles de React.
+Las pruebas cubren validación, conversión gramos/unidades, macros, paquetes, venta a granel por peso, redondeo, sobrantes, archivado, copiado y movimiento de instancias, SQLite, contratos de comandos y flujos visibles de React.
 
 ## Decisiones concretadas durante el primer vertical
 
-1. Los cálculos conservan precisión `f64` en Rust; la interfaz muestra macros con un decimal y kcal sin decimales. No se redondean valores antes de agregarlos.
-2. La cobertura semanal se conserva si el plan cambia. La necesidad y el pendiente se recalculan contra el plan vigente; un control explícito para reiniciar cobertura queda fuera de esta versión.
+1. Los cálculos conservan precisión `f64` en Rust; la interfaz muestra macros y kcal como enteros y no usa incrementos decimales. No se redondean valores antes de agregarlos.
+2. La disponibilidad semanal se conserva si el plan cambia. La necesidad y el pendiente se recalculan contra el plan vigente; no existe historial de compras ni control de reinicio en esta versión.
 3. Retirar un producto se rechaza si alguna receta base quedaría sin ingredientes. El usuario puede conservarla, sustituir el producto o archivarla antes de repetir la retirada.
