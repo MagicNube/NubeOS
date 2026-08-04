@@ -362,3 +362,13 @@ Estas tareas aplican la spec y el diseño aprobados el 2026-08-03. Nube aprobó 
 - Verificación: `pnpm build`, pruebas Rust de movimiento existentes y comprobación manual de navegación, detalle, retirada, edición y arrastre.
 
 **Resultado:** la navegación semanal centra su intervalo entre las flechas. La cabecera diaria queda reducida a día y fecha; las tarjetas muestran solo el título y conservan su comportamiento de arrastre. Una fila final presenta los macros de cada día y el clic abre un detalle de instancia con ingredientes, macros individuales, total y acciones explícitas para editar o retirar del plan.
+
+## T-037 — Implementar arrastre fiable en el calendario
+
+- Estado: Completada
+- Dependencias: T-020, T-021, T-036
+- Alcance: sustituir el arrastre HTML nativo, no fiable en el WebView de Tauri, por una interacción basada en eventos de puntero y centrar las etiquetas de las franjas horarias.
+- Criterios de aceptación: arrastrar una tarjeta y soltarla sobre otra posición, franja o día llama al caso de uso de movimiento correcto; un clic sin desplazamiento abre el detalle; durante el arrastre, una copia visual de la tarjeta sigue el cursor y el origen queda atenuado; las etiquetas de Desayuno, Comida, Merienda, Cena y Extra se centran en su celda.
+- Verificación: `pnpm build`, pruebas Rust existentes de movimiento y comprobación manual de arrastrar entre días, franjas y posiciones.
+
+**Resultado:** las tarjetas desactivan el mecanismo HTML nativo y la interfaz sigue los eventos de puntero del ratón. Al soltar, identifica la celda y la tarjeta bajo el cursor, calcula la posición final y delega el movimiento en el comando Rust existente. Un umbral corto conserva el clic normal para abrir el detalle; durante el arrastre el origen se atenúa y una copia visual de la tarjeta sigue el cursor. Las etiquetas laterales se centran horizontalmente.

@@ -162,3 +162,7 @@
 .plan-detail-slot { margin: 8px 0 0; color: #c4b5fd; font-size: 13px; }
 .plan-detail-dialog .editor-actions { justify-content: space-between; }
 @media (max-width: 600px) { .plan-detail-dialog { padding: 18px; }.plan-detail-dialog .editor-actions { align-items: stretch; flex-direction: column-reverse; }.plan-detail-dialog .editor-actions button { width: 100%; } }
+.real-slot-heading { justify-content: center; text-align: center; }
+.planned-chip { user-select: none; }
+.planned-chip.pointer-dragging { cursor: grabbing; opacity: .48; }
+.planned-chip.planner-drag-preview { position: fixed; z-index: 1000; top: 0; left: 0; margin: 0; opacity: .96; pointer-events: none; box-shadow: 0 16px 34px rgba(0, 0, 0, .42); transform-origin: top left; }

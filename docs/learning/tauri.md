@@ -44,3 +44,10 @@ Este documento recoge conceptos de Tauri incorporados de forma consciente al pro
 - **Límite de responsabilidad:** React puede conservar un borrador de texto y representar un arrastre, pero no convierte dinero, calcula compra ni decide las posiciones finales del calendario.
 - **Implicaciones de seguridad:** Rust sigue comprobando que la cantidad es válida, que el supermercado pertenece al conjunto permitido y que el día y la franja de destino son correctos, aunque React haya limitado los controles visuales.
 - **Ejemplo pequeño:** `invoke('move_planned_instance', { id, input: { weekday, slot, position } })` expresa la intención; el comando delega en una transacción del repositorio.
+
+### Arrastre en el WebView
+
+- **Qué es:** el arrastre HTML basado en `draggable` y `dataTransfer` depende de la implementación del navegador embebido. Los eventos de puntero (`pointerdown`, `pointermove` y `pointerup`) describen directamente el gesto de ratón o táctil.
+- **Por qué se usa en NubeOS:** en el calendario de comidas, el arrastre HTML nativo no entregaba de forma fiable el destino en el WebView de Tauri. React interpreta el gesto de puntero como estado temporal de interfaz, localiza la celda bajo el cursor y solicita a Rust el movimiento final.
+- **Límite de responsabilidad:** React solo detecta origen, destino y posición visual. El comando `move_planned_instance` y el repositorio Rust validan y persisten el cambio de día, franja y orden.
+- **Ejemplo pequeño:** al superar seis píxeles de desplazamiento, la tarjeta pasa a estado de arrastre, el origen se atenúa y una copia visual sigue al cursor. Al soltar sobre una tarjeta, su mitad superior inserta antes y su mitad inferior inserta después.

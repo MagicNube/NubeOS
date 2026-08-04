@@ -147,16 +147,112 @@ function PlannerPage({ weekStart, onWeekChange }: { weekStart: string; onWeekCha
   const [editingForm, setEditingForm] = useState<PlannedInstance | null>(null);
   const [pickerQuery, setPickerQuery] = useState("");
   const [draggedId, setDraggedId] = useState<string | null>(null);
+  const draggedIdRef = useRef<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const today = useMadridToday();
   async function refresh() { setError(null); try { const [nextPlan, activeMeals, archivedMeals, activeProducts, archivedProducts] = await Promise.all([mealsApi.listWeek(weekStart), mealsApi.listMeals("active"), mealsApi.listMeals("archived"), productApi.list("active"), productApi.list("archived")]); setPlan(nextPlan); setMeals([...activeMeals, ...archivedMeals]); setProducts([...activeProducts, ...archivedProducts]); } catch (reason) { setError(errorMessage(reason)); } }
   useEffect(() => { void refresh(); }, [weekStart]);
   async function addMeal(meal: Meal) { if (!target) return; try { await mealsApi.createPlannedInstance({ weekStart, weekday: target.weekday, slot: target.slot, mealId: meal.id }); setTarget(null); setPickerQuery(""); await refresh(); } catch (reason) { setError(errorMessage(reason)); } }
   async function remove(instance: PlannedInstance) { try { await mealsApi.removePlannedInstance(instance.id); await refresh(); } catch (reason) { setError(errorMessage(reason)); } }
-  async function move(id: string, weekday: number, slot: MealSlot, position: number) { try { await mealsApi.movePlannedInstance(id, { weekday, slot, position }); await refresh(); } catch (reason) { setError(errorMessage(reason)); } finally { setDraggedId(null); } }
-  const beginDrag = (event: DragEvent<HTMLDivElement>, id: string) => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", id); setDraggedId(id); };
-  const receiveDrop = (event: DragEvent<HTMLElement>, weekday: number, slot: MealSlot, position: number) => { event.preventDefault(); const id = event.dataTransfer.getData("text/plain") || draggedId; if (id) void move(id, weekday, slot, position); };
+  async function move(id: string, weekday: number, slot: MealSlot, position: number) { try { await mealsApi.movePlannedInstance(id, { weekday, slot, position }); await refresh(); } catch (reason) { setError(errorMessage(reason)); } finally { draggedIdRef.current = null; setDraggedId(null); } }
+  const beginDrag = (event: DragEvent<HTMLDivElement>, id: string) => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", id); draggedIdRef.current = id; setDraggedId(id); };
+  const receiveDrop = (event: DragEvent<HTMLElement>, weekday: number, slot: MealSlot, position: number) => { event.preventDefault(); const id = event.dataTransfer.getData("text/plain") || draggedIdRef.current || draggedId; if (id) void move(id, weekday, slot, position); };
   const dropPositionForCard = (event: DragEvent<HTMLDivElement>, index: number) => { const bounds = event.currentTarget.getBoundingClientRect(); return event.clientY > bounds.top + bounds.height / 2 ? index + 1 : index; };
+  useEffect(() => {
+    const grid = document.querySelector<HTMLElement>(".planner-section .real-week-grid");
+    if (!grid || !plan) return;
+
+    const visibleInstances = slots.flatMap((slot) => weekdays.flatMap((_, weekday) => plan.instances
+      .filter((instance) => instance.slot === slot.id && instance.weekday === weekday)
+      .sort((left, right) => left.position - right.position)));
+    let active: { chip: HTMLElement; id: string; pointerId: number; startX: number; startY: number; offsetX: number; offsetY: number; moved: boolean; preview: HTMLElement | null; source: PlannedInstance } | null = null;
+    let suppressClick = false;
+
+    Array.from(grid.querySelectorAll<HTMLElement>(".planned-chip")).forEach((chip) => { chip.draggable = false; });
+
+    const reset = () => {
+      if (active) {
+        active.chip.classList.remove("pointer-dragging");
+        active.preview?.remove();
+      }
+      active = null;
+      draggedIdRef.current = null;
+      setDraggedId(null);
+    };
+    const movePreview = (event: PointerEvent) => {
+      if (!active?.preview) return;
+      active.preview.style.transform = `translate3d(${event.clientX - active.offsetX}px, ${event.clientY - active.offsetY}px, 0)`;
+    };
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.button !== 0 || !(event.target instanceof Element)) return;
+      const chip = event.target.closest<HTMLElement>(".planned-chip");
+      if (!chip || !grid.contains(chip) || event.target.closest("button")) return;
+      const index = Array.from(grid.querySelectorAll<HTMLElement>(".planned-chip")).indexOf(chip);
+      const source = visibleInstances[index];
+      if (!source) return;
+      const bounds = chip.getBoundingClientRect();
+      active = { chip, id: source.id, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, offsetX: event.clientX - bounds.left, offsetY: event.clientY - bounds.top, moved: false, preview: null, source };
+    };
+    const onPointerMove = (event: PointerEvent) => {
+      if (!active || active.pointerId !== event.pointerId) return;
+      if (!active.moved && Math.hypot(event.clientX - active.startX, event.clientY - active.startY) < 6) return;
+      event.preventDefault();
+      if (!active.moved) {
+        active.moved = true;
+        active.chip.classList.add("pointer-dragging");
+        const preview = active.chip.cloneNode(true) as HTMLElement;
+        preview.classList.add("planner-drag-preview");
+        preview.setAttribute("aria-hidden", "true");
+        preview.style.width = `${active.chip.getBoundingClientRect().width}px`;
+        document.body.append(preview);
+        active.preview = preview;
+        movePreview(event);
+        draggedIdRef.current = active.id;
+        setDraggedId(active.id);
+      } else movePreview(event);
+    };
+    const onPointerUp = (event: PointerEvent) => {
+      if (!active || active.pointerId !== event.pointerId) return;
+      const drag = active;
+      if (!drag.moved) { active = null; return; }
+      suppressClick = true;
+      const target = document.elementFromPoint(event.clientX, event.clientY);
+      const cell = target instanceof Element ? target.closest<HTMLElement>(".real-slot-cell") : null;
+      const cells = Array.from(grid.querySelectorAll<HTMLElement>(".real-slot-cell"));
+      const cellIndex = cell ? cells.indexOf(cell) : -1;
+      reset();
+      if (cellIndex < 0) return;
+      const slot = slots[Math.floor(cellIndex / weekdays.length)];
+      if (!slot) return;
+      const hoveredChip = target instanceof Element ? target.closest<HTMLElement>(".planned-chip") : null;
+      const chips = Array.from(cell?.querySelectorAll<HTMLElement>(".planned-chip") ?? []);
+      const hoveredIndex = hoveredChip ? chips.indexOf(hoveredChip) : -1;
+      const hoveredBounds = hoveredChip?.getBoundingClientRect();
+      let position = hoveredIndex < 0 ? chips.length : hoveredIndex + (hoveredBounds && event.clientY > hoveredBounds.top + hoveredBounds.height / 2 ? 1 : 0);
+      if (drag.source.weekday === cellIndex % weekdays.length && drag.source.slot === slot.id && position > drag.source.position) position -= 1;
+      void move(drag.id, cellIndex % weekdays.length, slot.id, position);
+    };
+    const onPointerCancel = () => reset();
+    const onClickCapture = (event: MouseEvent) => {
+      if (!suppressClick) return;
+      suppressClick = false;
+      event.preventDefault();
+      event.stopPropagation();
+    };
+
+    grid.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("pointermove", onPointerMove, { passive: false });
+    window.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("pointercancel", onPointerCancel);
+    grid.addEventListener("click", onClickCapture, true);
+    return () => {
+      grid.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointercancel", onPointerCancel);
+      grid.removeEventListener("click", onClickCapture, true);
+    };
+  }, [plan]);
   const mealName = (instance: PlannedInstance) => meals.find((meal) => meal.id === instance.sourceMealId)?.name ?? "Comida planificada";
   const pickerMeals = useMemo(() => { if (!target) return []; const normalized = pickerQuery.trim().toLocaleLowerCase("es"); return meals.filter((meal) => meal.status === "active" && meal.name.toLocaleLowerCase("es").includes(normalized)).sort((left, right) => Number(right.recommendedSlots.includes(target.slot)) - Number(left.recommendedSlots.includes(target.slot)) || left.name.localeCompare(right.name, "es")); }, [meals, pickerQuery, target]);
   return <section className="planner-section"><div className="planner-toolbar"><div className="week-navigation"><button aria-label="Semana anterior" className="product-icon-button" onClick={() => onWeekChange(offsetWeek(weekStart, -1))} type="button"><ChevronLeft size={18} /></button><div><p className="section-kicker">SEMANA</p><h2>{formatWeek(weekStart)}</h2></div><button aria-label="Semana siguiente" className="product-icon-button" onClick={() => onWeekChange(offsetWeek(weekStart, 1))} type="button"><ChevronRight size={18} /></button><button className="today-button" onClick={() => onWeekChange(currentWeekStart())} type="button">Hoy</button></div></div>{error && <p className="form-error" role="alert">{error}</p>}
