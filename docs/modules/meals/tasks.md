@@ -372,3 +372,23 @@ Estas tareas aplican la spec y el diseño aprobados el 2026-08-03. Nube aprobó 
 - Verificación: `pnpm build`, pruebas Rust existentes de movimiento y comprobación manual de arrastrar entre días, franjas y posiciones.
 
 **Resultado:** las tarjetas desactivan el mecanismo HTML nativo y la interfaz sigue los eventos de puntero del ratón. Al soltar, identifica la celda y la tarjeta bajo el cursor, calcula la posición final y delega el movimiento en el comando Rust existente. Un umbral corto conserva el clic normal para abrir el detalle; durante el arrastre el origen se atenúa y una copia visual de la tarjeta sigue el cursor. Las etiquetas laterales se centran horizontalmente.
+
+## T-038 — Consolidar la calidad del módulo de comidas
+
+- Estado: Completada
+- Dependencias: T-037
+- Alcance: retirar el arrastre HTML obsoleto, evitar que respuestas asíncronas antiguas sustituyan la semana o filtro actuales, exigir semanas ISO canónicas, consolidar estilos acumulados y aplicar una regla explícita de redondeo de costes.
+- Criterios de aceptación: solo existe un mecanismo de arrastre basado en puntero; una respuesta anterior no modifica una vista tras cambiar su consulta; `WeekStart` rechaza fechas no canónicas; cada precio de línea y sus totales usan céntimos enteros; CSS y JSX del calendario no conservan reglas ni handlers obsoletos; `cargo fmt --check` y Clippy no informan incidencias.
+- Verificación: `pnpm build`, `cargo test`, `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings` y comprobación manual de navegación rápida, arrastre y coste a granel.
+
+**Resultado:** el calendario conserva exclusivamente el arrastre por eventos de puntero; se retiraron atributos, handlers y estilos residuales del mecanismo HTML. Las cargas de Productos, Comidas, Planificador y Compra descartan respuestas que ya no son la petición vigente. Las semanas aceptan únicamente el formato ISO canónico, y el coste se calcula como céntimos enteros: cada línea a granel se redondea primero y los totales agregan esas líneas. Rust y los estilos quedaron formateados; Clippy y la comprobación de formato no producen incidencias.
+
+## T-039 — Navegar y jerarquizar la compra semanal
+
+- Estado: Completada
+- Dependencias: T-038
+- Alcance: normalizar la presentación de importes nulos, permitir navegar entre semanas desde Compra y reorganizar su cabecera para priorizar el coste antes de la acción de añadido.
+- Criterios de aceptación: al completar todas las líneas el coste pendiente se muestra exactamente como `0,00 €`; Compra muestra la semana enfocada, permite ir a la anterior, siguiente o actual y conserva el mismo foco que Planificador; el resumen de coste queda junto al título mientras «Añadir producto» se mantiene a la derecha.
+- Verificación: `pnpm build` y comprobación manual de semanas vacía, actual, pasada y futura, y de todos los productos marcados.
+
+**Resultado:** Compra reutiliza la semana enfocada del módulo y ofrece los controles de anterior, siguiente y «Hoy» sin duplicar estado. Su resumen de coste queda junto al intervalo de fechas, antes de la acción «Añadir producto». La presentación monetaria protege el límite de interfaz: cualquier cero, incluido un posible cero negativo heredado, se muestra como `0,00 €`.

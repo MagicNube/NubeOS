@@ -180,7 +180,7 @@ pub struct ShoppingEntryDto {
     pub available_grams: f64,
     pub pending_grams: f64,
     pub recommendation: Option<PurchaseRecommendationDto>,
-    pub estimated_cost_cents: Option<f64>,
+    pub estimated_cost_cents: Option<u64>,
     pub theoretical_leftover_grams: Option<f64>,
     pub is_checked: bool,
 }
@@ -189,8 +189,8 @@ pub struct ShoppingEntryDto {
 #[serde(rename_all = "camelCase")]
 pub struct ShoppingListDto {
     pub entries: Vec<ShoppingEntryDto>,
-    pub estimated_total_cents: Option<f64>,
-    pub pending_estimated_total_cents: Option<f64>,
+    pub estimated_total_cents: Option<u64>,
+    pub pending_estimated_total_cents: Option<u64>,
 }
 
 #[tauri::command]
@@ -459,12 +459,14 @@ pub fn list_shopping_list(
             connection,
             WeekStart::new(week_start).map_err(domain_error)?,
         )?;
-        let estimated_total_cents = entries.iter().map(|entry| entry.estimated_cost_cents).sum();
-        let pending_estimated_total_cents = entries
-            .iter()
-            .filter(|entry| !entry.is_checked)
-            .map(|entry| entry.estimated_cost_cents)
-            .sum();
+        let estimated_total_cents =
+            sum_known_costs(entries.iter().map(|entry| entry.estimated_cost_cents));
+        let pending_estimated_total_cents = sum_known_costs(
+            entries
+                .iter()
+                .filter(|entry| !entry.is_checked)
+                .map(|entry| entry.estimated_cost_cents),
+        );
         Ok(ShoppingListDto {
             entries,
             estimated_total_cents,
@@ -783,6 +785,12 @@ fn shopping_entries(
         .collect()
 }
 
+fn sum_known_costs(mut costs: impl Iterator<Item = Option<u64>>) -> Option<u64> {
+    costs.try_fold(0_u64, |total, cost| {
+        cost.and_then(|cents| total.checked_add(cents))
+    })
+}
+
 fn macros_to_dto(macros: MacroTotals) -> MacroTotalsDto {
     MacroTotalsDto {
         protein_grams: macros.protein_grams(),
@@ -965,5 +973,11 @@ mod tests {
         assert_eq!(entries[0].planned_needed_grams, 100.0);
         assert_eq!(entries[0].manual_needed_grams, 75.0);
         assert_eq!(entries[0].needed_grams, 175.0);
+    }
+
+    #[test]
+    fn shopping_total_adds_line_costs_already_rounded_to_cents() {
+        assert_eq!(sum_known_costs([Some(34), Some(34)].into_iter()), Some(68));
+        assert_eq!(sum_known_costs([Some(34), None].into_iter()), None);
     }
 }

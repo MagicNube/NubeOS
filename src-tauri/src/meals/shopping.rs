@@ -23,7 +23,7 @@ impl PurchaseRecommendation {
 pub struct ShoppingCalculation {
     pub pending_grams: f64,
     pub recommendation: Option<PurchaseRecommendation>,
-    pub estimated_cost_cents: Option<f64>,
+    pub estimated_cost_cents: Option<u64>,
     pub theoretical_leftover_grams: Option<f64>,
 }
 
@@ -37,7 +37,7 @@ pub fn calculate(
         return ShoppingCalculation {
             pending_grams,
             recommendation: Some(zero_recommendation(product)),
-            estimated_cost_cents: Some(0.0),
+            estimated_cost_cents: Some(0),
             theoretical_leftover_grams: Some((available_grams - needed_grams).max(0.0)),
         };
     }
@@ -64,7 +64,8 @@ pub fn calculate(
             ShoppingCalculation {
                 pending_grams,
                 recommendation: Some(PurchaseRecommendation::Packages { packages, grams }),
-                estimated_cost_cents: price_cents.map(|price| f64::from(packages) * price as f64),
+                estimated_cost_cents: price_cents
+                    .and_then(|price| price.checked_mul(u64::from(packages))),
                 theoretical_leftover_grams: Some((available_grams + grams - needed_grams).max(0.0)),
             }
         }
@@ -76,7 +77,7 @@ pub fn calculate(
                 grams: pending_grams,
             }),
             estimated_cost_cents: price_cents_per_kilogram
-                .map(|price| pending_grams * price as f64 / 1000.0),
+                .and_then(|price| rounded_cents(pending_grams * price as f64 / 1000.0)),
             theoretical_leftover_grams: Some(0.0),
         },
         PurchasePresentationKind::BulkByUnit {
@@ -89,7 +90,7 @@ pub fn calculate(
                 pending_grams,
                 recommendation: Some(PurchaseRecommendation::Units { units, grams }),
                 estimated_cost_cents: price_cents_per_unit
-                    .map(|price| f64::from(units) * price as f64),
+                    .and_then(|price| price.checked_mul(u64::from(units))),
                 theoretical_leftover_grams: Some((available_grams + grams - needed_grams).max(0.0)),
             }
         }
@@ -105,6 +106,13 @@ pub fn calculate(
             theoretical_leftover_grams: None,
         },
     }
+}
+
+fn rounded_cents(value: f64) -> Option<u64> {
+    if !value.is_finite() || value < 0.0 || value > u64::MAX as f64 {
+        return None;
+    }
+    Some(value.round() as u64)
 }
 
 fn zero_recommendation(product: &Product) -> PurchaseRecommendation {
@@ -154,7 +162,7 @@ mod tests {
                 grams: 640.0
             })
         );
-        assert_eq!(calculated.estimated_cost_cents, Some(398.0));
+        assert_eq!(calculated.estimated_cost_cents, Some(398));
         assert_eq!(calculated.theoretical_leftover_grams, Some(240.0));
     }
 
@@ -175,7 +183,7 @@ mod tests {
             calculated.recommendation,
             Some(PurchaseRecommendation::Grams { grams: 450.0 })
         );
-        assert_eq!(calculated.estimated_cost_cents, Some(90.0));
+        assert_eq!(calculated.estimated_cost_cents, Some(90));
     }
 
     #[test]
@@ -198,6 +206,24 @@ mod tests {
                 packages: 0,
                 grams: 0.0
             })
+        );
+    }
+
+    #[test]
+    fn bulk_cost_rounds_each_entry_to_the_nearest_cent() {
+        let product = Product::new(
+            ProductId::new("tomate").unwrap(),
+            "Tomate",
+            ProductCategory::Vegetable,
+            NutrientsPer100Grams::new(0.0, 0.0, 0.0, 0.0).unwrap(),
+            None,
+            Some(PurchasePresentation::bulk_by_weight(Some(335))),
+        )
+        .unwrap();
+
+        assert_eq!(
+            calculate(&product, 100.0, 0.0).estimated_cost_cents,
+            Some(34)
         );
     }
 }

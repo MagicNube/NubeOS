@@ -116,7 +116,7 @@ impl<'connection> MealRepository<'connection> {
                 StoredMeal::from_row,
             )
             .optional()?;
-        stored.map(|meal| self.to_meal(meal)).transpose()
+        stored.map(|meal| self.hydrate_meal(meal)).transpose()
     }
 
     pub fn list(&mut self, status: Option<MealStatus>) -> Result<Vec<Meal>, MealRepositoryError> {
@@ -146,7 +146,10 @@ impl<'connection> MealRepository<'connection> {
                 statement.query_map(params![status, search, product_id], StoredMeal::from_row)?;
             rows.collect::<Result<Vec<_>, _>>()?
         };
-        stored.into_iter().map(|meal| self.to_meal(meal)).collect()
+        stored
+            .into_iter()
+            .map(|meal| self.hydrate_meal(meal))
+            .collect()
     }
 
     pub fn archive(&mut self, id: &MealId) -> Result<(), MealRepositoryError> {
@@ -205,7 +208,10 @@ impl<'connection> MealRepository<'connection> {
                 .collect::<Result<Vec<_>, _>>()?;
             meals
         };
-        stored.into_iter().map(|meal| self.to_meal(meal)).collect()
+        stored
+            .into_iter()
+            .map(|meal| self.hydrate_meal(meal))
+            .collect()
     }
 
     pub fn remove_product_from_recipes(
@@ -245,7 +251,7 @@ impl<'connection> MealRepository<'connection> {
         Ok(())
     }
 
-    fn to_meal(&mut self, stored: StoredMeal) -> Result<Meal, MealRepositoryError> {
+    fn hydrate_meal(&mut self, stored: StoredMeal) -> Result<Meal, MealRepositoryError> {
         let id = MealId::new(stored.id)?;
         let ingredients = load_recipe_ingredients(self.connection, &id)?;
         let recommended_slots = load_recommended_slots(self.connection, &id)?;
@@ -310,7 +316,7 @@ impl<'connection> PlanningRepository<'connection> {
         };
         stored
             .into_iter()
-            .map(|instance| self.to_instance(instance))
+            .map(|instance| self.hydrate_instance(instance))
             .collect()
     }
 
@@ -328,7 +334,7 @@ impl<'connection> PlanningRepository<'connection> {
             )
             .optional()?;
         stored
-            .map(|instance| self.to_instance(instance))
+            .map(|instance| self.hydrate_instance(instance))
             .transpose()
     }
 
@@ -535,7 +541,7 @@ impl<'connection> PlanningRepository<'connection> {
         Ok(())
     }
 
-    fn to_instance(
+    fn hydrate_instance(
         &mut self,
         stored: StoredInstance,
     ) -> Result<PlannedInstance, MealRepositoryError> {
@@ -619,7 +625,7 @@ fn load_recipe_ingredients(
     let mut statement = connection.prepare("SELECT product_id, quantity, unit, position FROM meals_recipe_ingredients WHERE meal_id = ?1 ORDER BY position")?;
     let ingredients = statement
         .query_map([meal_id.as_str()], StoredIngredient::from_row)?
-        .map(|ingredient| ingredient?.to_domain())
+        .map(|ingredient| ingredient?.into_domain())
         .collect();
     ingredients
 }
@@ -645,7 +651,7 @@ fn load_planned_ingredients(
     let mut statement = connection.prepare("SELECT product_id, quantity, unit, position FROM meals_planned_ingredients WHERE instance_id = ?1 ORDER BY position")?;
     let ingredients = statement
         .query_map([instance_id.as_str()], StoredIngredient::from_row)?
-        .map(|ingredient| ingredient?.to_domain())
+        .map(|ingredient| ingredient?.into_domain())
         .collect();
     ingredients
 }
@@ -725,7 +731,7 @@ impl StoredIngredient {
             position: row.get(3)?,
         })
     }
-    fn to_domain(self) -> Result<MealIngredient, MealRepositoryError> {
+    fn into_domain(self) -> Result<MealIngredient, MealRepositoryError> {
         let quantity = match self.unit.as_str() {
             "grams" => IngredientQuantity::grams(self.quantity).map_err(MealDomainError::from),
             "units" => IngredientQuantity::units(self.quantity).map_err(MealDomainError::from),

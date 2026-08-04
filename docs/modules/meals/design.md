@@ -30,10 +30,10 @@ El nombre del producto contiene la marca cuando haga falta distinguirlo. No se m
 
 La presentación pertenece a un producto y no existe por separado. Solo hay una en esta etapa y los productos nuevos deben elegir uno de estos modos:
 
-| Modo | Datos | Ejemplo |
-| --- | --- | --- |
+| Modo                     | Datos                                                              | Ejemplo                 |
+| ------------------------ | ------------------------------------------------------------------ | ----------------------- |
 | Paquete, bolsa o bandeja | gramos totales, precio por paquete en euros, unidades (opcionales) | tortillas: 320 g, 8 uds |
-| A granel por peso | precio (opcional) por kg | patata: 2,00 €/kg |
+| A granel por peso        | precio (opcional) por kg                                           | patata: 2,00 €/kg       |
 
 Si un paquete tiene gramos totales y número de unidades, el dominio deriva `gramos_por_unidad`. Sin ese dato, el producto solo admite cantidades en gramos. El nombre de compra se deriva del nombre actual del producto; no existe una etiqueta adicional.
 
@@ -114,7 +114,7 @@ pendiente = máximo(0, necesidad - disponible)
 - Paquete: se recomienda `techo(pendiente / gramos_por_paquete)` paquetes.
 - A granel por peso o presentación heredada: se recomienda el pendiente en gramos.
 
-El sobrante teórico es lo disponible menos lo planificado, más la compra recomendada cuando corresponda. El coste usa los paquetes recomendados o el precio por kg, según exista. Si faltan datos, el resultado declara ese cálculo no disponible en vez de inventarlo.
+El sobrante teórico es lo disponible menos lo planificado, más la compra recomendada cuando corresponda. El coste usa los paquetes recomendados o el precio por kg, según exista. El cálculo puede producir fracciones de céntimo en productos a granel: Rust redondea cada entrada al céntimo más cercano y los totales suman esos céntimos enteros. Si faltan datos, el resultado declara ese cálculo no disponible en vez de inventarlo.
 
 La casilla de una línea no es una operación de compra: persiste un estado semanal de comprobación y no modifica la disponibilidad. El usuario modifica la disponibilidad y el dominio recalcula recomendación, coste y sobrante. El coste pendiente suma solo las líneas no comprobadas.
 
@@ -128,13 +128,13 @@ La casilla de una línea no es una operación de compra: persiste un estado sema
 
 ## Casos de uso y comandos Tauri
 
-| Área | Casos de uso |
-| --- | --- |
-| Productos | listar y buscar activos, crear, editar, archivar, restaurar, consultar afectadas, retirar de recetas |
-| Comidas | listar y buscar activas, filtrar por producto, crear, editar, archivar, restaurar, consultar detalle y macros |
-| Planificación | consultar semana, crear/editar/retirar instancia, mover y reordenar entre franjas |
-| Resúmenes | consultar macros diarios y semanales |
-| Compra | consultar proyección semanal, indicar disponibilidad, añadir o retirar una necesidad manual y marcar una línea como comprobada |
+| Área          | Casos de uso                                                                                                                   |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Productos     | listar y buscar activos, crear, editar, archivar, restaurar, consultar afectadas, retirar de recetas                           |
+| Comidas       | listar y buscar activas, filtrar por producto, crear, editar, archivar, restaurar, consultar detalle y macros                  |
+| Planificación | consultar semana, crear/editar/retirar instancia, mover y reordenar entre franjas                                              |
+| Resúmenes     | consultar macros diarios y semanales                                                                                           |
+| Compra        | consultar proyección semanal, indicar disponibilidad, añadir o retirar una necesidad manual y marcar una línea como comprobada |
 
 Cada comando recibe y devuelve DTOs serializables, delega inmediatamente en un caso de uso y traduce errores de dominio. Contratos concretos se definen junto con cada tarea.
 
@@ -144,14 +144,14 @@ Los ingredientes devueltos en una comida o instancia incluyen también sus macro
 
 Los DTOs de productos usan nombres en `camelCase` y no exponen tipos internos de dominio. Las categorías y estados se representan como valores cerrados: `vegetable`, `fruit`, `yogurt`, `meat`, `fish`, `other`; y `active` o `archived`.
 
-| Comando | Entrada | Salida |
-| --- | --- | --- |
-| `list_products` | estado opcional | productos ordenados por nombre |
-| `create_product` | datos de producto sin identificador | producto creado con identificador generado por Rust |
-| `update_product` | identificador y datos completos de producto | producto guardado con su estado actual |
-| `archive_product` | identificador | confirmación sin contenido |
-| `restore_product` | identificador | confirmación sin contenido |
-| `delete_product` | identificador archivado | confirmación sin contenido |
+| Comando           | Entrada                                     | Salida                                              |
+| ----------------- | ------------------------------------------- | --------------------------------------------------- |
+| `list_products`   | estado opcional                             | productos ordenados por nombre                      |
+| `create_product`  | datos de producto sin identificador         | producto creado con identificador generado por Rust |
+| `update_product`  | identificador y datos completos de producto | producto guardado con su estado actual              |
+| `archive_product` | identificador                               | confirmación sin contenido                          |
+| `restore_product` | identificador                               | confirmación sin contenido                          |
+| `delete_product`  | identificador archivado                     | confirmación sin contenido                          |
 
 Los datos de producto incluyen nombre, categoría, supermercado, macros por 100 g y una presentación obligatoria para crear o actualizar. La presentación lleva un discriminante `kind` y uno de los dos conjuntos de datos aprobados: paquete o a granel por peso. Un error de validación devuelve un mensaje serializable y comprensible; los errores internos de SQLite se traducen a un mensaje genérico sin exponer detalles de la base de datos.
 
@@ -169,14 +169,14 @@ Esta decisión concreta la ADR-001 sin cambiar la fuente de verdad local, la fro
 
 - Catálogo: buscador, filtro de categoría visible, menú de acciones secundarias y archivo bajo demanda.
 - Comidas: buscador y filtros alineados por producto (búsqueda incremental desde tres caracteres) y momento del día, formulario con momentos del día, selector de producto por ingrediente con el mismo umbral y selector de gramos/unidades condicionado por el producto. Los desplegables se cierran al perder el foco salvo que este se desplace a una de sus opciones. Las tarjetas reservan una altura común y muestran hasta tres ingredientes; al pulsarlas, un modal presenta la receta completa y los macros por ingrediente calculados por Rust. La tipografía secundaria de tarjeta conserva una lectura cómoda sin competir con el título.
-- Calendario: navegación semanal centrada, buscador de comidas, orden por momento del día, arrastrar y soltar con datos explícitos en `dataTransfer` y posición calculada sobre la mitad superior o inferior de una tarjeta, indicación de instancia modificada y resaltado del día actual en `Europe/Madrid`. Las tarjetas contienen solo el nombre y el detalle de instancia presenta ingredientes, macros por ingrediente y total. Los macros diarios aparecen una sola vez en una fila final bajo Extra y el control de añadido aparece bajo interacción.
-- Compra: muestra a la izquierda la recomendación de compra y su coste; a la derecha, necesidad, pendiente, sobrante y control «Tienes». Un diálogo permite buscar un producto activo, indicar gramos o unidades válidas y añadirlo solo a la semana enfocada. La entrada agregada muestra una indicación visible de que no forma parte del plan y ofrece retirar solo esa aportación. React aplica una espera breve al persistir cada pulsación de «Tienes» para no saturar los comandos.
+- Calendario: navegación semanal centrada, buscador de comidas, orden por momento del día y arrastre basado en eventos de puntero. React conserva solo el gesto temporal, muestra una copia visual bajo el cursor y calcula la posición según la mitad superior o inferior de una tarjeta; Rust valida y persiste el movimiento. Las tarjetas contienen solo el nombre y el detalle de instancia presenta ingredientes, macros por ingrediente y total. Los macros diarios aparecen una sola vez en una fila final bajo Extra y el control de añadido aparece bajo interacción.
+- Compra: reutiliza el foco semanal global del planificador y ofrece la misma navegación entre semanas. Sitúa el resumen de coste junto al título y la acción de añadir producto en el extremo derecho; muestra el cero monetario normalizado como `0,00 €`. Cada entrada mantiene a la izquierda la recomendación de compra y su coste; a la derecha, necesidad, pendiente, sobrante y control «Tienes». Un diálogo permite buscar un producto activo, indicar gramos o unidades válidas y añadirlo solo a la semana enfocada. La entrada agregada muestra una indicación visible de que no forma parte del plan y ofrece retirar solo esa aportación. React aplica una espera breve al persistir cada pulsación de «Tienes» para no saturar los comandos.
 
 Los filtros, búsquedas, modales, formularios sin confirmar, semana enfocada y estados de carga/error son estado efímero de React. El contenedor del módulo conserva filtros y búsquedas al cambiar de pestaña durante la sesión, pero no los guarda tras cerrar la aplicación.
 
 ## Validación y pruebas
 
-Rust valida nombres, supermercado permitido, presentación obligatoria al guardar, macros, precios en euros convertibles a céntimos y cantidades no negativas, ingredientes positivos, comidas no vacías, semanas/franjas válidas y que una cantidad por unidades disponga de gramos por unidad.
+Rust valida nombres, supermercado permitido, presentación obligatoria al guardar, macros, precios en euros convertibles a céntimos y cantidades no negativas, ingredientes positivos, comidas no vacías, semanas ISO canónicas en formato exacto `AAAA-MM-DD` que empiezan en lunes, franjas válidas y que una cantidad por unidades disponga de gramos por unidad.
 
 Las pruebas cubren validación, conversión gramos/unidades, macros, paquetes, venta a granel por peso, redondeo, sobrantes, archivado, copiado y movimiento de instancias, SQLite, contratos de comandos y flujos visibles de React.
 

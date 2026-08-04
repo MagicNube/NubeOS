@@ -85,12 +85,15 @@ Los resúmenes diarios muestran proteínas, carbohidratos, grasas y kcal de las 
 
 La lista de compra semanal:
 
+- Muestra la semana actualmente enfocada y permite navegar a semanas anteriores o posteriores sin abandonar Compra; el foco es el mismo que usa el planificador.
 - Agrupa cada producto usado en varias comidas, días o franjas.
 - Permite añadir una necesidad manual semanal eligiendo un producto activo del catálogo mediante buscador e indicando una cantidad válida en gramos o unidades.
 - Suma esa necesidad manual a la misma entrada del producto cuando también procede de una comida; no crea líneas duplicadas.
 - Normaliza las cantidades a gramos para macros, compra y coste; muestra también unidades cuando existe conversión válida.
 - Recomienda paquetes completos o cantidades a granel según la presentación.
 - Redondea paquetes hacia arriba cuando sea necesario para cubrir el plan.
+- Redondea el coste estimado de cada entrada al céntimo más cercano; el coste total y pendiente suman esas líneas ya redondeadas.
+- Muestra un coste pendiente de cero como `0,00 €`, nunca como un importe negativo nulo.
 - Muestra coste estimado total y sobrante teórico cuando hay datos suficientes.
 - No inventa conversiones, precios ni formatos ausentes.
 
@@ -117,6 +120,7 @@ Cada entrada tiene además una casilla de verificación semanal. Solo registra v
 - Una semana vacía muestra macros cero y lista vacía.
 - Un paquete sin número de unidades se usa únicamente en gramos y sigue pudiendo recomendarse para la compra.
 - Una fracción de paquete redondea la compra hacia arriba y muestra el sobrante teórico.
+- Una compra a granel puede producir fracciones de céntimo durante el cálculo; cada línea se redondea al céntimo más cercano antes de mostrarla y agregarla.
 - Un producto heredado sin presentación sigue apareciendo con su necesidad en gramos, sin conversión, coste ni sobrante inventados hasta que se edite.
 - Cambiar «Tienes» modifica solo la disponibilidad de esa semana y producto.
 - Añadir o retirar una necesidad manual modifica solo la lista de la semana enfocada. Para añadirla, el producto debe existir y estar activo en el catálogo.

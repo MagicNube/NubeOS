@@ -61,3 +61,11 @@ Este documento recoge solo conceptos que se utilicen realmente en NubeOS.
 - **Qué problema evita:** intentar devolver directamente una expresión que aún contiene el iterador puede hacer que Rust rechace el código: la consulta se destruiría antes de que finalizara el préstamo.
 - **¿Es idiomático?:** sí. Materializar resultados pequeños de SQLite con `collect::<Result<Vec<_>, _>>()?` deja claro cuándo termina el acceso a la consulta y simplifica el resto del caso de uso.
 - **Ejemplo pequeño:** `let needs = rows.collect::<Result<Vec<_>, _>>()?; Ok(needs)`.
+
+### Céntimos enteros para importes redondeados
+
+- **Qué es:** el cálculo de compra representa el coste final de cada línea como `u64` en céntimos, no como un `f64` en euros.
+- **Por qué se usa en NubeOS:** al comprar a granel puede aparecer una fracción de céntimo. Rust redondea esa línea una sola vez al céntimo más cercano y después suma los importes ya redondeados.
+- **Qué problema evita:** los decimales binarios pueden producir importes visualmente inesperados y redondear solo el total puede no coincidir con la suma de los precios mostrados en cada producto.
+- **¿Es idiomático?:** sí. Para dinero se suele usar una unidad entera mínima (como céntimos); `checked_add` y `checked_mul` devuelven `None` si hubiera un desbordamiento, en lugar de fabricar un importe incorrecto.
+- **Ejemplo pequeño:** `rounded_cents(33.5)` devuelve `Some(34)`; al sumar dos líneas se combinan sus céntimos ya redondeados.

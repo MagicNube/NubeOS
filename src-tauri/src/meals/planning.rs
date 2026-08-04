@@ -55,17 +55,25 @@ pub struct WeekStart(String);
 impl WeekStart {
     pub fn new(value: impl Into<String>) -> Result<Self, MealDomainError> {
         let value = value.into();
-        let parts: Vec<_> = value.split('-').collect();
-        if parts.len() != 3 || parts.iter().any(|part| part.is_empty()) {
+        let bytes = value.as_bytes();
+        if bytes.len() != 10
+            || bytes[4] != b'-'
+            || bytes[7] != b'-'
+            || !bytes
+                .iter()
+                .enumerate()
+                .filter(|(index, _)| *index != 4 && *index != 7)
+                .all(|(_, byte)| byte.is_ascii_digit())
+        {
             return Err(MealDomainError::InvalidWeekStart);
         }
-        let year = parts[0]
+        let year = value[0..4]
             .parse::<i32>()
             .map_err(|_| MealDomainError::InvalidWeekStart)?;
-        let month = parts[1]
+        let month = value[5..7]
             .parse::<u32>()
             .map_err(|_| MealDomainError::InvalidWeekStart)?;
-        let day = parts[2]
+        let day = value[8..10]
             .parse::<u32>()
             .map_err(|_| MealDomainError::InvalidWeekStart)?;
         if year < 1900
@@ -207,6 +215,10 @@ mod tests {
     #[test]
     fn accepts_mondays_and_rejects_other_dates() {
         assert!(WeekStart::new("2026-08-03").is_ok());
+        assert_eq!(
+            WeekStart::new("2026-8-3"),
+            Err(MealDomainError::InvalidWeekStart)
+        );
         assert_eq!(
             WeekStart::new("2026-08-01"),
             Err(MealDomainError::InvalidWeekStart)

@@ -102,7 +102,9 @@ impl<'connection> ProductRepository<'connection> {
             )
             .optional()?;
 
-        stored.map(|product| self.to_domain(product)).transpose()
+        stored
+            .map(|product| self.hydrate_product(product))
+            .transpose()
     }
 
     pub fn list(
@@ -252,7 +254,10 @@ impl<'connection> ProductRepository<'connection> {
         Ok(())
     }
 
-    fn to_domain(&mut self, stored: StoredProduct) -> Result<Product, ProductRepositoryError> {
+    fn hydrate_product(
+        &mut self,
+        stored: StoredProduct,
+    ) -> Result<Product, ProductRepositoryError> {
         let presentation = self.load_presentation(&stored.id)?;
         let id = ProductId::new(stored.id).map_err(ProductRepositoryError::InvalidStoredProduct)?;
         let nutrients = NutrientsPer100Grams::new(
@@ -292,7 +297,7 @@ impl<'connection> ProductRepository<'connection> {
             )
             .optional()?;
 
-        stored.map(StoredPresentation::to_domain).transpose()
+        stored.map(StoredPresentation::into_domain).transpose()
     }
 }
 
@@ -428,7 +433,7 @@ impl StoredPresentation {
         })
     }
 
-    fn to_domain(self) -> Result<PurchasePresentation, ProductRepositoryError> {
+    fn into_domain(self) -> Result<PurchasePresentation, ProductRepositoryError> {
         match self.kind.as_str() {
             "package" => PurchasePresentation::package(
                 Grams::new(
