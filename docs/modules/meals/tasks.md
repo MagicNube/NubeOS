@@ -352,3 +352,13 @@ Estas tareas aplican la spec y el diseño aprobados el 2026-08-03. Nube aprobó 
 - Verificación: `pnpm build` y comprobación manual de buscadores, cantidad manual y formularios numéricos.
 
 **Resultado:** los buscadores permanecen silenciosos hasta que hay al menos tres caracteres y conservan el mensaje de ausencia de coincidencias. La compra manual muestra una unidad fija estable y todos los campos numéricos de Comidas y compras omiten los controles nativos.
+
+## T-036 — Simplificar información y detalle del calendario
+
+- Estado: Completada
+- Dependencias: T-021, T-026
+- Alcance: centrar la navegación semanal, mover los macros diarios a una fila final y convertir las tarjetas planificadas en elementos de título arrastrables con detalle accesible al pulsar.
+- Criterios de aceptación: la cabecera no contiene macros; cada día tiene un único resumen inferior; una tarjeta se puede mover entre posiciones, franjas y días y, al pulsarla, muestra ingredientes, macros por ingrediente y total sin entrar directamente en edición.
+- Verificación: `pnpm build`, pruebas Rust de movimiento existentes y comprobación manual de navegación, detalle, retirada, edición y arrastre.
+
+**Resultado:** la navegación semanal centra su intervalo entre las flechas. La cabecera diaria queda reducida a día y fecha; las tarjetas muestran solo el título y conservan su comportamiento de arrastre. Una fila final presenta los macros de cada día y el clic abre un detalle de instancia con ingredientes, macros individuales, total y acciones explícitas para editar o retirar del plan.

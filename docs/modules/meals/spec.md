@@ -75,7 +75,7 @@ El usuario puede:
 - Quitar instancias y arrastrarlas para reordenarlas dentro de una franja o moverlas a otro día y franja.
 - Distinguir visualmente una instancia modificada de su receta base.
 
-El calendario muestra bajo la fecha de cada día una única tabla compacta de macros (incluidas las kcal); cada tarjeta de comida muestra título y la misma tabla compacta. No muestra un resumen semanal de macros. El botón para añadir solo aparece al situar el cursor o el foco sobre una celda. La columna del día actual se destaca y cambia al comenzar un nuevo día en la zona horaria `Europe/Madrid`.
+La navegación semanal centra la etiqueta y el intervalo de fechas entre sus flechas. El calendario muestra en la cabecera solo el día y la fecha; cada tarjeta de comida muestra únicamente su nombre y permite arrastrarla entre posiciones, franjas y días. Tras la última franja aparece una fila de resumen diario con la tabla compacta de macros (incluidas las kcal). Al pulsar una tarjeta se abre el detalle de su instancia, con ingredientes, cantidades, macros por ingrediente y macros totales. No muestra un resumen semanal de macros. El botón para añadir solo aparece al situar el cursor o el foco sobre una celda. La columna del día actual se destaca y cambia al comenzar un nuevo día en la zona horaria `Europe/Madrid`.
 
 Una modificación afecta solo a esa instancia; no altera la comida base ni las demás instancias.
 
