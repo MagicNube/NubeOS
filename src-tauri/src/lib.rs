@@ -11,7 +11,7 @@ use meals::meal_commands::{
     list_meals, list_shopping_list, list_week, meals_affected_by_product, move_planned_instance,
     remove_manual_shopping_need, remove_planned_instance, remove_product_from_meals,
     reorder_planned_instance, restore_meal, set_shopping_entry_checked, set_weekly_available,
-    update_meal, update_planned_instance,
+    sync_planned_instance_from_meal, update_meal, update_planned_instance,
 };
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -43,6 +43,7 @@ pub fn run() {
             list_week,
             create_planned_instance,
             update_planned_instance,
+            sync_planned_instance_from_meal,
             remove_planned_instance,
             reorder_planned_instance,
             move_planned_instance,

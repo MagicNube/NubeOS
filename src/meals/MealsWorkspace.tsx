@@ -4,10 +4,12 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   ClipboardList,
   MoreHorizontal,
   Pencil,
   Plus,
+  RefreshCw,
   Search,
   ShoppingCart,
   UtensilsCrossed,
@@ -137,6 +139,15 @@ function gramsPerUnit(product: Product) {
 }
 function slotLabel(slot: MealSlot) {
   return slots.find((item) => item.id === slot)?.label ?? slot;
+}
+
+function moveItem<T>(items: T[], from: number, to: number) {
+  const moved = items[from];
+  if (moved === undefined || to < 0 || to >= items.length) return items;
+  const reordered = [...items];
+  reordered.splice(from, 1);
+  reordered.splice(to, 0, moved);
+  return reordered;
 }
 
 function useMadridToday() {
@@ -276,12 +287,14 @@ function IngredientRows({
   products,
   onChange,
   onRemove,
+  onMove,
   searchProducts = false,
 }: {
   drafts: DraftIngredient[];
   products: Product[];
   onChange: (index: number, next: DraftIngredient) => void;
   onRemove: (index: number) => void;
+  onMove: (index: number, targetIndex: number) => void;
   searchProducts?: boolean;
 }) {
   return (
@@ -360,15 +373,35 @@ function IngredientRows({
             ) : (
               <span className="fixed-unit">g</span>
             )}
-            <button
-              aria-label="Retirar ingrediente"
-              className="subtle-icon-button"
-              disabled={drafts.length === 1}
-              onClick={() => onRemove(index)}
-              type="button"
-            >
-              <X size={15} />
-            </button>
+            <div className="ingredient-row-actions">
+              <button
+                aria-label="Mover ingrediente arriba"
+                className="subtle-icon-button"
+                disabled={index === 0}
+                onClick={() => onMove(index, index - 1)}
+                type="button"
+              >
+                <ChevronUp size={15} />
+              </button>
+              <button
+                aria-label="Mover ingrediente abajo"
+                className="subtle-icon-button"
+                disabled={index === drafts.length - 1}
+                onClick={() => onMove(index, index + 1)}
+                type="button"
+              >
+                <ChevronDown size={15} />
+              </button>
+              <button
+                aria-label="Retirar ingrediente"
+                className="subtle-icon-button"
+                disabled={drafts.length === 1}
+                onClick={() => onRemove(index)}
+                type="button"
+              >
+                <X size={15} />
+              </button>
+            </div>
           </div>
         );
       })}
@@ -485,6 +518,9 @@ function MealForm({
                 setDrafts((current) =>
                   current.filter((_, itemIndex) => itemIndex !== index),
                 )
+              }
+              onMove={(index, targetIndex) =>
+                setDrafts((current) => moveItem(current, index, targetIndex))
               }
               products={products}
               searchProducts
@@ -1032,13 +1068,16 @@ function PlanInstanceDetail({
   onClose,
   onEdit,
   onRemove,
+  onSync,
 }: {
   instance: PlannedInstance;
   name: string;
   onClose: () => void;
   onEdit: () => void;
   onRemove: () => void;
+  onSync: () => void;
 }) {
+  const [confirmingSync, setConfirmingSync] = useState(false);
   return (
     <div className="workspace-modal">
       <section
@@ -1062,6 +1101,50 @@ function PlanInstanceDetail({
             <X size={17} />
           </button>
         </div>
+        {instance.isRecipeUpdated && (
+          <section className="plan-detail-sync-note">
+            <strong>La receta original se ha actualizado.</strong>
+            <p>
+              {instance.isModified
+                ? "Actualizar reemplazará los cambios manuales de esta instancia."
+                : "Puedes aplicar los ingredientes actuales a esta instancia planificada."}
+            </p>
+            {confirmingSync ? (
+              <div className="plan-detail-sync-actions">
+                <span>
+                  ¿Quieres reemplazar la instancia por la receta actual?
+                </span>
+                <div>
+                  <button
+                    className="secondary-button"
+                    onClick={() => setConfirmingSync(false)}
+                    type="button"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    className="primary-button"
+                    onClick={onSync}
+                    type="button"
+                  >
+                    Actualizar receta
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                className="secondary-button"
+                onClick={() => {
+                  if (instance.isModified) setConfirmingSync(true);
+                  else onSync();
+                }}
+                type="button"
+              >
+                Actualizar desde receta
+              </button>
+            )}
+          </section>
+        )}
         <section className="meal-detail-ingredients">
           <h3>Ingredientes</h3>
           <ul>
@@ -1177,6 +1260,9 @@ function PlanInstanceEditor({
             current.filter((_, itemIndex) => itemIndex !== index),
           )
         }
+        onMove={(index, targetIndex) =>
+          setDrafts((current) => moveItem(current, index, targetIndex))
+        }
         products={products}
       />
       <button
@@ -1275,6 +1361,15 @@ function PlannerPage({
     try {
       await mealsApi.removePlannedInstance(instance.id);
       await refresh();
+    } catch (reason) {
+      setError(errorMessage(reason));
+    }
+  }
+  async function syncFromMeal(instance: PlannedInstance) {
+    try {
+      await mealsApi.syncPlannedInstanceFromMeal(instance.id);
+      await refresh();
+      setEditing(null);
     } catch (reason) {
       setError(errorMessage(reason));
     }
@@ -1551,12 +1646,8 @@ function PlannerPage({
                 >
                   {instances.map((instance) => (
                     <div
-                      aria-label={`Editar ${mealName(instance)}`}
-                      className={
-                        instance.isModified
-                          ? "planned-chip modified"
-                          : "planned-chip"
-                      }
+                      aria-label={`${instance.isModified ? "Instancia editada. " : ""}${instance.isRecipeUpdated ? "Receta actualizada. " : ""}Editar ${mealName(instance)}`}
+                      className={`planned-chip${instance.isModified ? " modified" : ""}${instance.isRecipeUpdated ? " recipe-updated" : ""}`}
                       data-instance-id={instance.id}
                       data-position={instance.position}
                       key={instance.id}
@@ -1571,7 +1662,24 @@ function PlannerPage({
                       tabIndex={0}
                     >
                       <div className="planned-chip-content">
-                        <strong>{mealName(instance)}</strong>
+                        <div className="planned-chip-heading">
+                          <strong>{mealName(instance)}</strong>
+                          {instance.isModified && (
+                            <span
+                              aria-hidden="true"
+                              className="planned-chip-modified-marker"
+                            >
+                              *
+                            </span>
+                          )}
+                          {instance.isRecipeUpdated && (
+                            <RefreshCw
+                              aria-hidden="true"
+                              className="planned-chip-updated-icon"
+                              size={14}
+                            />
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -1659,6 +1767,7 @@ function PlannerPage({
             void remove(editing);
             setEditing(null);
           }}
+          onSync={() => void syncFromMeal(editing)}
         />
       )}
       {editingForm && (

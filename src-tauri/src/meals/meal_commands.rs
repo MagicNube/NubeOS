@@ -118,6 +118,7 @@ pub struct PlannedInstanceDto {
     pub position: u32,
     pub source_meal_id: Option<String>,
     pub is_modified: bool,
+    pub is_recipe_updated: bool,
     pub ingredients: Vec<MealIngredientDto>,
     pub macros: MacroTotalsDto,
 }
@@ -374,15 +375,16 @@ pub fn create_planned_instance(
             input.weekday,
             slot,
             position,
-            Some(meal_id),
+            Some(meal.id().clone()),
             meal.ingredients().to_vec(),
         )
-        .map_err(domain_error)?;
+        .map_err(domain_error)?
+        .with_source_meal_revision(meal.revision());
         PlanningRepository::new(connection)
             .create(&instance)
             .map_err(meal_error)?;
         let products = all_products(connection)?;
-        instance_to_dto(&instance, &products)
+        instance_to_dto(&instance, &products, false)
     })
 }
 
@@ -402,6 +404,30 @@ pub fn update_planned_instance(
             ingredients_from_input(connection, &input.ingredients, existing.ingredients())?;
         PlanningRepository::new(connection)
             .update_ingredients(&id, &ingredients)
+            .map_err(meal_error)
+    })
+}
+
+#[tauri::command]
+pub fn sync_planned_instance_from_meal(
+    state: State<'_, ProductDatabase>,
+    id: String,
+) -> Result<(), String> {
+    with_connection(&state, |connection| {
+        let id = PlannedInstanceId::new(id).map_err(domain_error)?;
+        let instance = PlanningRepository::new(connection)
+            .find_by_id(&id)
+            .map_err(meal_error)?
+            .ok_or_else(|| format!("No existe la instancia planificada {}.", id.as_str()))?;
+        let source_meal_id = instance
+            .source_meal_id()
+            .ok_or_else(|| "Esta instancia no procede de una receta guardada.".to_owned())?;
+        let meal = MealRepository::new(connection)
+            .find_by_id(source_meal_id)
+            .map_err(meal_error)?
+            .ok_or_else(|| "La receta original ya no está disponible.".to_owned())?;
+        PlanningRepository::new(connection)
+            .sync_from_meal(&id, &meal)
             .map_err(meal_error)
     })
 }
@@ -644,6 +670,7 @@ fn meal_to_dto(meal: &Meal, products: &[Product]) -> Result<MealDto, String> {
 fn instance_to_dto(
     instance: &PlannedInstance,
     products: &[Product],
+    is_recipe_updated: bool,
 ) -> Result<PlannedInstanceDto, String> {
     Ok(PlannedInstanceDto {
         id: instance.id().as_str().to_owned(),
@@ -652,8 +679,18 @@ fn instance_to_dto(
         position: instance.position(),
         source_meal_id: instance.source_meal_id().map(|id| id.as_str().to_owned()),
         is_modified: instance.is_modified(),
+        is_recipe_updated,
         ingredients: ingredients_to_dto(instance.ingredients(), products)?,
         macros: macros_to_dto(instance.macros(products).map_err(domain_error)?),
+    })
+}
+
+fn is_recipe_updated(instance: &PlannedInstance, source_meals: &[Meal]) -> bool {
+    instance.source_meal_id().is_some_and(|source_meal_id| {
+        source_meals
+            .iter()
+            .find(|meal| meal.id() == source_meal_id)
+            .is_some_and(|meal| instance.source_meal_revision() != Some(meal.revision()))
     })
 }
 
@@ -691,6 +728,9 @@ fn weekly_plan_to_dto(
     let instances = PlanningRepository::new(connection)
         .list_week(&week_start)
         .map_err(meal_error)?;
+    let source_meals = MealRepository::new(connection)
+        .list(None)
+        .map_err(meal_error)?;
     let products = all_products(connection)?;
     let mut daily = [MacroTotals::default(); 7];
     let mut weekly = MacroTotals::default();
@@ -703,7 +743,13 @@ fn weekly_plan_to_dto(
         week_start: week_start.as_str().to_owned(),
         instances: instances
             .iter()
-            .map(|instance| instance_to_dto(instance, &products))
+            .map(|instance| {
+                instance_to_dto(
+                    instance,
+                    &products,
+                    is_recipe_updated(instance, &source_meals),
+                )
+            })
             .collect::<Result<_, _>>()?,
         daily_macros: daily
             .into_iter()
@@ -912,13 +958,29 @@ mod tests {
             Some(meal.id().clone()),
             meal.ingredients().to_vec(),
         )
-        .unwrap();
+        .unwrap()
+        .with_source_meal_revision(meal.revision());
         PlanningRepository::new(&mut connection)
             .create(&instance)
             .unwrap();
-        let result = weekly_plan_to_dto(&mut connection, week).unwrap();
+        let result = weekly_plan_to_dto(&mut connection, week.clone()).unwrap();
         assert_eq!(result.instances[0].ingredients[0].quantity, 100.0);
         assert_eq!(result.instances[0].ingredients[0].macros.kilocalories, 1.0);
+        assert!(!result.instances[0].is_recipe_updated);
+
+        let revised_meal = Meal::new(
+            meal.id().clone(),
+            "Receta revisada",
+            meal.ingredients().to_vec(),
+            vec![MealSlot::Breakfast],
+        )
+        .unwrap();
+        MealRepository::new(&mut connection)
+            .update(&revised_meal)
+            .unwrap();
+        let updated_plan = weekly_plan_to_dto(&mut connection, week).unwrap();
+        assert!(updated_plan.instances[0].is_recipe_updated);
+        assert_eq!(updated_plan.instances[0].ingredients[0].quantity, 100.0);
     }
 
     #[test]

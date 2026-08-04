@@ -140,6 +140,7 @@ pub struct Meal {
     id: MealId,
     name: String,
     status: MealStatus,
+    revision: u32,
     ingredients: Vec<MealIngredient>,
     recommended_slots: Vec<MealSlot>,
 }
@@ -151,13 +152,21 @@ impl Meal {
         ingredients: Vec<MealIngredient>,
         recommended_slots: Vec<MealSlot>,
     ) -> Result<Self, MealDomainError> {
-        Self::from_persisted(id, name, MealStatus::Active, ingredients, recommended_slots)
+        Self::from_persisted(
+            id,
+            name,
+            MealStatus::Active,
+            1,
+            ingredients,
+            recommended_slots,
+        )
     }
 
     pub fn from_persisted(
         id: MealId,
         name: impl Into<String>,
         status: MealStatus,
+        revision: u32,
         mut ingredients: Vec<MealIngredient>,
         mut recommended_slots: Vec<MealSlot>,
     ) -> Result<Self, MealDomainError> {
@@ -175,6 +184,7 @@ impl Meal {
             id,
             name,
             status,
+            revision,
             ingredients,
             recommended_slots,
         })
@@ -188,6 +198,9 @@ impl Meal {
     }
     pub fn status(&self) -> MealStatus {
         self.status
+    }
+    pub fn revision(&self) -> u32 {
+        self.revision
     }
     pub fn ingredients(&self) -> &[MealIngredient] {
         &self.ingredients

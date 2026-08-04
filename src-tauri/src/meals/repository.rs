@@ -28,6 +28,9 @@ pub fn apply_migrations(connection: &mut Connection) -> rusqlite_migration::Resu
         M::up(include_str!(
             "../../migrations/0005_add_manual_shopping_needs.sql"
         )),
+        M::up(include_str!(
+            "../../migrations/0006_add_recipe_revisions.sql"
+        )),
     ])
     .to_latest(connection)
 }
@@ -573,6 +576,66 @@ mod tests {
             )
             .unwrap();
         assert_eq!(available, 350.0);
+    }
+
+    #[test]
+    fn recipe_revision_migration_marks_existing_instances_as_current() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        let previous_migrations = Migrations::new(vec![
+            M::up(include_str!(
+                "../../migrations/0001_create_meals_products.sql"
+            )),
+            M::up(include_str!(
+                "../../migrations/0002_create_meals_and_planning.sql"
+            )),
+            M::up(include_str!(
+                "../../migrations/0003_refine_meals_daily_workflow.sql"
+            )),
+            M::up(include_str!(
+                "../../migrations/0004_add_shopping_check_state.sql"
+            )),
+            M::up(include_str!(
+                "../../migrations/0005_add_manual_shopping_needs.sql"
+            )),
+        ]);
+        previous_migrations.to_latest(&mut connection).unwrap();
+        connection
+            .execute(
+                "INSERT INTO meals_recipes (id, name, status) VALUES ('meal', 'Receta', 'active')",
+                [],
+            )
+            .unwrap();
+        connection
+            .execute(
+                "INSERT INTO meals_planned_instances
+                 (id, week_start, weekday, slot, position, source_meal_id, is_modified)
+                 VALUES ('instance', '2026-08-03', 0, 'breakfast', 0, 'meal', 0)",
+                [],
+            )
+            .unwrap();
+
+        apply_migrations(&mut connection).unwrap();
+
+        assert_eq!(
+            connection
+                .query_row(
+                    "SELECT revision FROM meals_recipes WHERE id = 'meal'",
+                    [],
+                    |row| row.get::<_, u32>(0),
+                )
+                .unwrap(),
+            1
+        );
+        assert_eq!(
+            connection
+                .query_row(
+                    "SELECT source_meal_revision FROM meals_planned_instances WHERE id = 'instance'",
+                    [],
+                    |row| row.get::<_, u32>(0),
+                )
+                .unwrap(),
+            1
+        );
     }
 
     #[test]

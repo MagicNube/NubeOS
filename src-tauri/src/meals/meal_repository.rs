@@ -85,7 +85,7 @@ impl<'connection> MealRepository<'connection> {
     pub fn update(&mut self, meal: &Meal) -> Result<(), MealRepositoryError> {
         let transaction = self.connection.transaction()?;
         let changed = transaction.execute(
-            "UPDATE meals_recipes SET name = ?2 WHERE id = ?1",
+            "UPDATE meals_recipes SET name = ?2, revision = revision + 1 WHERE id = ?1",
             params![meal.id().as_str(), meal.name()],
         )?;
         if changed == 0 {
@@ -111,7 +111,7 @@ impl<'connection> MealRepository<'connection> {
         let stored = self
             .connection
             .query_row(
-                "SELECT id, name, status FROM meals_recipes WHERE id = ?1",
+                "SELECT id, name, status, revision FROM meals_recipes WHERE id = ?1",
                 [id.as_str()],
                 StoredMeal::from_row,
             )
@@ -132,7 +132,7 @@ impl<'connection> MealRepository<'connection> {
         let status = status.map(meal_status_to_database);
         let search = search.unwrap_or("").trim();
         let product_id = product_id.map(ProductId::as_str);
-        let sql = "SELECT recipe.id, recipe.name, recipe.status FROM meals_recipes recipe
+        let sql = "SELECT recipe.id, recipe.name, recipe.status, recipe.revision FROM meals_recipes recipe
             WHERE (?1 IS NULL OR recipe.status = ?1)
               AND (?2 = '' OR recipe.name LIKE '%' || ?2 || '%' COLLATE NOCASE)
               AND (?3 IS NULL OR EXISTS (
@@ -199,7 +199,7 @@ impl<'connection> MealRepository<'connection> {
     ) -> Result<Vec<Meal>, MealRepositoryError> {
         let stored = {
             let mut statement = self.connection.prepare(
-                "SELECT DISTINCT recipe.id, recipe.name, recipe.status FROM meals_recipes recipe
+                "SELECT DISTINCT recipe.id, recipe.name, recipe.status, recipe.revision FROM meals_recipes recipe
                  JOIN meals_recipe_ingredients ingredient ON ingredient.meal_id = recipe.id
                  WHERE ingredient.product_id = ?1 ORDER BY recipe.name COLLATE NOCASE",
             )?;
@@ -231,6 +231,10 @@ impl<'connection> MealRepository<'connection> {
         )?;
         for meal in affected {
             reindex_recipe_ingredients(&transaction, meal.id())?;
+            transaction.execute(
+                "UPDATE meals_recipes SET revision = revision + 1 WHERE id = ?1",
+                [meal.id().as_str()],
+            )?;
         }
         transaction.commit()?;
         Ok(())
@@ -259,6 +263,7 @@ impl<'connection> MealRepository<'connection> {
             id,
             stored.name,
             meal_status_from_database(&stored.status)?,
+            stored.revision,
             ingredients,
             recommended_slots,
         )
@@ -306,7 +311,7 @@ impl<'connection> PlanningRepository<'connection> {
     ) -> Result<Vec<PlannedInstance>, MealRepositoryError> {
         let stored = {
             let mut statement = self.connection.prepare(
-                "SELECT id, week_start, weekday, slot, position, source_meal_id, is_modified
+                "SELECT id, week_start, weekday, slot, position, source_meal_id, source_meal_revision, is_modified
                  FROM meals_planned_instances WHERE week_start = ?1 ORDER BY weekday, slot, position",
             )?;
             let instances = statement
@@ -327,7 +332,7 @@ impl<'connection> PlanningRepository<'connection> {
         let stored = self
             .connection
             .query_row(
-                "SELECT id, week_start, weekday, slot, position, source_meal_id, is_modified
+                "SELECT id, week_start, weekday, slot, position, source_meal_id, source_meal_revision, is_modified
                  FROM meals_planned_instances WHERE id = ?1",
                 [id.as_str()],
                 StoredInstance::from_row,
@@ -362,6 +367,32 @@ impl<'connection> PlanningRepository<'connection> {
         Ok(())
     }
 
+    pub fn sync_from_meal(
+        &mut self,
+        id: &PlannedInstanceId,
+        meal: &Meal,
+    ) -> Result<(), MealRepositoryError> {
+        let transaction = self.connection.transaction()?;
+        let changed = transaction.execute(
+            "UPDATE meals_planned_instances
+             SET is_modified = 0, source_meal_revision = ?2
+             WHERE id = ?1",
+            params![id.as_str(), meal.revision()],
+        )?;
+        if changed == 0 {
+            return Err(MealRepositoryError::InstanceNotFound(
+                id.as_str().to_owned(),
+            ));
+        }
+        transaction.execute(
+            "DELETE FROM meals_planned_ingredients WHERE instance_id = ?1",
+            [id.as_str()],
+        )?;
+        insert_planned_ingredients(&transaction, id, meal.ingredients())?;
+        transaction.commit()?;
+        Ok(())
+    }
+
     pub fn remove(&mut self, id: &PlannedInstanceId) -> Result<(), MealRepositoryError> {
         let instance = self
             .find_by_id(id)?
@@ -387,7 +418,7 @@ impl<'connection> PlanningRepository<'connection> {
         new_position: u32,
     ) -> Result<(), MealRepositoryError> {
         let stored = self.connection.query_row(
-            "SELECT id, week_start, weekday, slot, position, source_meal_id, is_modified FROM meals_planned_instances WHERE id = ?1", [id.as_str()], StoredInstance::from_row,
+            "SELECT id, week_start, weekday, slot, position, source_meal_id, source_meal_revision, is_modified FROM meals_planned_instances WHERE id = ?1", [id.as_str()], StoredInstance::from_row,
         ).optional()?.ok_or_else(|| MealRepositoryError::InstanceNotFound(id.as_str().to_owned()))?;
         let target = self.connection.query_row(
             "SELECT COUNT(*) FROM meals_planned_instances WHERE week_start = ?1 AND weekday = ?2 AND slot = ?3",
@@ -419,7 +450,7 @@ impl<'connection> PlanningRepository<'connection> {
             return Err(MealDomainError::InvalidWeekday.into());
         }
         let stored = self.connection.query_row(
-            "SELECT id, week_start, weekday, slot, position, source_meal_id, is_modified FROM meals_planned_instances WHERE id = ?1",
+            "SELECT id, week_start, weekday, slot, position, source_meal_id, source_meal_revision, is_modified FROM meals_planned_instances WHERE id = ?1",
             [id.as_str()], StoredInstance::from_row,
         ).optional()?.ok_or_else(|| MealRepositoryError::InstanceNotFound(id.as_str().to_owned()))?;
         let source_slot = MealSlot::from_database(&stored.slot)?;
@@ -554,6 +585,7 @@ impl<'connection> PlanningRepository<'connection> {
             MealSlot::from_database(&stored.slot)?,
             stored.position,
             stored.source_meal_id.map(MealId::new).transpose()?,
+            stored.source_meal_revision,
             stored.is_modified,
             ingredients,
         )
@@ -563,11 +595,12 @@ impl<'connection> PlanningRepository<'connection> {
 
 fn insert_meal(transaction: &Transaction<'_>, meal: &Meal) -> Result<(), MealRepositoryError> {
     transaction.execute(
-        "INSERT INTO meals_recipes (id, name, status) VALUES (?1, ?2, ?3)",
+        "INSERT INTO meals_recipes (id, name, status, revision) VALUES (?1, ?2, ?3, ?4)",
         params![
             meal.id().as_str(),
             meal.name(),
-            meal_status_to_database(meal.status())
+            meal_status_to_database(meal.status()),
+            meal.revision()
         ],
     )?;
     insert_recipe_ingredients(transaction, meal.id(), meal.ingredients())?;
@@ -603,7 +636,7 @@ fn insert_instance(
     transaction: &Transaction<'_>,
     instance: &PlannedInstance,
 ) -> Result<(), MealRepositoryError> {
-    transaction.execute("INSERT INTO meals_planned_instances (id, week_start, weekday, slot, position, source_meal_id, is_modified) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)", params![instance.id().as_str(), instance.week_start().as_str(), instance.weekday(), instance.slot().as_str(), instance.position(), instance.source_meal_id().map(MealId::as_str), i32::from(instance.is_modified())])?;
+    transaction.execute("INSERT INTO meals_planned_instances (id, week_start, weekday, slot, position, source_meal_id, source_meal_revision, is_modified) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)", params![instance.id().as_str(), instance.week_start().as_str(), instance.weekday(), instance.slot().as_str(), instance.position(), instance.source_meal_id().map(MealId::as_str), instance.source_meal_revision(), i32::from(instance.is_modified())])?;
     insert_planned_ingredients(transaction, instance.id(), instance.ingredients())
 }
 
@@ -705,6 +738,7 @@ struct StoredMeal {
     id: String,
     name: String,
     status: String,
+    revision: u32,
 }
 impl StoredMeal {
     fn from_row(row: &Row<'_>) -> rusqlite::Result<Self> {
@@ -712,6 +746,7 @@ impl StoredMeal {
             id: row.get(0)?,
             name: row.get(1)?,
             status: row.get(2)?,
+            revision: row.get(3)?,
         })
     }
 }
@@ -749,6 +784,7 @@ struct StoredInstance {
     slot: String,
     position: u32,
     source_meal_id: Option<String>,
+    source_meal_revision: Option<u32>,
     is_modified: bool,
 }
 impl StoredInstance {
@@ -760,7 +796,8 @@ impl StoredInstance {
             slot: row.get(3)?,
             position: row.get(4)?,
             source_meal_id: row.get(5)?,
-            is_modified: row.get::<_, i32>(6)? != 0,
+            source_meal_revision: row.get(6)?,
+            is_modified: row.get::<_, i32>(7)? != 0,
         })
     }
 }
@@ -978,6 +1015,81 @@ mod tests {
         assert!(planned[0].is_modified());
         assert_eq!(planned[0].ingredients()[0].quantity().value(), 250.0);
         assert_eq!(recipe.ingredients()[0].quantity().value(), 100.0);
+    }
+
+    #[test]
+    fn syncing_an_instance_uses_the_new_recipe_and_resets_its_changes() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        apply_migrations(&mut connection).unwrap();
+        ProductRepository::new(&mut connection)
+            .create(&product())
+            .unwrap();
+        MealRepository::new(&mut connection)
+            .create(&meal())
+            .unwrap();
+        let original = MealRepository::new(&mut connection)
+            .find_by_id(&MealId::new("meal").unwrap())
+            .unwrap()
+            .unwrap();
+        let week = WeekStart::new("2026-08-03").unwrap();
+        let instance_id = PlannedInstanceId::new("instance").unwrap();
+        let instance = PlannedInstance::new(
+            instance_id.clone(),
+            week.clone(),
+            0,
+            MealSlot::Breakfast,
+            0,
+            Some(original.id().clone()),
+            original.ingredients().to_vec(),
+        )
+        .unwrap()
+        .with_source_meal_revision(original.revision());
+        PlanningRepository::new(&mut connection)
+            .create(&instance)
+            .unwrap();
+
+        let updated_recipe = Meal::new(
+            original.id().clone(),
+            original.name(),
+            vec![MealIngredient::new(
+                ProductId::new("product").unwrap(),
+                IngredientQuantity::grams(250.0).unwrap(),
+                0,
+            )],
+            vec![],
+        )
+        .unwrap();
+        MealRepository::new(&mut connection)
+            .update(&updated_recipe)
+            .unwrap();
+        let updated_recipe = MealRepository::new(&mut connection)
+            .find_by_id(original.id())
+            .unwrap()
+            .unwrap();
+        assert_eq!(updated_recipe.revision(), 2);
+
+        PlanningRepository::new(&mut connection)
+            .update_ingredients(
+                &instance_id,
+                &[MealIngredient::new(
+                    ProductId::new("product").unwrap(),
+                    IngredientQuantity::grams(50.0).unwrap(),
+                    0,
+                )],
+            )
+            .unwrap();
+        PlanningRepository::new(&mut connection)
+            .sync_from_meal(&instance_id, &updated_recipe)
+            .unwrap();
+
+        let synced = PlanningRepository::new(&mut connection)
+            .list_week(&week)
+            .unwrap()
+            .pop()
+            .unwrap();
+        assert!(!synced.is_modified());
+        assert_eq!(synced.source_meal_revision(), Some(2));
+        assert_eq!(synced.ingredients()[0].quantity().value(), 250.0);
     }
 
     #[test]

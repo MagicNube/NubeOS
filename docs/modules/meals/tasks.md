@@ -392,3 +392,23 @@ Estas tareas aplican la spec y el diseño aprobados el 2026-08-03. Nube aprobó 
 - Verificación: `pnpm build` y comprobación manual de semanas vacía, actual, pasada y futura, y de todos los productos marcados.
 
 **Resultado:** Compra reutiliza la semana enfocada del módulo y ofrece los controles de anterior, siguiente y «Hoy» sin duplicar estado. Su resumen de coste queda junto al intervalo de fechas, antes de la acción «Añadir producto». La presentación monetaria protege el límite de interfaz: cualquier cero, incluido un posible cero negativo heredado, se muestra como `0,00 €`.
+
+## T-040 — Sincronizar explícitamente recetas planificadas y ordenar ingredientes
+
+- Estado: Completada
+- Dependencias: T-039
+- Alcance: versionar recetas e instancias, detectar actualizaciones disponibles, ofrecer una sincronización explícita desde el detalle de una instancia y permitir reordenar ingredientes en los formularios.
+- Criterios de aceptación: editar una receta no cambia automáticamente instancias ni compra existentes; una instancia ligada a una receta posterior indica la actualización; sincronizar sustituye ingredientes, recalcula los resúmenes y restablece las modificaciones propias, con advertencia previa si las había; el orden elegido de ingredientes se conserva en receta e instancia.
+- Verificación: migración sobre SQLite existente, pruebas Rust de revisión y sincronización, `cargo test`, `pnpm build` y comprobación manual de receta editada, instancia modificada y compra semanal.
+
+**Resultado:** la migración `0006` añade revisiones de receta y registra con qué revisión se creó cada instancia existente o nueva. El plan semanal expone una actualización disponible cuando ambas revisiones difieren; la acción explícita reemplaza sus ingredientes desde la receta en una transacción y restablece la modificación local. El calendario muestra una marca lateral y el detalle advierte y pide confirmación antes de sobrescribir cambios propios. Los formularios de comida e instancia permiten subir o bajar cada ingrediente y persisten el orden elegido.
+
+## T-041 — Distinguir estados y títulos de instancias en el calendario
+
+- Estado: Completada
+- Dependencias: T-040
+- Alcance: sustituir las marcas de borde ambiguas del calendario por señales compactas de estado y permitir que los nombres largos de comidas ocupen varias líneas.
+- Criterios de aceptación: una instancia editada muestra un asterisco discreto junto a su título; una receta posterior muestra `RefreshCw` violeta junto a él; si concurren ambos estados se ven ambas señales alineadas; ningún nombre de comida se trunca en una tarjeta del calendario.
+- Verificación: `pnpm build` y comprobación manual de una instancia editada, una receta actualizada, ambos estados y un nombre de comida largo.
+
+**Resultado:** las tarjetas del calendario hacen visibles los estados de edición local y actualización de receta mediante un asterisco y `RefreshCw` violeta, alineados junto al título en lugar de depender solo de un borde. Los títulos envuelven líneas y aumentan la altura de su tarjeta sin perder el comportamiento de arrastre.

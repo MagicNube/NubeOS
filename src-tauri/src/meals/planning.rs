@@ -119,6 +119,7 @@ pub struct PlannedInstance {
     slot: MealSlot,
     position: u32,
     source_meal_id: Option<MealId>,
+    source_meal_revision: Option<u32>,
     is_modified: bool,
     ingredients: Vec<MealIngredient>,
 }
@@ -140,9 +141,15 @@ impl PlannedInstance {
             slot,
             position,
             source_meal_id,
+            None,
             false,
             ingredients,
         )
+    }
+
+    pub fn with_source_meal_revision(mut self, revision: u32) -> Self {
+        self.source_meal_revision = Some(revision);
+        self
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -153,6 +160,7 @@ impl PlannedInstance {
         slot: MealSlot,
         position: u32,
         source_meal_id: Option<MealId>,
+        source_meal_revision: Option<u32>,
         is_modified: bool,
         mut ingredients: Vec<MealIngredient>,
     ) -> Result<Self, MealDomainError> {
@@ -170,6 +178,7 @@ impl PlannedInstance {
             slot,
             position,
             source_meal_id,
+            source_meal_revision,
             is_modified,
             ingredients,
         })
@@ -192,6 +201,9 @@ impl PlannedInstance {
     }
     pub fn source_meal_id(&self) -> Option<&MealId> {
         self.source_meal_id.as_ref()
+    }
+    pub fn source_meal_revision(&self) -> Option<u32> {
+        self.source_meal_revision
     }
     pub fn is_modified(&self) -> bool {
         self.is_modified

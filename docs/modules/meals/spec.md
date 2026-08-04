@@ -54,7 +54,7 @@ Los productos activos aparecen directamente al abrir Productos. Los archivados n
 
 ### Gestión de comidas
 
-El usuario puede crear una comida con uno o más ingredientes, añadirlos, editarlos, retirarlos, buscarla por texto o por productos contenidos y consultar sus macros. Puede asignarle cero, uno o varios momentos del día.
+El usuario puede crear una comida con uno o más ingredientes, añadirlos, editarlos, retirarlos y reordenarlos, buscarla por texto o por productos contenidos y consultar sus macros. Puede asignarle cero, uno o varios momentos del día.
 
 El filtro por producto de Comidas se usa como una búsqueda incremental: vacío no aplica ningún filtro y las sugerencias solo aparecen al escribir al menos tres caracteres. Así el control sigue siendo manejable aunque el catálogo tenga muchos productos.
 
@@ -74,10 +74,11 @@ El usuario puede:
 - En una instancia, añadir productos, retirar ingredientes o modificar cantidades en gramos o unidades cuando sea válido.
 - Quitar instancias y arrastrarlas para reordenarlas dentro de una franja o moverlas a otro día y franja.
 - Distinguir visualmente una instancia modificada de su receta base.
+- Saber cuándo la receta base se ha actualizado desde que se planificó una instancia y actualizar esa instancia de forma explícita.
 
-La navegación semanal centra la etiqueta y el intervalo de fechas entre sus flechas. El calendario muestra en la cabecera solo el día y la fecha; cada tarjeta de comida muestra únicamente su nombre y permite arrastrarla entre posiciones, franjas y días. Tras la última franja aparece una fila de resumen diario con la tabla compacta de macros (incluidas las kcal). Al pulsar una tarjeta se abre el detalle de su instancia, con ingredientes, cantidades, macros por ingrediente y macros totales. No muestra un resumen semanal de macros. El botón para añadir solo aparece al situar el cursor o el foco sobre una celda. La columna del día actual se destaca y cambia al comenzar un nuevo día en la zona horaria `Europe/Madrid`.
+La navegación semanal centra la etiqueta y el intervalo de fechas entre sus flechas. El calendario muestra en la cabecera solo el día y la fecha; cada tarjeta de comida muestra su nombre y, únicamente si aplica, un asterisco discreto para «Instancia editada» y un icono violeta de sincronización para «Receta actualizada». Ambos se alinean junto al título. El nombre no se trunca: la tarjeta crece en altura lo necesario. Permite arrastrarla entre posiciones, franjas y días. Tras la última franja aparece una fila de resumen diario con la tabla compacta de macros (incluidas las kcal). Al pulsar una tarjeta se abre el detalle de su instancia, con ingredientes, cantidades, macros por ingrediente y macros totales. No muestra un resumen semanal de macros. El botón para añadir solo aparece al situar el cursor o el foco sobre una celda. La columna del día actual se destaca y cambia al comenzar un nuevo día en la zona horaria `Europe/Madrid`.
 
-Una modificación afecta solo a esa instancia; no altera la comida base ni las demás instancias.
+Una modificación afecta solo a esa instancia; no altera la comida base ni las demás instancias. Editar una comida base tampoco altera automáticamente las instancias ya planificadas: estas conservan el historial y la compra de su semana. Si la receta base cambia, la instancia relacionada indica que existe una actualización disponible. El usuario puede actualizarla explícitamente desde su detalle; esa acción reemplaza sus ingredientes por la receta actual, recalcula macros y compra y elimina sus modificaciones propias. Antes de hacerlo, la interfaz advierte cuando la instancia tenía cambios manuales.
 
 ### Macros, compra, sobrantes y coste
 

@@ -24,7 +24,7 @@ Este documento recoge solo conceptos que se utilicen realmente en NubeOS.
 
 ### Tipos de dominio y pruebas unitarias
 
-- **Qué son:** una `struct` agrupa datos relacionados; un `enum` representa un conjunto cerrado de alternativas. En este módulo, `PurchasePresentation` expresa los tres modos posibles de compra y `QuantityUnit` las dos unidades permitidas. `Grams` es un *newtype*: una `struct` que envuelve un `f64` para impedir que unos gramos inválidos circulen por el dominio.
+- **Qué son:** una `struct` agrupa datos relacionados; un `enum` representa un conjunto cerrado de alternativas. En este módulo, `PurchasePresentation` expresa los tres modos posibles de compra y `QuantityUnit` las dos unidades permitidas. `Grams` es un _newtype_: una `struct` que envuelve un `f64` para impedir que unos gramos inválidos circulen por el dominio.
 - **Por qué se usan en NubeOS:** hacen que reglas como «una cantidad es positiva» o «solo se usan unidades si hay gramos por unidad» vivan cerca de los datos y no se repitan en React, comandos o SQLite.
 - **Qué problema evitan:** representar una presentación con campos incompatibles o convertir unidades sin información suficiente. Los constructores devuelven `Result<T, DomainError>`: quien crea el dato debe manejar el error antes de continuar.
 - **¿Es idiomático?:** sí. Los tipos expresivos y `Result` son una forma habitual de codificar invariantes en Rust. Los `#[test]` dentro del mismo módulo protegen reglas pequeñas y se ejecutan con `cargo test` desde `src-tauri`.
@@ -69,3 +69,11 @@ Este documento recoge solo conceptos que se utilicen realmente en NubeOS.
 - **Qué problema evita:** los decimales binarios pueden producir importes visualmente inesperados y redondear solo el total puede no coincidir con la suma de los precios mostrados en cada producto.
 - **¿Es idiomático?:** sí. Para dinero se suele usar una unidad entera mínima (como céntimos); `checked_add` y `checked_mul` devuelven `None` si hubiera un desbordamiento, en lugar de fabricar un importe incorrecto.
 - **Ejemplo pequeño:** `rounded_cents(33.5)` devuelve `Some(34)`; al sumar dos líneas se combinan sus céntimos ya redondeados.
+
+### Revisiones para detectar cambios de una receta
+
+- **Qué es:** una revisión es un número entero que aumenta cada vez que se guarda una receta. Una instancia planificada conserva el número de la revisión desde la que fue copiada.
+- **Por qué se usa en NubeOS:** permite saber si la receta actual cambió sin sobrescribir silenciosamente los ingredientes que se planificaron antes.
+- **Qué problema evita:** comparar ingredientes directamente sería más frágil y no explica la intención. Comparar dos revisiones expresa exactamente la pregunta: «¿esta copia procede de la versión actual?».
+- **¿Es idiomático?:** sí. Un contador de versión es una forma simple y explícita de modelar la evolución de un agregado local. La migración inicializa las copias ya existentes con la revisión actual para no marcar todo el historial como pendiente de actualizar.
+- **Ejemplo pequeño:** una receta pasa de revisión `1` a `2` al guardarse; una instancia con `source_meal_revision = 1` ofrece la actualización, pero conserva sus datos hasta que el usuario la solicita.

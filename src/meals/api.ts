@@ -40,6 +40,7 @@ export interface PlannedInstance {
   position: number;
   sourceMealId?: string;
   isModified: boolean;
+  isRecipeUpdated: boolean;
   ingredients: MealIngredient[];
   macros: MacroTotals;
 }
@@ -123,6 +124,9 @@ export const mealsApi = {
       id,
       input: { ingredients },
     });
+  },
+  syncPlannedInstanceFromMeal(id: string) {
+    return invoke<void>("sync_planned_instance_from_meal", { id });
   },
   removePlannedInstance(id: string) {
     return invoke<void>("remove_planned_instance", { id });
