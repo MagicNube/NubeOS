@@ -31,6 +31,9 @@ pub fn apply_migrations(connection: &mut Connection) -> rusqlite_migration::Resu
         M::up(include_str!(
             "../../migrations/0006_add_recipe_revisions.sql"
         )),
+        M::up(include_str!(
+            "../../migrations/0007_normalize_any_supermarket.sql"
+        )),
     ])
     .to_latest(connection)
 }
@@ -278,7 +281,7 @@ impl<'connection> ProductRepository<'connection> {
             nutrients,
             stored
                 .store
-                .map(|store| super::product::Supermarket::from_database(&store)),
+                .and_then(|store| super::product::Supermarket::from_database(&store)),
             status_from_database(&stored.status)?,
             presentation,
         )
@@ -636,6 +639,63 @@ mod tests {
                 .unwrap(),
             1
         );
+    }
+
+    #[test]
+    fn supermarket_migration_normalizes_non_specific_values() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        let previous_migrations = Migrations::new(vec![
+            M::up(include_str!(
+                "../../migrations/0001_create_meals_products.sql"
+            )),
+            M::up(include_str!(
+                "../../migrations/0002_create_meals_and_planning.sql"
+            )),
+            M::up(include_str!(
+                "../../migrations/0003_refine_meals_daily_workflow.sql"
+            )),
+            M::up(include_str!(
+                "../../migrations/0004_add_shopping_check_state.sql"
+            )),
+            M::up(include_str!(
+                "../../migrations/0005_add_manual_shopping_needs.sql"
+            )),
+            M::up(include_str!(
+                "../../migrations/0006_add_recipe_revisions.sql"
+            )),
+        ]);
+        previous_migrations.to_latest(&mut connection).unwrap();
+        connection
+            .execute_batch(
+                "INSERT INTO meals_products (id, name, category, protein_grams_per_100g, carbohydrate_grams_per_100g, fat_grams_per_100g, kilocalories_per_100g, store, brand, status)
+                 VALUES ('other', 'Producto otro', 'other', 0, 0, 0, 0, 'Otro', NULL, 'active');
+                 INSERT INTO meals_products (id, name, category, protein_grams_per_100g, carbohydrate_grams_per_100g, fat_grams_per_100g, kilocalories_per_100g, store, brand, status)
+                 VALUES ('unknown', 'Producto desconocido', 'other', 0, 0, 0, 0, 'Carrefour', NULL, 'active');
+                 INSERT INTO meals_products (id, name, category, protein_grams_per_100g, carbohydrate_grams_per_100g, fat_grams_per_100g, kilocalories_per_100g, store, brand, status)
+                 VALUES ('lidl', 'Producto Lidl', 'other', 0, 0, 0, 0, 'Lidl', NULL, 'active');",
+            )
+            .unwrap();
+
+        apply_migrations(&mut connection).unwrap();
+
+        for id in ["other", "unknown"] {
+            let store = connection
+                .query_row(
+                    "SELECT store FROM meals_products WHERE id = ?1",
+                    [id],
+                    |row| row.get::<_, Option<String>>(0),
+                )
+                .unwrap();
+            assert_eq!(store, None);
+        }
+        let lidl = connection
+            .query_row(
+                "SELECT store FROM meals_products WHERE id = 'lidl'",
+                [],
+                |row| row.get::<_, Option<String>>(0),
+            )
+            .unwrap();
+        assert_eq!(lidl.as_deref(), Some("Lidl"));
     }
 
     #[test]

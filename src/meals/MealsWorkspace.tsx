@@ -31,7 +31,15 @@ import {
 import ProductsPage, {
   type ProductCatalogFilters,
 } from "./products/ProductsPage";
-import { categoryLabels, productApi, type Product } from "./products/api";
+import SupermarketMultiFilter from "./SupermarketMultiFilter";
+import {
+  categoryLabels,
+  matchesSupermarketFilter,
+  productApi,
+  supermarketLabels,
+  type Product,
+  type SupermarketFilterValue,
+} from "./products/api";
 import { useLatestRequest } from "./useLatestRequest";
 import "./meals.css";
 
@@ -1700,57 +1708,61 @@ function PlannerPage({
       {target && (
         <div className="workspace-modal">
           <div className="picker-card">
-            <div className="meal-editor-heading">
-              <div>
-                <p className="section-kicker">AÑADIR AL PLAN</p>
-                <h2>
-                  {slotLabel(target.slot)} ({weekdays[target.weekday]})
-                </h2>
+            <div className="picker-card-header">
+              <div className="meal-editor-heading">
+                <div>
+                  <p className="section-kicker">AÑADIR AL PLAN</p>
+                  <h2>
+                    {slotLabel(target.slot)} ({weekdays[target.weekday]})
+                  </h2>
+                </div>
+                <button
+                  aria-label="Cerrar selector"
+                  className="product-icon-button"
+                  onClick={() => setTarget(null)}
+                  type="button"
+                >
+                  <X size={17} />
+                </button>
               </div>
-              <button
-                aria-label="Cerrar selector"
-                className="product-icon-button"
-                onClick={() => setTarget(null)}
-                type="button"
-              >
-                <X size={17} />
-              </button>
-            </div>
-            <div className="catalog-search picker-search">
-              <Search size={17} />
-              <input
-                autoFocus
-                onChange={(event) => setPickerQuery(event.target.value)}
-                placeholder="Buscar comida"
-                value={pickerQuery}
-              />
-            </div>
-            {!pickerMeals.length ? (
-              <p className="inline-note">
-                No hay comidas activas que coincidan.
-              </p>
-            ) : (
-              <div className="meal-choice-list">
-                {pickerMeals.map((meal) => (
-                  <button
-                    key={meal.id}
-                    onClick={() => void addMeal(meal)}
-                    type="button"
-                  >
-                    <span>
-                      <strong>{meal.name}</strong>
-                      {meal.recommendedSlots.length > 0 && (
-                        <small>
-                          Momento del día:{" "}
-                          {meal.recommendedSlots.map(slotLabel).join(", ")}
-                        </small>
-                      )}
-                      <MacroTable compact macros={meal.macros} />
-                    </span>
-                  </button>
-                ))}
+              <div className="catalog-search picker-search">
+                <Search size={17} />
+                <input
+                  autoFocus
+                  onChange={(event) => setPickerQuery(event.target.value)}
+                  placeholder="Buscar comida"
+                  value={pickerQuery}
+                />
               </div>
-            )}
+            </div>
+            <div className="picker-card-body">
+              {!pickerMeals.length ? (
+                <p className="inline-note">
+                  No hay comidas activas que coincidan.
+                </p>
+              ) : (
+                <div className="meal-choice-list">
+                  {pickerMeals.map((meal) => (
+                    <button
+                      key={meal.id}
+                      onClick={() => void addMeal(meal)}
+                      type="button"
+                    >
+                      <span>
+                        <strong>{meal.name}</strong>
+                        {meal.recommendedSlots.length > 0 && (
+                          <small>
+                            Momento del día:{" "}
+                            {meal.recommendedSlots.map(slotLabel).join(", ")}
+                          </small>
+                        )}
+                        <MacroTable compact macros={meal.macros} />
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -1972,9 +1984,13 @@ function ManualShoppingNeedForm({
 function ShoppingPage({
   weekStart,
   onWeekChange,
+  supermarketFilters,
+  onSupermarketFiltersChange,
 }: {
   weekStart: string;
   onWeekChange: (weekStart: string) => void;
+  supermarketFilters: SupermarketFilterValue[];
+  onSupermarketFiltersChange: (filters: SupermarketFilterValue[]) => void;
 }) {
   const [entries, setEntries] = useState<ShoppingEntry[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -1991,6 +2007,13 @@ function ShoppingPage({
   const [addingManualNeed, setAddingManualNeed] = useState(false);
   const saveTimers = useRef<Record<string, number>>({});
   const beginRequest = useLatestRequest(weekStart);
+  const visibleEntries = useMemo(
+    () =>
+      entries.filter((entry) =>
+        matchesSupermarketFilter(entry.product.supermarket, supermarketFilters),
+      ),
+    [entries, supermarketFilters],
+  );
   async function refresh(showLoading = false) {
     const isLatest = beginRequest();
     if (!isLatest()) return;
@@ -2152,6 +2175,14 @@ function ShoppingPage({
           <Plus size={16} /> Añadir producto
         </button>
       </div>
+      {entries.length > 0 && (
+        <div className="shopping-filters">
+          <SupermarketMultiFilter
+            onChange={onSupermarketFiltersChange}
+            selected={supermarketFilters}
+          />
+        </div>
+      )}
       {error && (
         <p className="form-error" role="alert">
           {error}
@@ -2163,9 +2194,14 @@ function ShoppingPage({
           No hay productos en la compra de esta semana.
         </p>
       )}
-      {!loading && !error && entries.length > 0 && (
+      {!loading && !error && entries.length > 0 && !visibleEntries.length && (
+        <p className="workspace-empty">
+          No hay productos que coincidan con los supermercados elegidos.
+        </p>
+      )}
+      {!loading && !error && visibleEntries.length > 0 && (
         <div className="shopping-entry-list">
-          {entries.map((entry) => {
+          {visibleEntries.map((entry) => {
             const unit = units[entry.product.id] ?? "grams";
             const supportsUnits = gramsPerUnit(entry.product) !== undefined;
             return (
@@ -2190,6 +2226,11 @@ function ShoppingPage({
                     {categoryLabels[entry.product.category]}
                   </span>
                   <h3>{entry.product.name}</h3>
+                  <small>
+                    {entry.product.supermarket
+                      ? supermarketLabels[entry.product.supermarket]
+                      : "Cualquiera"}
+                  </small>
                   <div className="shopping-recommendation">
                     <span>Compra recomendada</span>
                     <strong>{recommendationLabel(entry)}</strong>
@@ -2290,7 +2331,11 @@ export default function MealsWorkspace() {
   const [productFilters, setProductFilters] = useState<ProductCatalogFilters>({
     query: "",
     category: "all",
+    supermarkets: [],
   });
+  const [shoppingSupermarketFilters, setShoppingSupermarketFilters] = useState<
+    SupermarketFilterValue[]
+  >([]);
   const [mealSearch, setMealSearch] = useState("");
   const [mealProductFilter, setMealProductFilter] = useState<
     Product | undefined
@@ -2343,7 +2388,12 @@ export default function MealsWorkspace() {
         <PlannerPage onWeekChange={setWeekStart} weekStart={weekStart} />
       )}
       {section === "shopping" && (
-        <ShoppingPage onWeekChange={setWeekStart} weekStart={weekStart} />
+        <ShoppingPage
+          onSupermarketFiltersChange={setShoppingSupermarketFilters}
+          onWeekChange={setWeekStart}
+          supermarketFilters={shoppingSupermarketFilters}
+          weekStart={weekStart}
+        />
       )}
     </section>
   );

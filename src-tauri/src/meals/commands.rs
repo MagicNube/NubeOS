@@ -100,7 +100,6 @@ pub enum SupermarketDto {
     Lidl,
     Consum,
     FamilyCash,
-    Other,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -429,7 +428,6 @@ fn supermarket_from_dto(supermarket: SupermarketDto) -> Supermarket {
         SupermarketDto::Lidl => Supermarket::Lidl,
         SupermarketDto::Consum => Supermarket::Consum,
         SupermarketDto::FamilyCash => Supermarket::FamilyCash,
-        SupermarketDto::Other => Supermarket::Other,
     }
 }
 fn supermarket_to_dto(supermarket: Supermarket) -> SupermarketDto {
@@ -438,7 +436,6 @@ fn supermarket_to_dto(supermarket: Supermarket) -> SupermarketDto {
         Supermarket::Lidl => SupermarketDto::Lidl,
         Supermarket::Consum => SupermarketDto::Consum,
         Supermarket::FamilyCash => SupermarketDto::FamilyCash,
-        Supermarket::Other => SupermarketDto::Other,
     }
 }
 

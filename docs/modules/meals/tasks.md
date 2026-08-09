@@ -412,3 +412,23 @@ Estas tareas aplican la spec y el diseño aprobados el 2026-08-03. Nube aprobó 
 - Verificación: `pnpm build` y comprobación manual de una instancia editada, una receta actualizada, ambos estados y un nombre de comida largo.
 
 **Resultado:** las tarjetas del calendario hacen visibles los estados de edición local y actualización de receta mediante un asterisco y `RefreshCw` violeta, alineados junto al título en lugar de depender solo de un borde. Los títulos envuelven líneas y aumentan la altura de su tarjeta sin perder el comportamiento de arrastre.
+
+## T-042 — Normalizar y filtrar supermercados
+
+- Estado: Completada
+- Dependencias: T-035
+- Alcance: representar «Cualquiera» como ausencia de preferencia, normalizar valores antiguos y añadir un filtro multiselección reutilizable en Productos y Compra.
+- Criterios de aceptación: los productos nuevos usan «Cualquiera» por defecto; «Otro» deja de ofrecerse; los datos antiguos no reconocidos se normalizan sin perder el producto; elegir varios supermercados combina sus resultados y elegir «Cualquiera» incluye productos sin tienda asignada.
+- Verificación: prueba de migración y lectura de supermercado, `cargo test`, `pnpm build` y comprobación manual de ambos filtros.
+
+**Resultado:** la migración `0007` convierte los supermercados no reconocidos en ausencia de preferencia. Productos y Compra comparten un filtro multiselección en el que una selección vacía muestra todo y «Cualquiera» representa productos sin supermercado específico.
+
+## T-043 — Separar el desplazamiento del selector de comidas
+
+- Estado: Completada
+- Dependencias: T-021
+- Alcance: mantener visibles el contexto, el cierre y el buscador al recorrer una lista larga de comidas para añadir al calendario.
+- Criterios de aceptación: el diálogo conserva «Añadir al plan», la franja, el día, el cierre y el buscador fuera del área desplazable; solo las comidas se desplazan.
+- Verificación: `pnpm build` y comprobación manual con suficientes comidas para producir scroll.
+
+**Resultado:** el selector del planificador se divide en una cabecera fija y un cuerpo desplazable, por lo que buscar o cerrar no requiere volver al principio de la lista.

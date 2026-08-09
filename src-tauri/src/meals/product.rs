@@ -127,17 +127,16 @@ pub enum Supermarket {
     Lidl,
     Consum,
     FamilyCash,
-    Other,
 }
 
 impl Supermarket {
-    pub fn from_database(value: &str) -> Self {
+    pub fn from_database(value: &str) -> Option<Self> {
         match value {
-            "Mercadona" => Self::Mercadona,
-            "Lidl" => Self::Lidl,
-            "Consum" => Self::Consum,
-            "FamilyCash" => Self::FamilyCash,
-            _ => Self::Other,
+            "Mercadona" => Some(Self::Mercadona),
+            "Lidl" => Some(Self::Lidl),
+            "Consum" => Some(Self::Consum),
+            "FamilyCash" => Some(Self::FamilyCash),
+            _ => None,
         }
     }
 
@@ -147,7 +146,6 @@ impl Supermarket {
             Self::Lidl => "Lidl",
             Self::Consum => "Consum",
             Self::FamilyCash => "FamilyCash",
-            Self::Other => "Otro",
         }
     }
 }
@@ -424,7 +422,7 @@ mod tests {
     }
 
     #[test]
-    fn maps_unknown_saved_supermarkets_to_other() {
-        assert_eq!(Supermarket::from_database("Carrefour"), Supermarket::Other);
+    fn maps_unknown_saved_supermarkets_to_any() {
+        assert_eq!(Supermarket::from_database("Carrefour"), None);
     }
 }

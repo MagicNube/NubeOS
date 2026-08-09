@@ -10,8 +10,10 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { mealsApi, type Meal } from "../api";
+import SupermarketMultiFilter from "../SupermarketMultiFilter";
 import {
   categoryLabels,
+  matchesSupermarketFilter,
   productApi,
   productCategories,
   supermarketLabels,
@@ -21,6 +23,7 @@ import {
   type ProductStatus,
   type PurchasePresentation,
   type Supermarket,
+  type SupermarketFilterValue,
 } from "./api";
 import { useLatestRequest } from "../useLatestRequest";
 import "./products.css";
@@ -29,6 +32,7 @@ type PresentationKind = "package" | "bulkByWeight";
 export type ProductCatalogFilters = {
   query: string;
   category: ProductCategory | "all";
+  supermarkets: SupermarketFilterValue[];
 };
 
 type ProductFormValues = {
@@ -275,7 +279,7 @@ function ProductForm({
           </SelectControl>
         </label>
         <label className="product-field">
-          <span>Supermercado (opcional)</span>
+          <span>Supermercado</span>
           <SelectControl>
             <select
               onChange={(event) =>
@@ -283,7 +287,7 @@ function ProductForm({
               }
               value={values.supermarket}
             >
-              <option value="">Sin especificar</option>
+              <option value="">Cualquiera</option>
               {Object.entries(supermarketLabels).map(([id, label]) => (
                 <option key={id} value={id}>
                   {label}
@@ -468,6 +472,7 @@ export default function ProductsPage({
         (product) =>
           (filters.category === "all" ||
             product.category === filters.category) &&
+          matchesSupermarketFilter(product.supermarket, filters.supermarkets) &&
           product.name
             .toLocaleLowerCase("es")
             .includes(filters.query.trim().toLocaleLowerCase("es")),
@@ -572,6 +577,12 @@ export default function ProductsPage({
               </div>
             )}
           </div>
+          <SupermarketMultiFilter
+            onChange={(supermarkets) =>
+              onFiltersChange({ ...filters, supermarkets })
+            }
+            selected={filters.supermarkets}
+          />
         </div>
         <div className="toolbar-actions">
           <button
@@ -641,7 +652,7 @@ export default function ProductsPage({
                   <p>
                     {product.supermarket
                       ? supermarketLabels[product.supermarket]
-                      : "Sin especificar"}
+                      : "Cualquiera"}
                   </p>
                 </div>
                 <div className="card-icon-actions">

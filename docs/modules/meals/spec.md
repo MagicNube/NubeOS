@@ -29,7 +29,7 @@ La primera versión cubre crear productos, crear comidas, planificarlas en una s
 
 El usuario puede crear, consultar, buscar por texto, filtrar por categoría, editar y archivar productos. También puede consultar las comidas que usan un producto o retirarlo de sus recetas afectadas tras verlas y confirmarlo. Desde Archivo puede eliminar definitivamente un producto archivado que no tenga referencias en recetas o instancias planificadas.
 
-Cada producto tiene como mínimo nombre, categoría y proteínas, carbohidratos, grasas y kcal por 100 g. El nombre incluye la marca cuando haga falta diferenciarlo; no existe un campo de marca separado. Puede tener un supermercado opcional elegido entre Mercadona, Lidl, Consum, FamilyCash y Otro. Un producto genérico como patata a granel puede dejarlo vacío.
+Cada producto tiene como mínimo nombre, categoría y proteínas, carbohidratos, grasas y kcal por 100 g. El nombre incluye la marca cuando haga falta diferenciarlo; no existe un campo de marca separado. Puede asignarse a Mercadona, Lidl, Consum o FamilyCash. La opción predeterminada «Cualquiera» representa que no existe preferencia de supermercado y se persiste como ausencia de asignación.
 
 Las kcal y los pesos en gramos se introducen y muestran como enteros, sin controles de flechas. Proteínas, carbohidratos y grasas admiten decimales y se muestran con un decimal como máximo. Los campos vacíos muestran un ejemplo en lugar de precargar el valor cero. El precio se escribe y muestra en euros, por ejemplo `2,99 €`, sin exponer céntimos en la interfaz.
 
@@ -50,7 +50,7 @@ Los productos no tienen formatos alternativos, relaciones ni sustituciones autom
 
 Los productos antiguos sin presentación o con presentación "a granel por unidad" se conservan para no perder datos. Se muestran como datos heredados y no se pueden crear de nuevo; al editarlos, el usuario deberá escoger paquete, bolsa o bandeja, o a granel por peso.
 
-Los productos activos aparecen directamente al abrir Productos. Los archivados no compiten con el catálogo: se consultan desde una acción secundaria de archivo.
+Los productos activos aparecen directamente al abrir Productos. Los archivados no compiten con el catálogo: se consultan desde una acción secundaria de archivo. El catálogo permite filtrar por uno o varios supermercados; elegir «Cualquiera» incluye los productos sin preferencia y dejar el filtro vacío muestra todos.
 
 ### Gestión de comidas
 
@@ -70,7 +70,7 @@ El usuario puede:
 
 - Ver la semana actual de lunes a domingo y navegar a semanas anteriores o posteriores.
 - Planificar una o más comidas en desayuno, comida, merienda, cena y extra.
-- Añadir una comida desde una colección con buscador de texto, ordenada primero por el momento del día que coincide con la franja elegida y después por nombre.
+- Añadir una comida desde una colección con buscador de texto, ordenada primero por el momento del día que coincide con la franja elegida y después por nombre. La cabecera, el contexto y el buscador permanecen visibles; solo la colección de resultados se desplaza.
 - En una instancia, añadir productos, retirar ingredientes o modificar cantidades en gramos o unidades cuando sea válido.
 - Quitar instancias y arrastrarlas para reordenarlas dentro de una franja o moverlas a otro día y franja.
 - Distinguir visualmente una instancia modificada de su receta base.
@@ -99,6 +99,8 @@ La lista de compra semanal:
 - No inventa conversiones, precios ni formatos ausentes.
 
 Cada entrada semanal muestra de forma destacada la compra recomendada y su precio estimado. Junto al campo «Tienes» presenta necesidad, pendiente y sobrante teórico. Incluye un único campo manual «Tienes», expresado en gramos o en unidades cuando el paquete conoce gramos por unidad. El valor se normaliza y se guarda en gramos; al escribir, la recomendación se recalcula sin esperar a que el campo pierda el foco. La recomendación de un producto envasado siempre se expresa en paquetes, bolsas o bandejas, incluso cuando el pendiente es cero. Los campos numéricos del módulo se escriben directamente y no muestran controles nativos de incremento o decremento.
+
+La compra semanal permite filtrar las entradas por uno o varios supermercados. Los filtros se combinan con lógica inclusiva: elegir Lidl y «Cualquiera» muestra tanto los productos de Lidl como los que no tienen una preferencia de tienda. Dejar la selección vacía muestra la compra completa.
 
 Si una entrada incluye una cantidad añadida manualmente, muestra la indicación «Añadido manualmente — no forma parte del plan de comidas». El usuario puede retirar esa aportación manual sin alterar recetas, instancias planificadas ni la parte de la necesidad que proceda del plan.
 

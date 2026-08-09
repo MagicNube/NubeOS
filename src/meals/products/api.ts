@@ -10,12 +10,14 @@ export const productCategories = [
 ] as const;
 export type ProductCategory = (typeof productCategories)[number];
 export type ProductStatus = "active" | "archived";
-export type Supermarket =
-  | "mercadona"
-  | "lidl"
-  | "consum"
-  | "familyCash"
-  | "other";
+export const supermarkets = [
+  "mercadona",
+  "lidl",
+  "consum",
+  "familyCash",
+] as const;
+export type Supermarket = (typeof supermarkets)[number];
+export type SupermarketFilterValue = Supermarket | "any";
 
 export const categoryLabels: Record<ProductCategory, string> = {
   vegetable: "Verdura",
@@ -31,8 +33,22 @@ export const supermarketLabels: Record<Supermarket, string> = {
   lidl: "Lidl",
   consum: "Consum",
   familyCash: "FamilyCash",
-  other: "Otro",
 };
+
+export const supermarketFilterLabels: Record<SupermarketFilterValue, string> = {
+  ...supermarketLabels,
+  any: "Cualquiera",
+};
+
+export function matchesSupermarketFilter(
+  supermarket: Supermarket | undefined,
+  selected: SupermarketFilterValue[],
+) {
+  if (selected.length === 0) return true;
+  return supermarket
+    ? selected.includes(supermarket)
+    : selected.includes("any");
+}
 
 export type PurchasePresentation =
   | {
