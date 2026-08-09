@@ -69,6 +69,7 @@ export interface ShoppingEntry {
   estimatedCostCents?: number;
   theoreticalLeftoverGrams?: number;
   isChecked: boolean;
+  preferredUnit: QuantityUnit;
 }
 export interface ShoppingList {
   entries: ShoppingEntry[];
@@ -151,6 +152,9 @@ export const mealsApi = {
       productId,
       input: { value, unit },
     });
+  },
+  setProductShoppingUnit(productId: string, unit: QuantityUnit) {
+    return invoke<void>("set_product_shopping_unit", { productId, unit });
   },
   setShoppingEntryChecked(
     weekStart: string,

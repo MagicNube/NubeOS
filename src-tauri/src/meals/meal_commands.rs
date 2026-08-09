@@ -184,6 +184,7 @@ pub struct ShoppingEntryDto {
     pub estimated_cost_cents: Option<u64>,
     pub theoretical_leftover_grams: Option<f64>,
     pub is_checked: bool,
+    pub preferred_unit: QuantityUnitDto,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -528,6 +529,32 @@ pub fn set_weekly_available(
 }
 
 #[tauri::command]
+pub fn set_product_shopping_unit(
+    state: State<'_, ProductDatabase>,
+    product_id: String,
+    unit: QuantityUnitDto,
+) -> Result<(), String> {
+    with_connection(&state, |connection| {
+        let product_id = ProductId::new(product_id).map_err(|error| error.to_string())?;
+        let mut repository = ProductRepository::new(connection);
+        let product = repository
+            .find_by_id(&product_id)
+            .map_err(product_error)?
+            .ok_or_else(|| format!("No existe el producto {}.", product_id.as_str()))?;
+        let unit = match unit {
+            QuantityUnitDto::Grams => QuantityUnit::Grams,
+            QuantityUnitDto::Units if product.grams_per_unit().is_some() => QuantityUnit::Units,
+            QuantityUnitDto::Units => {
+                return Err("Este producto no admite cantidades por unidades.".to_owned())
+            }
+        };
+        repository
+            .set_shopping_unit(&product_id, unit)
+            .map_err(product_error)
+    })
+}
+
+#[tauri::command]
 pub fn set_shopping_entry_checked(
     state: State<'_, ProductDatabase>,
     week_start: String,
@@ -815,6 +842,9 @@ fn shopping_entries(
                 .coverage(&week_start, product.id())
                 .map_err(meal_error)?;
             let calculation = shopping::calculate(product, needed_grams, coverage.available_grams);
+            let preferred_unit = ProductRepository::new(connection)
+                .shopping_unit(product.id())
+                .map_err(product_error)?;
             Ok(ShoppingEntryDto {
                 product: ProductDto::from(product),
                 needed_grams,
@@ -826,6 +856,7 @@ fn shopping_entries(
                 estimated_cost_cents: calculation.estimated_cost_cents,
                 theoretical_leftover_grams: calculation.theoretical_leftover_grams,
                 is_checked: coverage.is_checked,
+                preferred_unit: quantity_unit_to_dto(preferred_unit),
             })
         })
         .collect()

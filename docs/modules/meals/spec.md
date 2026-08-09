@@ -90,15 +90,15 @@ La lista de compra semanal:
 - Agrupa cada producto usado en varias comidas, días o franjas.
 - Permite añadir una necesidad manual semanal eligiendo un producto activo del catálogo mediante buscador e indicando una cantidad válida en gramos o unidades.
 - Suma esa necesidad manual a la misma entrada del producto cuando también procede de una comida; no crea líneas duplicadas.
-- Normaliza las cantidades a gramos para macros, compra y coste; muestra también unidades cuando existe conversión válida.
-- Recomienda paquetes completos o cantidades a granel según la presentación.
+- Normaliza las cantidades a gramos para macros, compra y coste; muestra también unidades, con un máximo de dos decimales, cuando existe conversión válida.
+- Recomienda paquetes completos o cantidades a granel según la presentación. En productos envasados indica el contenido en gramos y, si existe, unidades de cada paquete, además del total recomendado cuando se necesitan varios.
 - Redondea paquetes hacia arriba cuando sea necesario para cubrir el plan.
 - Redondea el coste estimado de cada entrada al céntimo más cercano; el coste total y pendiente suman esas líneas ya redondeadas.
 - Muestra un coste pendiente de cero como `0,00 €`, nunca como un importe negativo nulo.
 - Muestra coste estimado total y sobrante teórico cuando hay datos suficientes.
 - No inventa conversiones, precios ni formatos ausentes.
 
-Cada entrada semanal muestra de forma destacada la compra recomendada y su precio estimado. Junto al campo «Tienes» presenta necesidad, pendiente y sobrante teórico. Cuando el producto conoce gramos por unidad, «Tienes», «Necesitas» y «Pendiente» muestran la equivalencia como `gramos (unidades)`. Incluye un único campo manual «Tienes», editable en gramos o en unidades. El valor se normaliza y se guarda en gramos; al escribir, la equivalencia y la recomendación se recalculan sin esperar a que el campo pierda el foco. La recomendación de un producto envasado siempre se expresa en paquetes, bolsas o bandejas, incluso cuando el pendiente es cero. Los campos numéricos del módulo se escriben directamente y no muestran controles nativos de incremento o decremento.
+Cada entrada semanal muestra de forma destacada la compra recomendada y su precio estimado. Junto al campo «Tienes» presenta necesidad, pendiente y sobrante teórico. Cuando el producto conoce gramos por unidad, los cuatro valores muestran la equivalencia como `gramos (unidades)`, sin redondear hacia abajo cantidades exactas. Incluye un único campo manual «Tienes», editable en gramos o en unidades. El valor se normaliza y se guarda en gramos, mientras la unidad de visualización elegida se recuerda para ese producto en todas las semanas; al escribir, la equivalencia y la recomendación se recalculan sin esperar a que el campo pierda el foco. Cambiar entre gramos y unidades en cualquier editor compatible convierte el valor actual en vez de reinterpretarlo. La recomendación física redondea paquetes o unidades completas hacia arriba. Los campos numéricos del módulo se escriben directamente y no muestran controles nativos de incremento o decremento.
 
 La compra semanal permite filtrar las entradas por uno o varios supermercados. Los filtros se combinan con lógica inclusiva: elegir Lidl y «Cualquiera» muestra tanto los productos de Lidl como los que no tienen una preferencia de tienda. Dejar la selección vacía muestra la compra completa.
 

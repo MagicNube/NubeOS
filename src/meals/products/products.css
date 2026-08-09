@@ -147,8 +147,8 @@
   background: #191919;
 }
 .product-card {
-  display: grid;
-  align-content: start;
+  display: flex;
+  flex-direction: column;
   gap: 17px;
   min-height: 225px;
   padding: 18px;
@@ -217,7 +217,8 @@
 .product-macros {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  margin: 0;
+  width: 100%;
+  margin: auto 0 0;
   border: 1px solid #303030;
   border-radius: 8px;
   overflow: hidden;

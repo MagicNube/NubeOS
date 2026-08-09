@@ -442,3 +442,13 @@ Estas tareas aplican la spec y el diseño aprobados el 2026-08-03. Nube aprobó 
 - Verificación: `pnpm build` y comprobación manual de compra con productos por unidades, scroll largo, barra contraída y distintos tamaños de ventana.
 
 **Resultado:** Compra conserva gramos como referencia y deriva unidades solo para presentación. La aplicación limita el shell al alto de la ventana, desplaza únicamente el contenido principal y mantiene la barra lateral y «Contraer» visibles; se retiraron «Datos locales» y el avatar superior.
+
+## T-045 — Unificar cantidades, tarjetas y detalle de compra
+
+- Estado: Completada
+- Dependencias: T-044
+- Alcance: persistir la unidad de Compra por producto, convertir los borradores al alternar gramos y unidades, completar equivalencias y aclarar tarjetas y recomendaciones.
+- Criterios de aceptación: las equivalencias usan como máximo dos decimales; «Necesitas», «Pendiente», «Sobrante» y «Tienes» muestran unidades cuando son válidas; la preferencia sobrevive a semanas y reinicios; cada paquete indica su contenido y el total cuando procede; las tarjetas de producto alinean macros y las de comida indican ingredientes ocultos; los macros diarios no parten la unidad en otra línea.
+- Verificación: prueba de migración y preferencia SQLite, `cargo test`, `pnpm build` y comprobación manual de cambios de unidad en formularios y Compra.
+
+**Resultado:** la migración `0008` guarda exclusivamente la unidad de visualización preferida por producto, manteniendo gramos como fuente de verdad. Los selectores compatibles convierten el valor escrito, Compra presenta equivalencias exactas con hasta dos decimales y diferencia el redondeo informativo del redondeo físico de paquetes o unidades. Las tarjetas y el detalle por paquete conservan una jerarquía y alineación estables.

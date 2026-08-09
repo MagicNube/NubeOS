@@ -7,7 +7,7 @@ use rusqlite_migration::{Migrations, M};
 
 use super::product::{
     DomainError, Grams, NutrientsPer100Grams, Product, ProductCategory, ProductId, ProductStatus,
-    PurchasePresentation, PurchasePresentationKind,
+    PurchasePresentation, PurchasePresentationKind, QuantityUnit,
 };
 
 pub fn apply_migrations(connection: &mut Connection) -> rusqlite_migration::Result<()> {
@@ -33,6 +33,9 @@ pub fn apply_migrations(connection: &mut Connection) -> rusqlite_migration::Resu
         )),
         M::up(include_str!(
             "../../migrations/0007_normalize_any_supermarket.sql"
+        )),
+        M::up(include_str!(
+            "../../migrations/0008_add_shopping_unit_preferences.sql"
         )),
     ])
     .to_latest(connection)
@@ -165,7 +168,51 @@ impl<'connection> ProductRepository<'connection> {
             [product.id().as_str()],
         )?;
         insert_presentation(&transaction, product)?;
+        if product.grams_per_unit().is_none() {
+            transaction.execute(
+                "DELETE FROM meals_product_shopping_preferences WHERE product_id = ?1",
+                [product.id().as_str()],
+            )?;
+        }
         transaction.commit()?;
+        Ok(())
+    }
+
+    pub fn shopping_unit(
+        &mut self,
+        id: &ProductId,
+    ) -> Result<QuantityUnit, ProductRepositoryError> {
+        let stored = self
+            .connection
+            .query_row(
+                "SELECT unit FROM meals_product_shopping_preferences WHERE product_id = ?1",
+                [id.as_str()],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?;
+        Ok(match stored.as_deref() {
+            Some("units") => QuantityUnit::Units,
+            _ => QuantityUnit::Grams,
+        })
+    }
+
+    pub fn set_shopping_unit(
+        &mut self,
+        id: &ProductId,
+        unit: QuantityUnit,
+    ) -> Result<(), ProductRepositoryError> {
+        self.connection.execute(
+            "INSERT INTO meals_product_shopping_preferences (product_id, unit)
+             VALUES (?1, ?2)
+             ON CONFLICT(product_id) DO UPDATE SET unit = excluded.unit",
+            params![
+                id.as_str(),
+                match unit {
+                    QuantityUnit::Grams => "grams",
+                    QuantityUnit::Units => "units",
+                }
+            ],
+        )?;
         Ok(())
     }
 
@@ -539,13 +586,14 @@ mod tests {
                     'meals_products', 'meals_product_presentations', 'meals_recipes',
                     'meals_recipe_ingredients', 'meals_planned_instances',
                     'meals_planned_ingredients', 'meals_weekly_coverage',
-                    'meals_recipe_recommended_slots', 'meals_weekly_manual_needs'
+                    'meals_recipe_recommended_slots', 'meals_weekly_manual_needs',
+                    'meals_product_shopping_preferences'
                  )",
                 [],
                 |row| row.get(0),
             )
             .unwrap();
-        assert_eq!(table_count, 9);
+        assert_eq!(table_count, 10);
     }
 
     #[test]
@@ -746,6 +794,28 @@ mod tests {
         assert_eq!(product.grams_per_unit(), Some(Grams::new(40.0).unwrap()));
         drop(connection);
         std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn shopping_unit_defaults_to_grams_and_persists_per_product() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        apply_migrations(&mut connection).unwrap();
+        let product = tortillas();
+        let product_id = product.id().clone();
+        let mut repository = ProductRepository::new(&mut connection);
+        repository.create(&product).unwrap();
+
+        assert_eq!(
+            repository.shopping_unit(&product_id).unwrap(),
+            QuantityUnit::Grams
+        );
+        repository
+            .set_shopping_unit(&product_id, QuantityUnit::Units)
+            .unwrap();
+        assert_eq!(
+            repository.shopping_unit(&product_id).unwrap(),
+            QuantityUnit::Units
+        );
     }
 
     #[test]

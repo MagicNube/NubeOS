@@ -397,6 +397,7 @@
   color: #f1f1f1;
   font-size: 13px;
   font-weight: 700;
+  white-space: nowrap;
 }
 .macro-table.compact > div {
   min-height: 43px;
@@ -851,6 +852,13 @@
 }
 .meal-card ul {
   margin-bottom: 10px;
+}
+.meal-card li.meal-more-ingredients {
+  display: block;
+  margin: 0;
+  color: #a78bfa;
+  font-size: 13px;
+  font-weight: 650;
 }
 .meal-card .macro-table {
   margin-top: auto;

@@ -10,8 +10,8 @@ use meals::meal_commands::{
     add_manual_shopping_need, archive_meal, create_meal, create_planned_instance, delete_meal,
     list_meals, list_shopping_list, list_week, meals_affected_by_product, move_planned_instance,
     remove_manual_shopping_need, remove_planned_instance, remove_product_from_meals,
-    reorder_planned_instance, restore_meal, set_shopping_entry_checked, set_weekly_available,
-    sync_planned_instance_from_meal, update_meal, update_planned_instance,
+    reorder_planned_instance, restore_meal, set_product_shopping_unit, set_shopping_entry_checked,
+    set_weekly_available, sync_planned_instance_from_meal, update_meal, update_planned_instance,
 };
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -49,6 +49,7 @@ pub fn run() {
             move_planned_instance,
             list_shopping_list,
             set_weekly_available,
+            set_product_shopping_unit,
             set_shopping_entry_checked,
             add_manual_shopping_need,
             remove_manual_shopping_need,

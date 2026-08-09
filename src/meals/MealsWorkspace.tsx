@@ -145,6 +145,22 @@ function gramsPerUnit(product: Product) {
     ? presentation.gramsPerUnit
     : undefined;
 }
+function editableNumber(value: number, maximumFractionDigits = 2) {
+  if (!Number.isFinite(value)) return "";
+  return String(Number(value.toFixed(maximumFractionDigits)));
+}
+function convertedQuantity(
+  rawValue: string,
+  from: QuantityUnit,
+  to: QuantityUnit,
+  product?: Product | null,
+) {
+  if (!product || from === to || rawValue.trim() === "") return rawValue;
+  const value = Number(rawValue);
+  const perUnit = gramsPerUnit(product);
+  if (!Number.isFinite(value) || !perUnit) return rawValue;
+  return editableNumber(from === "grams" ? value / perUnit : value * perUnit);
+}
 function slotLabel(slot: MealSlot) {
   return slots.find((item) => item.id === slot)?.label ?? slot;
 }
@@ -367,10 +383,19 @@ function IngredientRows({
                 <select
                   aria-label={`Unidad ${index + 1}`}
                   onChange={(event) =>
-                    onChange(index, {
-                      ...draft,
-                      unit: event.target.value as QuantityUnit,
-                    })
+                    onChange(index, (() => {
+                      const unit = event.target.value as QuantityUnit;
+                      return {
+                        ...draft,
+                        quantity: convertedQuantity(
+                          draft.quantity,
+                          draft.unit,
+                          unit,
+                          product,
+                        ),
+                        unit,
+                      };
+                    })())
                   }
                   value={draft.unit}
                 >
@@ -910,7 +935,11 @@ function MealsPage({
       {!loading && !error && visibleMeals.length > 0 && (
         <div className="meal-card-grid">
           {visibleMeals.map((meal) => {
-            const shownIngredients = meal.ingredients.slice(0, 3);
+            const hasHiddenIngredients = meal.ingredients.length > 3;
+            const shownIngredients = meal.ingredients.slice(
+              0,
+              hasHiddenIngredients ? 2 : 3,
+            );
             return (
               <article
                 className="meal-card meal-card-clickable"
@@ -1009,6 +1038,12 @@ function MealsPage({
                       </span>
                     </li>
                   ))}
+                  {hasHiddenIngredients && (
+                    <li className="meal-more-ingredients">
+                      +{meal.ingredients.length - shownIngredients.length}{" "}
+                      ingredientes
+                    </li>
+                  )}
                 </ul>
                 <MacroTable compact macros={meal.macros} />
               </article>
@@ -1817,6 +1852,25 @@ function quantityWithUnits(product: Product, grams: number) {
     : gramsLabel;
 }
 
+function packageRecommendationDetails(entry: ShoppingEntry) {
+  const presentation = entry.product.presentation;
+  const recommendation = entry.recommendation;
+  if (
+    presentation?.kind !== "package" ||
+    recommendation?.kind !== "packages"
+  )
+    return null;
+  const units = presentation.unitsPerPackage;
+  const perPackage = `${formatNumber(presentation.totalGrams)} g${
+    units ? ` (${formatNumber(units)} uds)` : ""
+  } por paquete`;
+  const total =
+    recommendation.packages > 1
+      ? `Total: ${quantityWithUnits(entry.product, recommendation.grams)}`
+      : null;
+  return { perPackage, total };
+}
+
 function ManualShoppingNeedForm({
   weekStart,
   products,
@@ -1957,9 +2011,13 @@ function ManualShoppingNeedForm({
               <SelectControl>
                 <select
                   aria-label="Unidad de la cantidad"
-                  onChange={(event) =>
-                    setUnit(event.target.value as QuantityUnit)
-                  }
+                  onChange={(event) => {
+                    const nextUnit = event.target.value as QuantityUnit;
+                    setAmount(
+                      convertedQuantity(amount, unit, nextUnit, selected),
+                    );
+                    setUnit(nextUnit);
+                  }}
                   value={unit}
                 >
                   <option value="grams">g</option>
@@ -2053,7 +2111,7 @@ function ShoppingPage({
       );
   }, [weekStart]);
   function availableValue(entry: ShoppingEntry) {
-    const unit = units[entry.product.id] ?? "grams";
+    const unit = units[entry.product.id] ?? entry.preferredUnit;
     const perUnit = gramsPerUnit(entry.product);
     return unit === "units" && perUnit
       ? entry.availableGrams / perUnit
@@ -2065,7 +2123,7 @@ function ShoppingPage({
     if (rawValue === undefined) return entry.availableGrams;
     const value = Number(rawValue);
     if (!Number.isFinite(value) || value < 0) return entry.availableGrams;
-    const unit = units[id] ?? "grams";
+    const unit = units[id] ?? entry.preferredUnit;
     const perUnit = gramsPerUnit(entry.product);
     return unit === "units" && perUnit ? value * perUnit : value;
   }
@@ -2095,7 +2153,7 @@ function ShoppingPage({
   }
   function updateAvailable(entry: ShoppingEntry, value: string) {
     const id = entry.product.id;
-    const unit = units[id] ?? "grams";
+    const unit = units[id] ?? entry.preferredUnit;
     setAmounts((current) => ({ ...current, [id]: value }));
     window.clearTimeout(saveTimers.current[id]);
     if (value.trim() !== "")
@@ -2106,17 +2164,23 @@ function ShoppingPage({
   }
   function changeUnit(entry: ShoppingEntry, unit: QuantityUnit) {
     const id = entry.product.id;
-    const perUnit = gramsPerUnit(entry.product);
+    const currentUnit = units[id] ?? entry.preferredUnit;
+    const currentValue =
+      amounts[id] ?? editableNumber(availableValue(entry));
     window.clearTimeout(saveTimers.current[id]);
     setUnits((current) => ({ ...current, [id]: unit }));
     setAmounts((current) => ({
       ...current,
-      [id]: String(
-        unit === "units" && perUnit
-          ? entry.availableGrams / perUnit
-          : entry.availableGrams,
+      [id]: convertedQuantity(
+        currentValue,
+        currentUnit,
+        unit,
+        entry.product,
       ),
     }));
+    void mealsApi.setProductShoppingUnit(id, unit).catch((reason) =>
+      setError(errorMessage(reason)),
+    );
   }
   async function changeChecked(entry: ShoppingEntry, isChecked: boolean) {
     try {
@@ -2220,8 +2284,9 @@ function ShoppingPage({
       {!loading && !error && visibleEntries.length > 0 && (
         <div className="shopping-entry-list">
           {visibleEntries.map((entry) => {
-            const unit = units[entry.product.id] ?? "grams";
+            const unit = units[entry.product.id] ?? entry.preferredUnit;
             const supportsUnits = gramsPerUnit(entry.product) !== undefined;
+            const packageDetails = packageRecommendationDetails(entry);
             return (
               <article
                 className={
@@ -2252,6 +2317,12 @@ function ShoppingPage({
                   <div className="shopping-recommendation">
                     <span>Compra recomendada</span>
                     <strong>{recommendationLabel(entry)}</strong>
+                    {packageDetails && (
+                      <small>{packageDetails.perPackage}</small>
+                    )}
+                    {packageDetails?.total && (
+                      <small>{packageDetails.total}</small>
+                    )}
                     {entry.estimatedCostCents !== undefined && (
                       <small>{formatCurrency(entry.estimatedCostCents)}</small>
                     )}
@@ -2287,7 +2358,10 @@ function ShoppingPage({
                     <strong>
                       {entry.theoreticalLeftoverGrams === undefined
                         ? "No disponible"
-                        : `${formatNumber(entry.theoreticalLeftoverGrams)} g`}
+                        : quantityWithUnits(
+                            entry.product,
+                            entry.theoreticalLeftoverGrams,
+                          )}
                     </strong>
                   </p>
                 </div>
@@ -2305,7 +2379,7 @@ function ShoppingPage({
                       type="number"
                       value={
                         amounts[entry.product.id] ??
-                        String(availableValue(entry))
+                        editableNumber(availableValue(entry))
                       }
                     />
                     {supportsUnits && (
