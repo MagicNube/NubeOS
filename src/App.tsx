@@ -82,13 +82,11 @@ export default function App() {
           <button className="collapse-button" onClick={() => setCollapsed(!collapsed)} type="button">
             {collapsed ? <ChevronRight size={18} /> : <><ChevronLeft size={18} /><span>Contraer</span></>}
           </button>
-          <div className="privacy-note"><span />Datos locales</div>
         </div>
       </aside>
       <section className="content">
         <header className={activeModule === "comidas" ? "module-header meal-header" : "module-header"}>
           <div><p className="eyebrow">{content.eyebrow}</p><h1>{content.title}</h1><p className="subtitle">{content.description}</p></div>
-          <div className="avatar" aria-label="Perfil de Jesús">J</div>
         </header>
         {activeModule === "inicio" && <Dashboard openMeals={() => setActiveModule("comidas")} />}
         {activeModule === "comidas" && <MealsWorkspace />}

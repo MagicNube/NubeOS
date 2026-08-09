@@ -1809,6 +1809,14 @@ function recommendationLabel(entry: ShoppingEntry) {
   return `${formatNumber(recommendation.grams)} g`;
 }
 
+function quantityWithUnits(product: Product, grams: number) {
+  const perUnit = gramsPerUnit(product);
+  const gramsLabel = `${formatNumber(grams)} g`;
+  return perUnit
+    ? `${gramsLabel} (${formatNumber(grams / perUnit, 2)} uds)`
+    : gramsLabel;
+}
+
 function ManualShoppingNeedForm({
   weekStart,
   products,
@@ -2051,6 +2059,16 @@ function ShoppingPage({
       ? entry.availableGrams / perUnit
       : entry.availableGrams;
   }
+  function displayedAvailableGrams(entry: ShoppingEntry) {
+    const id = entry.product.id;
+    const rawValue = amounts[id];
+    if (rawValue === undefined) return entry.availableGrams;
+    const value = Number(rawValue);
+    if (!Number.isFinite(value) || value < 0) return entry.availableGrams;
+    const unit = units[id] ?? "grams";
+    const perUnit = gramsPerUnit(entry.product);
+    return unit === "units" && perUnit ? value * perUnit : value;
+  }
   function saveAvailable(
     entry: ShoppingEntry,
     rawValue: string,
@@ -2254,11 +2272,15 @@ function ShoppingPage({
                 <div className="shopping-needs">
                   <p>
                     Necesitas:{" "}
-                    <strong>{formatNumber(entry.neededGrams)} g</strong>
+                    <strong>
+                      {quantityWithUnits(entry.product, entry.neededGrams)}
+                    </strong>
                   </p>
                   <p>
                     Pendiente:{" "}
-                    <strong>{formatNumber(entry.pendingGrams)} g</strong>
+                    <strong>
+                      {quantityWithUnits(entry.product, entry.pendingGrams)}
+                    </strong>
                   </p>
                   <p>
                     Sobrante teórico:{" "}
@@ -2304,6 +2326,14 @@ function ShoppingPage({
                       </SelectControl>
                     )}
                   </div>
+                  {supportsUnits && (
+                    <small className="shopping-available-equivalence">
+                      {quantityWithUnits(
+                        entry.product,
+                        displayedAvailableGrams(entry),
+                      )}
+                    </small>
+                  )}
                 </label>
               </article>
             );

@@ -717,6 +717,11 @@
   display: grid;
   gap: 7px;
 }
+.shopping-available-equivalence {
+  color: #a9a9a9;
+  font-size: 12px;
+  font-weight: 550;
+}
 .shopping-available input {
   width: 100%;
   min-height: 38px;

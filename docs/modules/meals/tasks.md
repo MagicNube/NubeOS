@@ -432,3 +432,13 @@ Estas tareas aplican la spec y el diseño aprobados el 2026-08-03. Nube aprobó 
 - Verificación: `pnpm build` y comprobación manual con suficientes comidas para producir scroll.
 
 **Resultado:** el selector del planificador se divide en una cabecera fija y un cuerpo desplazable, por lo que buscar o cerrar no requiere volver al principio de la lista.
+
+## T-044 — Mostrar equivalencias y fijar la navegación lateral
+
+- Estado: Completada
+- Dependencias: T-042
+- Alcance: mostrar equivalencias de unidades en Compra y separar el desplazamiento del contenido principal de la barra lateral general, retirando indicadores sin utilidad actual.
+- Criterios de aceptación: «Tienes», «Necesitas» y «Pendiente» presentan `gramos (unidades)` cuando existe conversión; la equivalencia de «Tienes» responde al borrador escrito; «Contraer» permanece accesible al desplazarse por una compra larga; no aparecen «Datos locales» ni el avatar `J`.
+- Verificación: `pnpm build` y comprobación manual de compra con productos por unidades, scroll largo, barra contraída y distintos tamaños de ventana.
+
+**Resultado:** Compra conserva gramos como referencia y deriva unidades solo para presentación. La aplicación limita el shell al alto de la ventana, desplaza únicamente el contenido principal y mantiene la barra lateral y «Contraer» visibles; se retiraron «Datos locales» y el avatar superior.
