@@ -77,3 +77,27 @@ Este documento recoge solo conceptos que se utilicen realmente en NubeOS.
 - **Qué problema evita:** comparar ingredientes directamente sería más frágil y no explica la intención. Comparar dos revisiones expresa exactamente la pregunta: «¿esta copia procede de la versión actual?».
 - **¿Es idiomático?:** sí. Un contador de versión es una forma simple y explícita de modelar la evolución de un agregado local. La migración inicializa las copias ya existentes con la revisión actual para no marcar todo el historial como pendiente de actualizar.
 - **Ejemplo pequeño:** una receta pasa de revisión `1` a `2` al guardarse; una instancia con `source_meal_revision = 1` ofrece la actualización, pero conserva sus datos hasta que el usuario la solicita.
+
+### Relojes inyectables y fechas civiles
+
+- **Qué son:** el trait `Clock` expresa únicamente «qué día es hoy». Producción usa `MadridClock`, que transforma el instante UTC actual al día civil de `Europe/Madrid`; las pruebas usan un reloj fijo.
+- **Por qué se usan en NubeOS:** la caducidad de un documento depende del día local, pero una prueba no debe cambiar de resultado según la hora o fecha en que se ejecute.
+- **Qué problema evitan:** cálculos repartidos entre React y Rust, pruebas inestables alrededor de medianoche y errores al sumar 30 días entre meses o años.
+- **¿Es idiomático?:** sí. Recibir una abstracción pequeña para el tiempo es una forma habitual de separar una regla determinista del reloj del sistema.
+- **Ejemplo pequeño:** con hoy fijado en `2026-08-12`, una caducidad en `2026-09-11` está dentro de 30 días y otra en `2026-09-12` sigue vigente.
+
+### `PathBuf`, staging y compensaciones
+
+- **Qué son:** `Path` representa una ruta prestada y `PathBuf` una ruta poseída. El almacén de Documentos construye rutas privadas a partir de una raíz conocida, copia primero a `staging` y usa `rename` para confirmar o revertir movimientos.
+- **Por qué se usan en NubeOS:** SQLite y NTFS no comparten una transacción. La importación debe coordinar ambos sin exponer rutas a React ni perder el único PDF preparado.
+- **Qué problema evitan:** documentos visibles sin archivo, temporales consumidos tras un fallo y recorridos como `../` fuera de la carpeta privada.
+- **¿Es idiomático?:** sí. Mantener rutas como tipos de la biblioteca estándar y compensar explícitamente operaciones externas es preferible a tratarlas como cadenas.
+- **Ejemplo pequeño:** si SQLite no puede confirmar después de mover el PDF, Rust lo renombra de vuelta a `staging` y la transacción se revierte.
+
+### Puertos pequeños para integraciones del sistema
+
+- **Qué son:** un trait como `FileClipboard` describe la única operación que necesita el caso de uso sin acoplarlo directamente a una biblioteca de Windows.
+- **Por qué se usan en NubeOS:** copiar un PDF al portapapeles requiere `CF_HDROP` en Windows 11, mientras que las reglas del módulo solo necesitan expresar «publica este archivo».
+- **Qué problema evitan:** las pruebas no dependen del portapapeles real, una ventana activa ni un estado externo ocupado. También mantienen el código específico de Windows detrás de `cfg(windows)`.
+- **¿Es idiomático?:** sí, cuando el límite externo aporta una prueba o un aislamiento reales. El trait debe ser pequeño; no conviene crear interfaces para cada función interna.
+- **Ejemplo pequeño:** producción usa `SystemFileClipboard`; una prueba usa un adaptador falso que registra la ruta recibida y permite simular un error recuperable.

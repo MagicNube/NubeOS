@@ -41,7 +41,7 @@ export default function SupermarketMultiFilter({
     >
       <button
         aria-expanded={open}
-        className="supermarket-filter-button"
+        className="supermarket-filter-button ui-dropdown-trigger"
         onClick={() => setOpen((current) => !current)}
         type="button"
       >

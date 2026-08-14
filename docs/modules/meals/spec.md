@@ -1,7 +1,7 @@
 # Spec — Planificador de comidas, compra y productos
 
 - Estado: Aprobada por Nube
-- Última actualización: 2026-08-03
+- Última actualización: 2026-08-14
 
 ## Objetivo
 
@@ -52,6 +52,8 @@ Los productos antiguos sin presentación o con presentación "a granel por unida
 
 Los productos activos aparecen directamente al abrir Productos. Los archivados no compiten con el catálogo: se consultan desde una acción secundaria de archivo. El catálogo permite filtrar por uno o varios supermercados; elegir «Cualquiera» incluye los productos sin preferencia y dejar el filtro vacío muestra todos.
 
+Crear o editar un producto abre un diálogo modal centrado. El catálogo permanece detrás atenuado y sin interacción para que las tarjetas existentes no compitan con el formulario.
+
 ### Gestión de comidas
 
 El usuario puede crear una comida con uno o más ingredientes, añadirlos, editarlos, retirarlos y reordenarlos, buscarla por texto o por productos contenidos y consultar sus macros. Puede asignarle cero, uno o varios momentos del día.
@@ -63,6 +65,8 @@ Las tarjetas del catálogo muestran como máximo tres ingredientes y mantienen u
 Cada ingrediente empieza sin producto elegido y permite buscarlo por nombre. El selector de producto del formulario aplica la misma búsqueda incremental: no muestra sugerencias hasta escribir tres caracteres. La cantidad se añade en gramos por defecto; si el producto tiene una conversión válida de unidad a gramos, el usuario puede seleccionar unidades. Si solo admite gramos, la unidad se presenta dentro de una caja visualmente consistente, pero no editable.
 
 Una comida puede archivarse y restaurarse. Una comida archivada no aparece en nuevas búsquedas, pero se mantiene visible donde ya estaba planificada. Desde Archivo puede eliminarse definitivamente si no está referenciada por ninguna instancia planificada; así no se rompe el historial. El archivo se consulta desde una acción secundaria, no junto al listado de recetas activas.
+
+Crear o editar una comida usa el mismo patrón modal que Productos. Los selectores nativos y desplegables personalizados del módulo comparten indicador, espaciado y estados de foco. Productos, Comidas y Documentos utilizan la misma etiqueta «Volver» al abandonar Archivo.
 
 ### Planificación semanal
 

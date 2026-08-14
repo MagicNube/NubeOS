@@ -1,7 +1,7 @@
 # Spec — Documentos
 
 - Estado: Aprobada por Nube
-- Última actualización: 2026-08-09
+- Última actualización: 2026-08-14
 
 ## Objetivo
 
@@ -31,6 +31,8 @@ El módulo funciona únicamente en Windows 11 durante esta etapa. Los datos y ar
 ### Importación y almacenamiento
 
 El usuario puede seleccionar un PDF desde el sistema de archivos y completar sus datos antes de importarlo. La importación crea una copia dentro del almacenamiento privado de NubeOS; no mueve, modifica ni elimina el archivo original.
+
+El formulario de importación y el de edición se presentan como diálogos modales centrados. La colección permanece detrás, atenuada y sin interacción, para que los documentos ya creados no compitan visualmente con la tarea actual.
 
 Un documento contiene:
 
@@ -103,7 +105,7 @@ El usuario puede ordenar los resultados con caducidad por «Caducan antes» o «
 
 ### Detalle y previsualización
 
-Al seleccionar un documento se abre una vista de detalle con sus datos y una previsualización integrada del PDF. La previsualización permite recorrer todas sus páginas sin modificar el archivo.
+Al seleccionar un documento se abre un diálogo modal independiente con sus datos y una previsualización integrada del PDF. La colección permanece atenuada detrás y recupera el foco al cerrar. La previsualización permite recorrer todas sus páginas sin modificar el archivo.
 
 Desde el detalle se puede:
 
@@ -116,6 +118,8 @@ Desde el detalle se puede:
 - Archivarlo.
 
 «Copiar archivo» permite pegar posteriormente el PDF en aplicaciones de Windows 11 que acepten archivos desde el portapapeles, por ejemplo un cliente de mensajería. No copia el contenido textual ni muestra al usuario la ruta privada de NubeOS. Tras la operación, la interfaz confirma que el PDF está listo para pegarse.
+
+Las confirmaciones no bloqueantes, incluida «PDF listo para pegar», desaparecen automáticamente después de unos segundos y pueden cerrarse antes de forma manual.
 
 «Guardar copia» crea un PDF fuera del almacenamiento privado en la ubicación elegida. No cambia el documento administrado ni constituye una copia de seguridad o exportación completa de NubeOS.
 

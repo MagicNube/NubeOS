@@ -1,7 +1,7 @@
 # Tareas — Planificador de comidas, compra y productos
 
 - Estado: Refinamiento de comidas implementado; comprobación visual pendiente
-- Última actualización: 2026-08-03
+- Última actualización: 2026-08-14
 
 ## Cómo usar este documento
 
@@ -452,3 +452,13 @@ Estas tareas aplican la spec y el diseño aprobados el 2026-08-03. Nube aprobó 
 - Verificación: prueba de migración y preferencia SQLite, `cargo test`, `pnpm build` y comprobación manual de cambios de unidad en formularios y Compra.
 
 **Resultado:** la migración `0008` guarda exclusivamente la unidad de visualización preferida por producto, manteniendo gramos como fuente de verdad. Los selectores compatibles convierten el valor escrito, Compra presenta equivalencias exactas con hasta dos decimales y diferencia el redondeo informativo del redondeo físico de paquetes o unidades. Las tarjetas y el detalle por paquete conservan una jerarquía y alineación estables.
+
+## T-046 — Unificar formularios, selectores y navegación visual
+
+- Estado: Implementada; comprobación manual pendiente
+- Dependencias: T-029, T-034, T-045
+- Alcance: mover los formularios de creación y edición de Productos y Comidas a diálogos modales; extraer un contenedor modal y un selector visual compartidos con Documentos; retirar implementaciones duplicadas de chevrón y unificar la salida de Archivo como «Volver». No cambia DTO, comandos, dominio ni persistencia.
+- Criterios de aceptación: ningún formulario comparte simultáneamente el plano activo con las tarjetas del catálogo; el fondo queda atenuado y bloqueado; foco, `Escape`, cierre y desplazamiento son consistentes; todos los selectores nativos reservan el mismo espacio para el chevrón; Productos, Comidas y Documentos muestran «Archivo» al entrar y «Volver» al salir.
+- Verificación: `pnpm build`, búsqueda de selectores y overlays duplicados, y recorrido manual de crear, editar, cancelar y guardar producto, comida y documento.
+
+**Resultado:** crear y editar productos o comidas abre un modal desplazable y deja el catálogo atenuado detrás. Todos los diálogos activos del módulo reutilizan el mismo contenedor accesible; los selectores nativos comparten chevrón y margen, los filtros personalizados adoptan su geometría y Archivo vuelve siempre mediante «Volver». Se eliminaron wrappers y estilos obsoletos; el build pasa y queda la comprobación visual en Tauri.

@@ -125,6 +125,22 @@
   border-radius: 11px;
   background: #1b1b1b;
 }
+.meal-form-dialog {
+  width: min(100%, 860px);
+}
+.meal-form-dialog .meal-editor {
+  border: 0;
+  background: transparent;
+}
+.plan-editor-dialog {
+  width: min(100%, 610px);
+}
+.plan-editor-dialog .plan-editor {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
 .meal-editor-heading {
   display: flex;
   justify-content: space-between;
@@ -526,15 +542,6 @@
   margin-top: auto;
   padding-top: 6px;
   border-top: 1px solid #353535;
-}
-.workspace-modal {
-  position: fixed;
-  z-index: 20;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: 20px;
-  background: rgba(0, 0, 0, 0.72);
 }
 .picker-card,
 .plan-editor {
@@ -1037,6 +1044,15 @@
   border-radius: 12px;
   background: #1b1b1b;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+}
+.manual-shopping-modal {
+  width: min(100%, 480px);
+}
+.manual-shopping-modal .manual-shopping-dialog {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
 }
 .manual-shopping-dialog .available-input {
   align-items: center;

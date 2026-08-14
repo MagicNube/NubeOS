@@ -1,5 +1,6 @@
 import {
   Archive,
+  ArrowLeft,
   ChevronDown,
   MoreHorizontal,
   Pencil,
@@ -26,6 +27,8 @@ import {
   type SupermarketFilterValue,
 } from "./api";
 import { useLatestRequest } from "../useLatestRequest";
+import Modal from "../../ui/Modal";
+import SelectControl from "../../ui/SelectControl";
 import "./products.css";
 
 type PresentationKind = "package" | "bulkByWeight";
@@ -156,15 +159,6 @@ function inputFromValues(values: ProductFormValues): ProductInput {
   };
 }
 
-function SelectControl({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="select-control">
-      {children}
-      <ChevronDown aria-hidden="true" size={15} />
-    </span>
-  );
-}
-
 function NumberField({
   label,
   value,
@@ -240,7 +234,7 @@ function ProductForm({
           <p className="section-kicker">
             {product ? "EDITAR PRODUCTO" : "NUEVO PRODUCTO"}
           </p>
-          <h2>{product?.name ?? "Añade un producto"}</h2>
+          <h2 id="product-form-title">{product?.name ?? "Añade un producto"}</h2>
         </div>
         <button
           aria-label="Cerrar formulario"
@@ -542,7 +536,7 @@ export default function ProductsPage({
           <div className="category-control">
             <button
               aria-expanded={categoryOpen}
-              className="category-button"
+              className="category-button ui-dropdown-trigger"
               onClick={() => setCategoryOpen((value) => !value)}
               type="button"
             >
@@ -586,7 +580,7 @@ export default function ProductsPage({
         </div>
         <div className="toolbar-actions">
           <button
-            className="archive-link"
+            className="ui-archive-toggle"
             onClick={() =>
               setStatus((current) =>
                 current === "active" ? "archived" : "active",
@@ -594,8 +588,8 @@ export default function ProductsPage({
             }
             type="button"
           >
-            <Archive size={15} />{" "}
-            {status === "active" ? "Archivo" : "Volver al catálogo"}
+            {status === "active" ? <Archive size={15} /> : <ArrowLeft size={15} />}
+            {status === "active" ? "Archivo" : "Volver"}
           </button>
           <button
             className="primary-button"
@@ -607,14 +601,16 @@ export default function ProductsPage({
         </div>
       </div>
       {editing !== undefined && (
-        <ProductForm
-          product={editing ?? undefined}
-          onCancel={() => setEditing(undefined)}
-          onSaved={async () => {
-            await loadProducts();
-            setEditing(undefined);
-          }}
-        />
+        <Modal className="product-form-dialog" labelledBy="product-form-title" onClose={() => setEditing(undefined)}>
+          <ProductForm
+            product={editing ?? undefined}
+            onCancel={() => setEditing(undefined)}
+            onSaved={async () => {
+              await loadProducts();
+              setEditing(undefined);
+            }}
+          />
+        </Modal>
       )}
       <div className="products-catalog-heading">
         <div>
@@ -752,12 +748,11 @@ export default function ProductsPage({
         </div>
       )}
       {removal && (
-        <div className="workspace-modal">
-          <section className="product-removal-dialog">
+        <Modal className="product-removal-dialog" labelledBy="product-removal-title" onClose={() => setRemoval(null)}>
             <div className="product-form-heading">
               <div>
                 <p className="section-kicker">RETIRAR PRODUCTO</p>
-                <h2>{removal.product.name}</h2>
+                <h2 id="product-removal-title">{removal.product.name}</h2>
               </div>
               <button
                 aria-label="Cerrar confirmación"
@@ -793,16 +788,14 @@ export default function ProductsPage({
                 Confirmar retirada
               </button>
             </div>
-          </section>
-        </div>
+        </Modal>
       )}
       {permanentDeletion && (
-        <div className="workspace-modal">
-          <section className="product-removal-dialog permanent-delete-dialog">
+        <Modal className="product-removal-dialog permanent-delete-dialog" labelledBy="product-delete-title" onClose={() => setPermanentDeletion(null)}>
             <div className="product-form-heading">
               <div>
                 <p className="section-kicker">ELIMINAR DEFINITIVAMENTE</p>
-                <h2>{permanentDeletion.name}</h2>
+                <h2 id="product-delete-title">{permanentDeletion.name}</h2>
               </div>
               <button
                 aria-label="Cerrar confirmación"
@@ -833,8 +826,7 @@ export default function ProductsPage({
                 Eliminar definitivamente
               </button>
             </div>
-          </section>
-        </div>
+        </Modal>
       )}
     </section>
   );

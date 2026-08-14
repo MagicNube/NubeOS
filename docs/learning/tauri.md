@@ -51,3 +51,19 @@ Este documento recoge conceptos de Tauri incorporados de forma consciente al pro
 - **Por qué se usa en NubeOS:** en el calendario de comidas, el arrastre HTML nativo no entregaba de forma fiable el destino en el WebView de Tauri. React interpreta el gesto de puntero como estado temporal de interfaz, localiza la celda bajo el cursor y solicita a Rust el movimiento final.
 - **Límite de responsabilidad:** React solo detecta origen, destino y posición visual. El comando `move_planned_instance` y el repositorio Rust validan y persisten el cambio de día, franja y orden.
 - **Ejemplo pequeño:** al superar seis píxeles de desplazamiento, la tarjeta pasa a estado de arrastre, el origen se atenúa y una copia visual sigue al cursor. Al soltar sobre una tarjeta, su mitad superior inserta antes y su mitad inferior inserta después.
+
+### Diálogos nativos y tokens opacos
+
+- **Qué son:** el plugin oficial de diálogo abre el selector de Windows desde Rust. Después de elegir un PDF, Rust lo valida y devuelve a React un UUID temporal junto con el nombre y tamaño visibles.
+- **Por qué se usan en NubeOS:** el formulario necesita referirse a una selección preparada sin recibir la ruta original ni conocer la carpeta privada de la aplicación.
+- **Límite de responsabilidad:** React conserva el token mientras el formulario está abierto y pide importar o descartar. Rust relaciona el token con el temporal, impide reutilizarlo y realiza todas las operaciones de archivos.
+- **Implicaciones de seguridad:** el contrato no acepta rutas construidas por React y el token no permite navegar por el sistema de archivos. Cancelar o abandonar el formulario retira la selección preparada.
+- **Ejemplo pequeño:** `select_document_pdf` devuelve `{ token, originalFileName, sizeBytes }`; `import_document` consume ese token una sola vez.
+
+### Respuestas IPC binarias y visor PDF local
+
+- **Qué son:** un comando Tauri puede devolver `tauri::ipc::Response` con bytes sin serializarlos como JSON. PDF.js recibe esos bytes como `Uint8Array` y dibuja cada página en un `canvas` del WebView.
+- **Por qué se usan en NubeOS:** el visor integrado necesita el contenido del PDF administrado, pero React no debe conocer su ruta privada. La transferencia binaria evita Base64, copias de texto innecesarias y contratos que acepten rutas arbitrarias.
+- **Límite de responsabilidad:** Rust resuelve un `DocumentId`, comprueba que el documento exista y lee su archivo. React carga PDF.js, presenta las páginas y gestiona únicamente el estado visual del visor.
+- **Implicaciones de seguridad:** el worker de PDF.js forma parte del bundle y funciona sin red. Al cambiar o cerrar el documento se cancelan renderizados y se destruye la tarea de carga para liberar recursos.
+- **Ejemplo pequeño:** `read_document_pdf` responde con `Response::new(bytes)`; `invoke<ArrayBuffer>` entrega el cuerpo a `getDocument({ data: new Uint8Array(buffer) })`.

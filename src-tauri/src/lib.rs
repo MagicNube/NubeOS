@@ -1,6 +1,19 @@
+pub mod documents;
 pub mod meals;
 
 use tauri::Manager;
+
+use documents::{
+    commands::{
+        archive_document, copy_document_pdf, delete_document, discard_pending_document_pdf,
+        get_document, get_document_expiry_summary, import_document, list_document_tags,
+        list_documents, open_document_pdf, read_document_pdf, replace_document_pdf,
+        restore_document, save_document_copy, select_document_pdf, set_document_favorite,
+        update_document, DocumentStoreState,
+    },
+    repository::DocumentRepository,
+    store::PdfStore,
+};
 
 use meals::commands::{
     archive_product, create_product, delete_product, list_products, restore_product,
@@ -20,11 +33,27 @@ pub fn run() {
         .setup(|app| {
             let data_directory = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_directory)?;
-            app.manage(ProductDatabase::open(
-                data_directory.join("nubeos.sqlite3"),
-            )?);
+            let database = ProductDatabase::open(data_directory.join("nubeos.sqlite3"))?;
+            let store = PdfStore::open(data_directory.join("documents"))?;
+            {
+                let mut connection = database
+                    .connection
+                    .lock()
+                    .map_err(|_| "database lock poisoned")?;
+                let referenced = DocumentRepository::new(&mut connection)
+                    .stored_file_names()?
+                    .into_iter()
+                    .collect();
+                store.reconcile(&referenced)?;
+            }
+            app.manage(database);
+            app.manage(DocumentStoreState {
+                store: std::sync::Mutex::new(store),
+            });
             Ok(())
         })
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             list_products,
             create_product,
@@ -53,6 +82,23 @@ pub fn run() {
             set_shopping_entry_checked,
             add_manual_shopping_need,
             remove_manual_shopping_need,
+            select_document_pdf,
+            discard_pending_document_pdf,
+            import_document,
+            list_documents,
+            get_document,
+            list_document_tags,
+            get_document_expiry_summary,
+            update_document,
+            set_document_favorite,
+            archive_document,
+            restore_document,
+            delete_document,
+            replace_document_pdf,
+            read_document_pdf,
+            open_document_pdf,
+            save_document_copy,
+            copy_document_pdf,
         ])
         .run(tauri::generate_context!())
         .expect("error while running NubeOS");

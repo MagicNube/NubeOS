@@ -1,5 +1,6 @@
 import {
   Archive,
+  ArrowLeft,
   CalendarDays,
   ChevronDown,
   ChevronLeft,
@@ -16,7 +17,7 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { FormEvent, ReactNode } from "react";
+import type { FormEvent } from "react";
 import {
   mealsApi,
   type MacroTotals,
@@ -41,6 +42,8 @@ import {
   type SupermarketFilterValue,
 } from "./products/api";
 import { useLatestRequest } from "./useLatestRequest";
+import Modal from "../ui/Modal";
+import SelectControl from "../ui/SelectControl";
 import "./meals.css";
 
 type Section = "products" | "meals" | "planner" | "shopping";
@@ -191,15 +194,6 @@ function useMadridToday() {
     return () => window.clearTimeout(timeout);
   }, []);
   return today;
-}
-
-function SelectControl({ children }: { children: ReactNode }) {
-  return (
-    <span className="select-control">
-      {children}
-      <ChevronDown aria-hidden="true" size={15} />
-    </span>
-  );
 }
 
 function MacroTable({
@@ -512,7 +506,7 @@ function MealForm({
           <p className="section-kicker">
             {meal ? "EDITAR COMIDA" : "NUEVA COMIDA"}
           </p>
-          <h2>{meal?.name ?? "Crea una comida"}</h2>
+          <h2 id="meal-form-title">{meal?.name ?? "Crea una comida"}</h2>
         </div>
         <button
           aria-label="Cerrar formulario"
@@ -712,13 +706,7 @@ function MealDetail({
   onEdit: () => void;
 }) {
   return (
-    <div className="workspace-modal">
-      <section
-        aria-labelledby="meal-detail-title"
-        aria-modal="true"
-        className="meal-detail-dialog"
-        role="dialog"
-      >
+    <Modal className="meal-detail-dialog" labelledBy="meal-detail-title" onClose={onClose}>
         <div className="meal-editor-heading">
           <div>
             <p className="section-kicker">DETALLE DE COMIDA</p>
@@ -768,8 +756,7 @@ function MealDetail({
             Editar comida
           </button>
         </div>
-      </section>
-    </div>
+    </Modal>
   );
 }
 
@@ -882,7 +869,7 @@ function MealsPage({
         </div>
         <div className="toolbar-actions">
           <button
-            className="archive-link"
+            className="ui-archive-toggle"
             onClick={() =>
               setStatus((current) =>
                 current === "active" ? "archived" : "active",
@@ -890,8 +877,8 @@ function MealsPage({
             }
             type="button"
           >
-            <Archive size={15} />{" "}
-            {status === "active" ? "Archivo" : "Volver a recetas"}
+            {status === "active" ? <Archive size={15} /> : <ArrowLeft size={15} />}
+            {status === "active" ? "Archivo" : "Volver"}
           </button>
           <button
             className="primary-button"
@@ -903,15 +890,17 @@ function MealsPage({
         </div>
       </div>
       {editing !== undefined && (
-        <MealForm
-          meal={editing ?? undefined}
-          onCancel={() => setEditing(undefined)}
-          onSaved={async () => {
-            await refresh();
-            setEditing(undefined);
-          }}
-          products={editing ? allProducts : products}
-        />
+        <Modal className="meal-form-dialog" labelledBy="meal-form-title" onClose={() => setEditing(undefined)}>
+          <MealForm
+            meal={editing ?? undefined}
+            onCancel={() => setEditing(undefined)}
+            onSaved={async () => {
+              await refresh();
+              setEditing(undefined);
+            }}
+            products={editing ? allProducts : products}
+          />
+        </Modal>
       )}
       <div className="section-heading">
         <div>
@@ -1062,12 +1051,11 @@ function MealsPage({
         />
       )}
       {permanentDeletion && (
-        <div className="workspace-modal">
-          <section className="product-removal-dialog permanent-delete-dialog">
+        <Modal className="product-removal-dialog permanent-delete-dialog" labelledBy="meal-delete-title" onClose={() => setPermanentDeletion(null)}>
             <div className="product-form-heading">
               <div>
                 <p className="section-kicker">ELIMINAR DEFINITIVAMENTE</p>
-                <h2>{permanentDeletion.name}</h2>
+                <h2 id="meal-delete-title">{permanentDeletion.name}</h2>
               </div>
               <button
                 aria-label="Cerrar confirmación"
@@ -1098,8 +1086,7 @@ function MealsPage({
                 Eliminar definitivamente
               </button>
             </div>
-          </section>
-        </div>
+        </Modal>
       )}
     </section>
   );
@@ -1122,13 +1109,7 @@ function PlanInstanceDetail({
 }) {
   const [confirmingSync, setConfirmingSync] = useState(false);
   return (
-    <div className="workspace-modal">
-      <section
-        aria-labelledby="planned-instance-detail-title"
-        aria-modal="true"
-        className="plan-detail-dialog"
-        role="dialog"
-      >
+    <Modal className="plan-detail-dialog" labelledBy="planned-instance-detail-title" onClose={onClose}>
         <div className="meal-editor-heading">
           <div>
             <p className="section-kicker">DETALLE DE COMIDA PLANIFICADA</p>
@@ -1220,8 +1201,7 @@ function PlanInstanceDetail({
             Cerrar
           </button>
         </div>
-      </section>
-    </div>
+    </Modal>
   );
 }
 
@@ -1278,7 +1258,7 @@ function PlanInstanceEditor({
       <div className="meal-editor-heading">
         <div>
           <p className="section-kicker">EDITAR INSTANCIA</p>
-          <h2>Comida planificada</h2>
+          <h2 id="plan-editor-title">Comida planificada</h2>
         </div>
         <button
           aria-label="Cerrar edición"
@@ -1741,13 +1721,12 @@ function PlannerPage({
         </div>
       </div>
       {target && (
-        <div className="workspace-modal">
-          <div className="picker-card">
+        <Modal className="picker-card" labelledBy="meal-picker-title" onClose={() => setTarget(null)}>
             <div className="picker-card-header">
               <div className="meal-editor-heading">
                 <div>
                   <p className="section-kicker">AÑADIR AL PLAN</p>
-                  <h2>
+                  <h2 id="meal-picker-title">
                     {slotLabel(target.slot)} ({weekdays[target.weekday]})
                   </h2>
                 </div>
@@ -1798,8 +1777,7 @@ function PlannerPage({
                 </div>
               )}
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
       {editing && (
         <PlanInstanceDetail
@@ -1818,7 +1796,7 @@ function PlannerPage({
         />
       )}
       {editingForm && (
-        <div className="workspace-modal">
+        <Modal className="plan-editor-dialog" labelledBy="plan-editor-title" onClose={() => setEditingForm(null)}>
           <PlanInstanceEditor
             instance={editingForm}
             onCancel={() => setEditingForm(null)}
@@ -1828,7 +1806,7 @@ function PlannerPage({
             }}
             products={products}
           />
-        </div>
+        </Modal>
       )}
     </section>
   );
@@ -1920,14 +1898,8 @@ function ManualShoppingNeedForm({
     }
   }
   return (
-    <div className="workspace-modal">
-      <form
-        aria-labelledby="manual-shopping-title"
-        aria-modal="true"
-        className="manual-shopping-dialog"
-        onSubmit={submit}
-        role="dialog"
-      >
+    <Modal className="manual-shopping-modal" labelledBy="manual-shopping-title" onClose={onCancel}>
+      <form className="manual-shopping-dialog" onSubmit={submit}>
         <div className="meal-editor-heading">
           <div>
             <p className="section-kicker">AÑADIR A LA COMPRA</p>
@@ -2043,7 +2015,7 @@ function ManualShoppingNeedForm({
           </button>
         </div>
       </form>
-    </div>
+    </Modal>
   );
 }
 

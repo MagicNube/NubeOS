@@ -1,7 +1,7 @@
 # Principios de NubeOS
 
 - Estado: Aprobada por Nube
-- Última actualización: 2026-08-02
+- Última actualización: 2026-08-14
 
 Estos principios guían las decisiones cotidianas del proyecto. Una excepción debe ser explícita, acotada y justificada; si afecta a la arquitectura, requiere una ADR.
 
@@ -42,6 +42,13 @@ Estos principios guían las decisiones cotidianas del proyecto. Una excepción d
 - Se evita `unsafe` en Rust; cualquier excepción se documenta y justifica.
 - Antes de añadir una dependencia se evalúan su necesidad, mantenimiento, tamaño, superficie de seguridad y alternativa estándar.
 - No se hacen refactors amplios fuera del objetivo de una tarea aprobada.
+
+## Coherencia de interfaz
+
+- Los patrones transversales ya consolidados se reutilizan desde `src/ui/`; un módulo no crea otra variante de modal, selector o aviso temporal sin una necesidad documentada.
+- Los modales bloquean y atenúan el contenido de fondo, contienen el foco, permiten cierre coherente y restauran el foco al elemento que los abrió.
+- Los selectores nativos comparten chevrón, margen derecho, tema oscuro y estado de foco. Los desplegables personalizados conservan la misma geometría visual.
+- La zona compartida contiene únicamente presentación y accesibilidad. Los textos, borradores, validaciones y decisiones de negocio siguen perteneciendo al módulo correspondiente.
 
 ## Calidad y verificación
 

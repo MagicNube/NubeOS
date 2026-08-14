@@ -51,21 +51,6 @@
   font: inherit;
   font-size: 13px;
 }
-.archive-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 4px;
-  border: 0;
-  color: #a78bfa;
-  background: transparent;
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 650;
-}
-.archive-link:hover {
-  color: #ddd6fe;
-}
 .products-catalog-heading {
   display: flex;
   justify-content: space-between;
@@ -94,11 +79,6 @@
   font: inherit;
   font-size: 12px;
   text-align: left;
-}
-.category-button::after {
-  float: right;
-  color: #a78bfa;
-  content: "⌄";
 }
 .category-menu,
 .card-menu {
@@ -263,6 +243,13 @@
   display: grid;
   gap: 21px;
   padding: 23px;
+}
+.product-form-dialog {
+  width: min(100%, 860px);
+}
+.product-form-dialog .product-form {
+  border: 0;
+  background: transparent;
 }
 .product-form-heading h2 {
   margin: 0;
@@ -443,31 +430,9 @@
   justify-content: space-between;
   gap: 16px;
 }
-.category-button::after {
-  content: none;
-}
 .category-button svg {
   flex: 0 0 auto;
   color: #a78bfa;
-}
-.select-control {
-  position: relative;
-  display: block;
-}
-.select-control select {
-  appearance: none;
-  padding-right: 36px;
-  cursor: pointer;
-}
-.select-control svg {
-  position: absolute;
-  top: 50%;
-  right: 11px;
-  width: 15px;
-  height: 15px;
-  color: #a78bfa;
-  pointer-events: none;
-  transform: translateY(-50%);
 }
 .product-field select option {
   color: #ededed;

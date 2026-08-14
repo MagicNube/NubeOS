@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import {
   BookOpen,
   CheckCircle2,
@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import MealsWorkspace from "./meals/MealsWorkspace";
+const DocumentsWorkspace = lazy(() => import("./documents/DocumentsWorkspace"));
 
 type ModuleId = "inicio" | "comidas" | "finanzas" | "documentos" | "proyectos" | "habitos" | "lectura" | "series";
 
@@ -40,7 +41,7 @@ const moduleCopy: Record<ModuleId, { eyebrow: string; title: string; description
   series: { eyebrow: "PARA VER", title: "Series", description: "Lleva tu lista pendiente y no pierdas el hilo." },
 };
 
-function Placeholder({ activeModule }: { activeModule: Exclude<ModuleId, "inicio" | "comidas"> }) {
+function Placeholder({ activeModule }: { activeModule: Exclude<ModuleId, "inicio" | "comidas" | "documentos"> }) {
   const Icon = navigation.find((item) => item.id === activeModule)!.icon;
   return (
     <section className="placeholder-card">
@@ -90,7 +91,8 @@ export default function App() {
         </header>
         {activeModule === "inicio" && <Dashboard openMeals={() => setActiveModule("comidas")} />}
         {activeModule === "comidas" && <MealsWorkspace />}
-        {activeModule !== "inicio" && activeModule !== "comidas" && <Placeholder activeModule={activeModule} />}
+        {activeModule === "documentos" && <Suspense fallback={<section className="placeholder-card"><p>Cargando Documentos…</p></section>}><DocumentsWorkspace /></Suspense>}
+        {activeModule !== "inicio" && activeModule !== "comidas" && activeModule !== "documentos" && <Placeholder activeModule={activeModule} />}
       </section>
     </main>
   );

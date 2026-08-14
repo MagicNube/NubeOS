@@ -1,7 +1,7 @@
 # Diseño — Documentos
 
 - Estado: Aprobado por Nube
-- Última actualización: 2026-08-09
+- Última actualización: 2026-08-14
 - Spec relacionada: `docs/modules/documents/spec.md`
 
 ## Propósito
@@ -287,6 +287,8 @@ Si el portapapeles está ocupado por otra aplicación, se devuelve un error recu
 
 - Mostrar accesos rápidos, resumen de caducidades, lista compacta, detalle y Archivo.
 - Mantener búsqueda, filtros, orden, selección, diálogos y borradores no guardados.
+- Presentar detalle, previsualización e importación o edición en diálogos modales que bloquean la interacción con la colección, restauran el foco al cerrar y admiten cierre mediante botón, fondo o `Escape` cuando no hay una operación destructiva en curso.
+- Mostrar confirmaciones no bloqueantes mediante un aviso temporal compartido y retirarlo automáticamente.
 - Traducir categorías, estados y errores para la interfaz.
 - Solicitar mediante comandos los diálogos nativos y conservar solo los tokens temporales devueltos.
 - Renderizar el binario recibido con PDF.js y liberar el visor al cerrarlo.
@@ -303,11 +305,14 @@ Documentos
 ├─ Accesos rápidos de favoritos activos
 ├─ Buscador + filtros + ordenación + Añadir PDF
 ├─ Lista compacta de documentos activos
-├─ Detalle con previsualización y acciones
+├─ Diálogo de detalle con previsualización y acciones
+├─ Diálogo de importación o edición
 └─ Archivo, accesible bajo demanda
 ```
 
-La lista es la única representación de la colección; no existe selector de tarjetas. Al pulsar una fila se abre el detalle. La estrella cambia favorito sin abrir el formulario. Editar, reemplazar y archivar son acciones secundarias.
+La lista es la única representación de la colección; no existe selector de tarjetas. Al pulsar una fila se abre el detalle modal. La estrella cambia favorito sin abrir el formulario. Editar sustituye el contenido del mismo diálogo por el formulario, sin mostrar simultáneamente la colección como contenido activo. Reemplazar y archivar son acciones secundarias.
+
+Los controles visuales genéricos —contenedor modal, selector con chevrón y aviso temporal— pueden vivir en la zona compartida de React porque ya tienen consumidores reales en Comidas y Documentos. Solo contienen presentación y accesibilidad; los formularios, textos y estados continúan perteneciendo a cada módulo.
 
 ## Responsabilidades de Rust
 
