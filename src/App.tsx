@@ -14,8 +14,17 @@ import {
 import type { LucideIcon } from "lucide-react";
 import MealsWorkspace from "./meals/MealsWorkspace";
 const DocumentsWorkspace = lazy(() => import("./documents/DocumentsWorkspace"));
+const HabitsWorkspace = lazy(() => import("./habits/HabitsWorkspace"));
 
-type ModuleId = "inicio" | "comidas" | "finanzas" | "documentos" | "proyectos" | "habitos" | "lectura" | "series";
+type ModuleId =
+  | "inicio"
+  | "comidas"
+  | "finanzas"
+  | "documentos"
+  | "proyectos"
+  | "habitos"
+  | "lectura"
+  | "series";
 
 type NavigationItem = { id: ModuleId; label: string; icon: LucideIcon };
 
@@ -30,24 +39,72 @@ const navigation: NavigationItem[] = [
   { id: "series", label: "Series", icon: Film },
 ];
 
-const moduleCopy: Record<ModuleId, { eyebrow: string; title: string; description: string }> = {
-  inicio: { eyebrow: "TU ESPACIO", title: "Todo en su sitio.", description: "Una vista tranquila de tus módulos personales." },
-  comidas: { eyebrow: "PLANIFICACIÓN", title: "Comidas y compras", description: "Crea tu catálogo de productos para construir comidas y planificar la compra." },
-  finanzas: { eyebrow: "PATRIMONIO PERSONAL", title: "Finanzas", description: "Registra cuentas, movimientos y presupuesto mensual." },
-  documentos: { eyebrow: "ARCHIVO PERSONAL", title: "Documentos", description: "Guarda y encuentra tus documentos importantes." },
-  proyectos: { eyebrow: "TRABAJO PROFUNDO", title: "Proyectos", description: "Define objetivos y mantén visibles los próximos pasos." },
-  habitos: { eyebrow: "CONSTANCIA", title: "Hábitos", description: "Crea pequeñas rutinas y observa cómo se acumulan." },
-  lectura: { eyebrow: "BIBLIOTECA", title: "Lectura", description: "Conserva tu lista de lectura y tus notas." },
-  series: { eyebrow: "PARA VER", title: "Series", description: "Lleva tu lista pendiente y no pierdas el hilo." },
+const moduleCopy: Record<
+  ModuleId,
+  { eyebrow: string; title: string; description: string }
+> = {
+  inicio: {
+    eyebrow: "TU ESPACIO",
+    title: "Todo en su sitio.",
+    description: "Una vista tranquila de tus módulos personales.",
+  },
+  comidas: {
+    eyebrow: "PLANIFICACIÓN",
+    title: "Comidas y compras",
+    description:
+      "Crea tu catálogo de productos para construir comidas y planificar la compra.",
+  },
+  finanzas: {
+    eyebrow: "PATRIMONIO PERSONAL",
+    title: "Finanzas",
+    description: "Registra cuentas, movimientos y presupuesto mensual.",
+  },
+  documentos: {
+    eyebrow: "ARCHIVO PERSONAL",
+    title: "Documentos",
+    description: "Guarda y encuentra tus documentos importantes.",
+  },
+  proyectos: {
+    eyebrow: "TRABAJO PROFUNDO",
+    title: "Proyectos",
+    description: "Define objetivos y mantén visibles los próximos pasos.",
+  },
+  habitos: {
+    eyebrow: "CONSTANCIA",
+    title: "Hábitos",
+    description: "Crea pequeñas rutinas y observa cómo se acumulan.",
+  },
+  lectura: {
+    eyebrow: "BIBLIOTECA",
+    title: "Lectura",
+    description: "Conserva tu lista de lectura y tus notas.",
+  },
+  series: {
+    eyebrow: "PARA VER",
+    title: "Series",
+    description: "Lleva tu lista pendiente y no pierdas el hilo.",
+  },
 };
 
-function Placeholder({ activeModule }: { activeModule: Exclude<ModuleId, "inicio" | "comidas" | "documentos"> }) {
+function Placeholder({
+  activeModule,
+}: {
+  activeModule: Exclude<
+    ModuleId,
+    "inicio" | "comidas" | "documentos" | "habitos"
+  >;
+}) {
   const Icon = navigation.find((item) => item.id === activeModule)!.icon;
   return (
     <section className="placeholder-card">
-      <div className="placeholder-icon"><Icon size={25} /></div>
+      <div className="placeholder-icon">
+        <Icon size={25} />
+      </div>
       <h2>Este módulo está preparado.</h2>
-      <p>Su estructura llegará después. De momento, el planificador de comidas ya está listo para usar.</p>
+      <p>
+        Su estructura llegará después. De momento, el planificador de comidas ya
+        está listo para usar.
+      </p>
     </section>
   );
 }
@@ -57,8 +114,13 @@ function Dashboard({ openMeals }: { openMeals: () => void }) {
     <section className="dashboard-card">
       <p className="section-kicker">PRIMER MÓDULO</p>
       <h2>Planifica una semana con intención.</h2>
-      <p>Tu planificador de comidas ya tiene una semana de ejemplo, macros diarios y una compra consolidada.</p>
-      <button className="primary-button" onClick={openMeals} type="button">Abrir planificador <ChevronRight size={17} /></button>
+      <p>
+        Tu planificador de comidas ya tiene una semana de ejemplo, macros
+        diarios y una compra consolidada.
+      </p>
+      <button className="primary-button" onClick={openMeals} type="button">
+        Abrir planificador <ChevronRight size={17} />
+      </button>
     </section>
   );
 }
@@ -71,28 +133,87 @@ export default function App() {
   return (
     <main className={collapsed ? "app-shell sidebar-collapsed" : "app-shell"}>
       <aside className="sidebar">
-        <div className="brand"><div className="brand-mark">N</div><span>NubeOS</span></div>
+        <div className="brand">
+          <div className="brand-mark">N</div>
+          <span>NubeOS</span>
+        </div>
         <nav aria-label="Módulos principales">
           {navigation.map(({ id, label, icon: Icon }) => (
-            <button className={activeModule === id ? "nav-item active" : "nav-item"} key={id} onClick={() => setActiveModule(id)} title={collapsed ? label : undefined} type="button">
-              <Icon size={18} strokeWidth={1.8} /><span>{label}</span>
+            <button
+              className={activeModule === id ? "nav-item active" : "nav-item"}
+              key={id}
+              onClick={() => setActiveModule(id)}
+              title={collapsed ? label : undefined}
+              type="button"
+            >
+              <Icon size={18} strokeWidth={1.8} />
+              <span>{label}</span>
             </button>
           ))}
         </nav>
         <div className="sidebar-footer">
-          <button className="collapse-button" onClick={() => setCollapsed(!collapsed)} type="button">
-            {collapsed ? <ChevronRight size={18} /> : <><ChevronLeft size={18} /><span>Contraer</span></>}
+          <button
+            className="collapse-button"
+            onClick={() => setCollapsed(!collapsed)}
+            type="button"
+          >
+            {collapsed ? (
+              <ChevronRight size={18} />
+            ) : (
+              <>
+                <ChevronLeft size={18} />
+                <span>Contraer</span>
+              </>
+            )}
           </button>
         </div>
       </aside>
       <section className="content">
-        <header className={activeModule === "comidas" ? "module-header meal-header" : "module-header"}>
-          <div><p className="eyebrow">{content.eyebrow}</p><h1>{content.title}</h1><p className="subtitle">{content.description}</p></div>
+        <header
+          className={
+            activeModule === "comidas"
+              ? "module-header meal-header"
+              : "module-header"
+          }
+        >
+          <div>
+            <p className="eyebrow">{content.eyebrow}</p>
+            <h1>{content.title}</h1>
+            <p className="subtitle">{content.description}</p>
+          </div>
         </header>
-        {activeModule === "inicio" && <Dashboard openMeals={() => setActiveModule("comidas")} />}
+        {activeModule === "inicio" && (
+          <Dashboard openMeals={() => setActiveModule("comidas")} />
+        )}
         {activeModule === "comidas" && <MealsWorkspace />}
-        {activeModule === "documentos" && <Suspense fallback={<section className="placeholder-card"><p>Cargando Documentos…</p></section>}><DocumentsWorkspace /></Suspense>}
-        {activeModule !== "inicio" && activeModule !== "comidas" && activeModule !== "documentos" && <Placeholder activeModule={activeModule} />}
+        {activeModule === "documentos" && (
+          <Suspense
+            fallback={
+              <section className="placeholder-card">
+                <p>Cargando Documentos…</p>
+              </section>
+            }
+          >
+            <DocumentsWorkspace />
+          </Suspense>
+        )}
+        {activeModule === "habitos" && (
+          <Suspense
+            fallback={
+              <section className="placeholder-card">
+                <p>Cargando Hábitos…</p>
+              </section>
+            }
+          >
+            <HabitsWorkspace />
+          </Suspense>
+        )}
+        {activeModule !== "inicio" &&
+          activeModule !== "comidas" &&
+          activeModule !== "documentos" &&
+          activeModule !== "habitos" && (
+            <Placeholder activeModule={activeModule} />
+          )}
       </section>
     </main>
   );

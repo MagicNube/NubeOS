@@ -101,3 +101,19 @@ Este documento recoge solo conceptos que se utilicen realmente en NubeOS.
 - **Qué problema evitan:** las pruebas no dependen del portapapeles real, una ventana activa ni un estado externo ocupado. También mantienen el código específico de Windows detrás de `cfg(windows)`.
 - **¿Es idiomático?:** sí, cuando el límite externo aporta una prueba o un aislamiento reales. El trait debe ser pequeño; no conviene crear interfaces para cada función interna.
 - **Ejemplo pequeño:** producción usa `SystemFileClipboard`; una prueba usa un adaptador falso que registra la ruta recibida y permite simular un error recuperable.
+
+### Hechos persistidos y estado derivado
+
+- **Qué es:** Hábitos guarda hechos pequeños —una configuración fechada, una realización, una omisión o un intervalo de pausa— y calcula a partir de ellos el progreso, los porcentajes y las rachas.
+- **Por qué se usa en NubeOS:** una métrica guardada podría quedar desactualizada al corregir ayer, omitir una fecha o cambiar una frecuencia. Recalcular desde los hechos mantiene una única fuente de verdad.
+- **Qué problema evita:** contadores que no coinciden con el historial y actualizaciones complejas de muchos agregados por cada check.
+- **¿Es idiomático?:** sí. `BTreeMap<NaiveDate, HabitLogState>` conserva los registros ordenados por fecha, mientras `enum Schedule` obliga a tratar explícitamente cada frecuencia. Las revisiones con `effective_from` conservan cómo se interpretaba el pasado.
+- **Ejemplo pequeño:** una semana guarda tres fechas `Completed` y una `Skipped`; Rust deriva `3 de 3` sin persistir ese resultado redundante.
+
+### Evolucionar un esquema sin reinterpretar el historial
+
+- **Qué es:** una migración puede añadir nuevos campos y transformar la representación anterior en la nueva. Hábitos copia `created_on` a `starts_on` para las actividades existentes y convierte el antiguo día mensual único en una colección de días orientativos.
+- **Por qué se usa en NubeOS:** instalar una versión nueva no debe borrar actividades ni hacer que empiecen en 1970. La prueba ejecuta primero el esquema anterior, introduce datos y aplica después la migración de refinamiento.
+- **Qué problema evita:** cambios que funcionan en una base recién creada pero fallan o pierden significado en el equipo del usuario, donde las migraciones anteriores ya se ejecutaron.
+- **¿Es idiomático?:** sí. Mantener migraciones incrementales e incluir una prueba de actualización es una práctica habitual. El dominio sigue usando tipos actuales; la compatibilidad queda localizada en SQL y en una lectura defensiva del repositorio.
+- **Ejemplo pequeño:** un objetivo mensual guardado con `monthly_start_day = 15` reaparece como `preferred_days = [15]` tras actualizar, sin intervención manual.

@@ -38,6 +38,10 @@ pub fn apply_migrations(connection: &mut Connection) -> rusqlite_migration::Resu
             "../../migrations/0008_add_shopping_unit_preferences.sql"
         )),
         M::up(include_str!("../../migrations/0009_create_documents.sql")),
+        M::up(include_str!("../../migrations/0010_create_habits.sql")),
+        M::up(include_str!(
+            "../../migrations/0011_refine_habits_tracking.sql"
+        )),
     ])
     .to_latest(connection)
 }

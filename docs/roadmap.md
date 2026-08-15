@@ -1,7 +1,7 @@
 # Roadmap de NubeOS
 
 - Estado: Aprobado por Nube
-- Última actualización: 2026-08-02
+- Última actualización: 2026-08-16
 
 ## Propósito
 
@@ -11,10 +11,11 @@ No contiene fechas. La prioridad es terminar un flujo vertical útil del módulo
 
 ## Estado actual
 
-- La visión, arquitectura y principios están aprobados.
-- Están aprobadas las ADRs de persistencia local, comandos Tauri, organización por módulos, pruebas y aplazamiento de copias/sincronización.
-- Existe un prototipo de interfaz del planificador de comidas creado antes del proceso actual. Sirve como referencia de producto, pero no forma parte aún de la implementación de producción.
-- Todavía no existe un modelo de dominio, persistencia SQLite, comandos Tauri de producción ni una spec aprobada para comidas.
+- La visión, arquitectura, principios y ADRs base están aprobados.
+- Comidas y compras está implementado y cerrado tras varias rondas de uso real.
+- Documentos está implementado, revisado y cerrado.
+- Hábitos y rutinas está implementado, revisado y cerrado.
+- Los datos continúan siendo locales, sin copias ni sincronización durante esta etapa.
 
 ## Hito 0 — Fundaciones documentadas
 
@@ -71,13 +72,44 @@ El alcance concreto se determinará mediante una nueva actualización de spec, d
 
 **Salida:** decisión informada sobre qué mejorar en comidas y qué módulo abordar después.
 
+## Hito 5 — Documentos personales
+
+**Objetivo:** conservar, encontrar y utilizar PDFs privados desde NubeOS.
+
+- [x] Aprobar spec, design y ADRs específicas.
+- [x] Implementar metadatos, carpeta administrada y ciclo de vida seguro.
+- [x] Añadir búsqueda, filtros, favoritos y caducidades.
+- [x] Previsualizar, abrir, copiar y guardar PDFs.
+- [x] Revisar y cerrar el módulo.
+
+**Salida:** archivo personal local de PDFs completo y validado.
+
+## Hito 6 — Hábitos y rutinas
+
+**Objetivo:** sustituir las tablas manuales de Notion por un seguimiento local flexible y de baja fricción.
+
+- [x] Revisar y aprobar `spec.md` y `design.md`.
+- [x] Revisar la descomposición y resultados de `tasks.md`.
+- [x] Implementar el primer vertical técnico autorizado como excepción.
+- [x] Probar frecuencias, correcciones históricas, pausa, Archivo y arrastre con datos reales.
+- [x] Refinar la experiencia y cerrar el módulo.
+
+**Salida:** seguimiento diario, semanal y mensual con historial y métricas calculadas en Rust.
+
+## Preparación de la versión instalable
+
+**Objetivo:** cerrar los detalles de distribución cuando NubeOS tenga una build estable.
+
+- [ ] Añadir inicio automático opcional al iniciar sesión en Windows mediante una tarea y ADR específica.
+- [ ] Decidir si el inicio automático se activa por defecto o desde Preferencias.
+
+**Salida:** instalador de Windows con las opciones de inicio revisadas, sin afectar al flujo de desarrollo.
+
 ## Módulos posteriores
 
 Los siguientes módulos siguen siendo candidatos, sin orden comprometido. Cada uno comenzará de nuevo por spec, diseño y tareas:
 
-- Hábitos y rutinas.
 - Finanzas personales.
-- Documentos.
 - Proyectos.
 - Lectura.
 - Series.

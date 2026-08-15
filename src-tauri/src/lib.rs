@@ -1,7 +1,8 @@
 pub mod documents;
+pub mod habits;
 pub mod meals;
 
-use tauri::Manager;
+use tauri::{Manager, WebviewWindow};
 
 use documents::{
     commands::{
@@ -15,6 +16,11 @@ use documents::{
     store::PdfStore,
 };
 
+use habits::commands::{
+    archive_habit, create_habit, delete_habit, get_habit_statistics, get_habits_overview,
+    list_habits, pause_habit, reorder_habits, restore_habit, resume_habit, set_habit_log,
+    update_habit,
+};
 use meals::commands::{
     archive_product, create_product, delete_product, list_products, restore_product,
     update_product, ProductDatabase,
@@ -27,10 +33,42 @@ use meals::meal_commands::{
     set_weekly_available, sync_planned_instance_from_meal, update_meal, update_planned_instance,
 };
 
+/// Coloca la ventana principal en una pantalla secundaria cuando existe y, en
+/// cualquier caso, inicia NubeOS maximizado pero conserva el modo ventana.
+///
+/// La segunda pantalla es una preferencia de comodidad: si se desconecta o el
+/// sistema no la detecta, Tauri conserva la ventana en la pantalla principal.
+fn configure_main_window(window: &WebviewWindow) {
+    if let Ok(monitors) = window.available_monitors() {
+        let primary_position = window
+            .primary_monitor()
+            .ok()
+            .flatten()
+            .map(|monitor| *monitor.position());
+        let preferred_monitor = primary_position
+            .and_then(|position| {
+                monitors
+                    .iter()
+                    .find(|monitor| *monitor.position() != position)
+            })
+            .or_else(|| monitors.first());
+
+        if let Some(monitor) = preferred_monitor {
+            let _ = window.set_position(*monitor.position());
+        }
+    }
+
+    let _ = window.maximize();
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
+            if let Some(window) = app.get_webview_window("main") {
+                configure_main_window(&window);
+            }
+
             let data_directory = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_directory)?;
             let database = ProductDatabase::open(data_directory.join("nubeos.sqlite3"))?;
@@ -99,6 +137,18 @@ pub fn run() {
             open_document_pdf,
             save_document_copy,
             copy_document_pdf,
+            list_habits,
+            create_habit,
+            update_habit,
+            set_habit_log,
+            pause_habit,
+            resume_habit,
+            archive_habit,
+            restore_habit,
+            delete_habit,
+            reorder_habits,
+            get_habits_overview,
+            get_habit_statistics,
         ])
         .run(tauri::generate_context!())
         .expect("error while running NubeOS");
