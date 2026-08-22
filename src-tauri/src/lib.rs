@@ -1,6 +1,7 @@
 pub mod documents;
 pub mod habits;
 pub mod meals;
+pub mod media;
 
 use tauri::{Manager, WebviewWindow};
 
@@ -31,6 +32,18 @@ use meals::meal_commands::{
     remove_manual_shopping_need, remove_planned_instance, remove_product_from_meals,
     reorder_planned_instance, restore_meal, set_product_shopping_unit, set_shopping_entry_checked,
     set_weekly_available, sync_planned_instance_from_meal, update_meal, update_planned_instance,
+};
+use media::{
+    commands::{
+        archive_media_title, create_media_content, create_media_title, delete_media_content,
+        delete_media_history_entry, delete_media_title, discard_pending_media_cover,
+        get_media_statistics, get_media_title, increment_media_progress, list_media_history,
+        list_media_studios, list_media_titles, read_media_cover, reorder_media_contents,
+        restore_media_title, select_media_cover, set_media_progress, set_media_title_favorite,
+        set_media_title_score, set_media_title_status, update_media_content,
+        update_media_history_date, update_media_title, MediaCoverState,
+    },
+    cover::CoverStore,
 };
 
 /// Coloca la ventana principal en una pantalla secundaria cuando existe y, en
@@ -73,6 +86,7 @@ pub fn run() {
             std::fs::create_dir_all(&data_directory)?;
             let database = ProductDatabase::open(data_directory.join("nubeos.sqlite3"))?;
             let store = PdfStore::open(data_directory.join("documents"))?;
+            let media_cover_store = CoverStore::open(data_directory.join("media"))?;
             {
                 let mut connection = database
                     .connection
@@ -87,6 +101,9 @@ pub fn run() {
             app.manage(database);
             app.manage(DocumentStoreState {
                 store: std::sync::Mutex::new(store),
+            });
+            app.manage(MediaCoverState {
+                store: std::sync::Mutex::new(media_cover_store),
             });
             Ok(())
         })
@@ -149,6 +166,30 @@ pub fn run() {
             reorder_habits,
             get_habits_overview,
             get_habit_statistics,
+            select_media_cover,
+            discard_pending_media_cover,
+            list_media_titles,
+            get_media_title,
+            set_media_title_status,
+            set_media_title_score,
+            set_media_title_favorite,
+            list_media_studios,
+            list_media_history,
+            update_media_history_date,
+            delete_media_history_entry,
+            create_media_title,
+            update_media_title,
+            create_media_content,
+            update_media_content,
+            delete_media_content,
+            reorder_media_contents,
+            set_media_progress,
+            increment_media_progress,
+            archive_media_title,
+            restore_media_title,
+            delete_media_title,
+            read_media_cover,
+            get_media_statistics,
         ])
         .run(tauri::generate_context!())
         .expect("error while running NubeOS");

@@ -42,6 +42,21 @@ pub fn apply_migrations(connection: &mut Connection) -> rusqlite_migration::Resu
         M::up(include_str!(
             "../../migrations/0011_refine_habits_tracking.sql"
         )),
+        M::up(include_str!(
+            "../../migrations/0012_create_media_tracker.sql"
+        )),
+        M::up(include_str!(
+            "../../migrations/0013_split_audiovisual_areas.sql"
+        )),
+        M::up(include_str!(
+            "../../migrations/0014_expand_anime_catalog.sql"
+        )),
+        M::up(include_str!(
+            "../../migrations/0015_refine_media_history.sql"
+        )),
+        M::up(include_str!(
+            "../../migrations/0016_separate_anime_movies_from_catalog.sql"
+        )),
     ])
     .to_latest(connection)
 }

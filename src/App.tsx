@@ -4,17 +4,22 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Clapperboard,
   FileText,
-  Film,
   FolderKanban,
   LayoutDashboard,
   ShoppingBasket,
+  Sparkles,
+  Tv,
   WalletCards,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import MealsWorkspace from "./meals/MealsWorkspace";
 const DocumentsWorkspace = lazy(() => import("./documents/DocumentsWorkspace"));
 const HabitsWorkspace = lazy(() => import("./habits/HabitsWorkspace"));
+const AnimeWorkspace = lazy(() => import("./media/AnimeWorkspace"));
+const SeriesWorkspace = lazy(() => import("./series/SeriesWorkspace"));
+const MoviesWorkspace = lazy(() => import("./movies/MoviesWorkspace"));
 
 type ModuleId =
   | "inicio"
@@ -24,7 +29,9 @@ type ModuleId =
   | "proyectos"
   | "habitos"
   | "lectura"
-  | "series";
+  | "anime"
+  | "series"
+  | "peliculas";
 
 type NavigationItem = { id: ModuleId; label: string; icon: LucideIcon };
 
@@ -36,7 +43,9 @@ const navigation: NavigationItem[] = [
   { id: "proyectos", label: "Proyectos", icon: FolderKanban },
   { id: "habitos", label: "Hábitos", icon: CheckCircle2 },
   { id: "lectura", label: "Lectura", icon: BookOpen },
-  { id: "series", label: "Series", icon: Film },
+  { id: "anime", label: "Anime", icon: Sparkles },
+  { id: "series", label: "Series", icon: Tv },
+  { id: "peliculas", label: "Películas", icon: Clapperboard },
 ];
 
 const moduleCopy: Record<
@@ -79,10 +88,20 @@ const moduleCopy: Record<
     title: "Lectura",
     description: "Conserva tu lista de lectura y tus notas.",
   },
+  anime: {
+    eyebrow: "ANIME",
+    title: "Anime",
+    description: "Temporadas, películas, OVA y especiales en su orden recomendado.",
+  },
   series: {
     eyebrow: "PARA VER",
     title: "Series",
-    description: "Lleva tu lista pendiente y no pierdas el hilo.",
+    description: "Recuerda qué estás viendo y por qué temporada y episodio vas.",
+  },
+  peliculas: {
+    eyebrow: "CINE",
+    title: "Películas",
+    description: "Conserva tus pendientes, visionados, puntuaciones y opiniones.",
   },
 };
 
@@ -91,7 +110,7 @@ function Placeholder({
 }: {
   activeModule: Exclude<
     ModuleId,
-    "inicio" | "comidas" | "documentos" | "habitos"
+    "inicio" | "comidas" | "documentos" | "habitos" | "anime" | "series" | "peliculas"
   >;
 }) {
   const Icon = navigation.find((item) => item.id === activeModule)!.icon;
@@ -208,10 +227,34 @@ export default function App() {
             <HabitsWorkspace />
           </Suspense>
         )}
+        {activeModule === "anime" && (
+          <Suspense
+            fallback={
+              <section className="placeholder-card">
+                <p>Cargando Anime…</p>
+              </section>
+            }
+          >
+            <AnimeWorkspace />
+          </Suspense>
+        )}
+        {activeModule === "series" && (
+          <Suspense fallback={<section className="placeholder-card"><p>Cargando Series…</p></section>}>
+            <SeriesWorkspace />
+          </Suspense>
+        )}
+        {activeModule === "peliculas" && (
+          <Suspense fallback={<section className="placeholder-card"><p>Cargando Películas…</p></section>}>
+            <MoviesWorkspace />
+          </Suspense>
+        )}
         {activeModule !== "inicio" &&
           activeModule !== "comidas" &&
           activeModule !== "documentos" &&
-          activeModule !== "habitos" && (
+          activeModule !== "habitos" &&
+          activeModule !== "anime" &&
+          activeModule !== "series" &&
+          activeModule !== "peliculas" && (
             <Placeholder activeModule={activeModule} />
           )}
       </section>
