@@ -1,7 +1,7 @@
 # Diseño — Documentos
 
-- Estado: Aprobado por Nube
-- Última actualización: 2026-08-14
+- Estado: Aprobado por Nube (módulo cerrado)
+- Última actualización: 2026-08-22
 - Spec relacionada: `docs/modules/documents/spec.md`
 
 ## Propósito
@@ -288,6 +288,7 @@ Si el portapapeles está ocupado por otra aplicación, se devuelve un error recu
 - Mostrar accesos rápidos, resumen de caducidades, lista compacta, detalle y Archivo.
 - Mantener búsqueda, filtros, orden, selección, diálogos y borradores no guardados.
 - Presentar detalle, previsualización e importación o edición en diálogos modales que bloquean la interacción con la colección, restauran el foco al cerrar y admiten cierre mediante botón, fondo o `Escape` cuando no hay una operación destructiva en curso.
+- Mantener todas las acciones del documento antes del visor, de modo que el número de páginas no afecte a su accesibilidad.
 - Mostrar confirmaciones no bloqueantes mediante un aviso temporal compartido y retirarlo automáticamente.
 - Traducir categorías, estados y errores para la interfaz.
 - Solicitar mediante comandos los diálogos nativos y conservar solo los tokens temporales devueltos.
@@ -310,7 +311,7 @@ Documentos
 └─ Archivo, accesible bajo demanda
 ```
 
-La lista es la única representación de la colección; no existe selector de tarjetas. Al pulsar una fila se abre el detalle modal. La estrella cambia favorito sin abrir el formulario. Editar sustituye el contenido del mismo diálogo por el formulario, sin mostrar simultáneamente la colección como contenido activo. Reemplazar y archivar son acciones secundarias.
+La lista es la única representación de la colección; no existe selector de tarjetas. Al pulsar una fila se abre el detalle modal. La estrella cambia favorito sin abrir el formulario. Editar sustituye el contenido del mismo diálogo por el formulario, sin mostrar simultáneamente la colección como contenido activo. Abrir, copiar, guardar una copia, editar, reemplazar y archivar permanecen agrupadas al principio del detalle, antes de los metadatos y la previsualización.
 
 Los controles visuales genéricos —contenedor modal, selector con chevrón y aviso temporal— pueden vivir en la zona compartida de React porque ya tienen consumidores reales en Comidas y Documentos. Solo contienen presentación y accesibilidad; los formularios, textos y estados continúan perteneciendo a cada módulo.
 
@@ -389,12 +390,12 @@ Cada dependencia se incorporará únicamente en la tarea que la necesite:
 
 No se propone `tauri-plugin-fs`: React no necesita acceso general a archivos. Tampoco se introduce una biblioteca para guardar PDFs en SQLite, analizar su contenido o cifrarlos.
 
-## Decisiones pendientes
+## Decisiones aprobadas
 
-Antes de crear `tasks.md` se proponen dos ADR:
+El módulo se apoya en dos ADR específicas ya aprobadas:
 
-1. **Almacenamiento administrado de archivos junto a metadatos SQLite.** Debe aprobar la separación entre SQLite y PDFs, el directorio privado, el uso de `staging`, las compensaciones y la reconciliación tras interrupciones.
-2. **Previsualización con PDF.js mediante IPC binario.** Debe comparar el visor integrado de WebView2, un protocolo local y PDF.js con bytes entregados por comando, incluyendo seguridad, memoria y mantenimiento.
+1. [ADR-006: almacenamiento administrado de archivos](../../decisions/adr-006-managed-document-files.md), que separa SQLite y PDFs y define el directorio privado, `staging`, compensaciones y reconciliación.
+2. [ADR-007: previsualización con PDF.js mediante IPC binario](../../decisions/adr-007-pdf-preview-with-binary-ipc.md), que limita la entrega de bytes al documento solicitado y mantiene el renderizado local.
 
 La integración `CF_HDROP` permanece como decisión local del módulo y se documenta aquí; solo necesitará ADR adicional si la implementación exige `unsafe` propio, permisos amplios o una dependencia distinta con mayor impacto.
 

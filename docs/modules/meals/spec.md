@@ -1,7 +1,7 @@
 # Spec — Planificador de comidas, compra y productos
 
-- Estado: Aprobada por Nube
-- Última actualización: 2026-08-14
+- Estado: Aprobado por Nube (módulo cerrado)
+- Última actualización: 2026-08-22
 
 ## Objetivo
 
@@ -148,15 +148,15 @@ Cada entrada tiene además una casilla de verificación semanal. Solo registra v
 
 ## Criterios de aceptación
 
-- [ ] Se puede crear un producto con macros por 100 g y supermercado opcional de la lista prevista.
-- [ ] Todo producto nuevo se configura como paquete, bolsa o bandeja, o a granel por peso, con precio mostrado en euros.
-- [ ] Un paquete con peso total y unidades permite añadir un ingrediente por unidades y calcular sus macros.
-- [ ] Se puede buscar y filtrar productos y comidas; el filtro de producto de comidas permite buscar por texto y una comida puede tener momentos del día opcionales.
-- [ ] Se pueden crear comidas y planificar una o más instancias en las cinco franjas semanales, incluyendo al arrastrarlas arriba o abajo y entre días o franjas.
-- [ ] Desde Archivo se puede eliminar definitivamente una comida o producto archivado sin referencias; el sistema rechaza borrar datos con historial relacionado.
-- [ ] Una instancia modificada no cambia la receta base y se identifica como modificada.
-- [ ] Los macros reflejan cantidades en gramos o unidades normalizadas.
-- [ ] La lista agrega productos, calcula paquetes o compra a granel, sobrantes y costes cuando existen datos suficientes.
-- [ ] Se puede indicar «Tienes» en gramos o unidades válidas sin crear inventario global; la recomendación y el coste pendiente se recalculan al escribir.
-- [ ] Se puede añadir y retirar una necesidad manual semanal desde productos activos del catálogo; se agrega a la línea existente e identifica visualmente que no procede del plan.
-- [ ] Una semana sin comidas no produce errores.
+- [x] Se puede crear un producto con macros por 100 g y supermercado opcional de la lista prevista.
+- [x] Todo producto nuevo se configura como paquete, bolsa o bandeja, o a granel por peso, con precio mostrado en euros.
+- [x] Un paquete con peso total y unidades permite añadir un ingrediente por unidades y calcular sus macros.
+- [x] Se puede buscar y filtrar productos y comidas; el filtro de producto de comidas permite buscar por texto y una comida puede tener momentos del día opcionales.
+- [x] Se pueden crear comidas y planificar una o más instancias en las cinco franjas semanales, incluyendo al arrastrarlas arriba o abajo y entre días o franjas.
+- [x] Desde Archivo se puede eliminar definitivamente una comida o producto archivado sin referencias; el sistema rechaza borrar datos con historial relacionado.
+- [x] Una instancia modificada no cambia la receta base y se identifica como modificada.
+- [x] Los macros reflejan cantidades en gramos o unidades normalizadas.
+- [x] La lista agrega productos, calcula paquetes o compra a granel, sobrantes y costes cuando existen datos suficientes.
+- [x] Se puede indicar «Tienes» en gramos o unidades válidas sin crear inventario global; la recomendación y el coste pendiente se recalculan al escribir.
+- [x] Se puede añadir y retirar una necesidad manual semanal desde productos activos del catálogo; se agrega a la línea existente e identifica visualmente que no procede del plan.
+- [x] Una semana sin comidas no produce errores.

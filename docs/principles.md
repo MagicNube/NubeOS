@@ -1,7 +1,7 @@
 # Principios de NubeOS
 
 - Estado: Aprobada por Nube
-- Última actualización: 2026-08-14
+- Última actualización: 2026-08-22
 
 Estos principios guían las decisiones cotidianas del proyecto. Una excepción debe ser explícita, acotada y justificada; si afecta a la arquitectura, requiere una ADR.
 
@@ -48,6 +48,12 @@ Estos principios guían las decisiones cotidianas del proyecto. Una excepción d
 - Los patrones transversales ya consolidados se reutilizan desde `src/ui/`; un módulo no crea otra variante de modal, selector o aviso temporal sin una necesidad documentada.
 - Los modales bloquean y atenúan el contenido de fondo, contienen el foco, permiten cierre coherente y restauran el foco al elemento que los abrió.
 - Los selectores nativos comparten chevrón, margen derecho, tema oscuro y estado de foco. Los desplegables personalizados conservan la misma geometría visual.
+- Los campos de búsqueda y filtrado usan los controles compartidos y una tipografía base de `14 px`. Un módulo no reduce su tamaño de texto ni altera su altura de forma independiente.
+- La escala tipográfica común distingue título de módulo, título de sección, título de tarjeta, texto de control y texto secundario mediante tokens globales. Los módulos no redefinen esos niveles sin una necesidad documentada.
+- En escritorio con puntero, editar, omitir y otras acciones secundarias de una tarjeta aparecen al pasar el cursor o al entrar con foco. En dispositivos sin `hover` permanecen visibles; los estados persistentes, como un favorito activo, no se ocultan.
+- Todas las áreas desplazables reutilizan un scrollbar oscuro con acento morado y contraste suficiente; ningún módulo depende del estilo claro predeterminado del sistema.
+- Los formularios modales avisan antes de cerrar mediante botón, fondo o tecla Escape cuando contienen cambios sin guardar.
+- En una cabecera de colección, la acción secundaria `Archivo` se coloca inmediatamente antes de la acción principal de creación. Los módulos no invierten este orden.
 - La zona compartida contiene únicamente presentación y accesibilidad. Los textos, borradores, validaciones y decisiones de negocio siguen perteneciendo al módulo correspondiente.
 
 ## Calidad y verificación

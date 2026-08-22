@@ -1,7 +1,7 @@
 # Spec — Hábitos y rutinas
 
-- Estado: Aprobado por Nube; módulo cerrado
-- Última actualización: 2026-08-16
+- Estado: Aprobado por Nube (módulo cerrado)
+- Última actualización: 2026-08-22
 
 ## Objetivo
 
@@ -25,7 +25,7 @@ El módulo debe cubrir tanto hábitos orientados a constancia —leer, estudiar 
 
 ### Catálogo de actividades
 
-- Crear y editar una actividad con nombre, tipo, categoría, icono, fecha de inicio y frecuencia.
+- Crear y editar una actividad con nombre, tipo, categoría, icono y frecuencia.
 - Categorías iniciales: Salud, Deporte, Aprendizaje, Cuidado personal, Hogar, Organización, Ocio y Otros.
 - Elegir un icono de un conjunto cerrado incluido en NubeOS, con opciones específicas para mochila, planificación semanal, cuidado personal, lavadora, cama, ropa, máquina de afeitar, sábanas, toallas y ducha.
 - Reordenar manualmente las actividades activas mediante arrastre.
@@ -40,8 +40,8 @@ El módulo debe cubrir tanto hábitos orientados a constancia —leer, estudiar 
 - **X veces por semana:** permite completar cualquier día de la semana. Puede definir días habituales para priorizar su presentación.
 - **X veces al mes:** permite completar cualquier día del mes y admite hasta tantos días orientativos diferentes como realizaciones tenga el objetivo.
 - Si un objetivo mensual tiene varios días orientativos, cada día alcanzado hace exigible una realización adicional; el último día configurado hace exigible cualquier parte restante del objetivo.
-- Una actividad con fecha de inicio futura puede verse en el catálogo, pero no aparece como pendiente ni participa en métricas antes de esa fecha.
-- Al crear una frecuencia semanal, la interfaz sugiere el próximo lunes como fecha de inicio si todavía no se había elegido otra fecha. La sugerencia puede modificarse manualmente.
+- Toda actividad nueva empieza automáticamente el lunes de la semana en la que se crea, aunque se añada entre semana o en domingo.
+- Los días anteriores a la creación quedan disponibles para corregirse u omitirse manualmente.
 - La semana empieza el lunes y termina el domingo.
 - Una tarea no completada no se arrastra al periodo siguiente.
 - No se pueden registrar realizaciones ni omisiones en fechas futuras.
@@ -88,8 +88,7 @@ El módulo debe cubrir tanto hábitos orientados a constancia —leer, estudiar 
 - Para un objetivo flexible nunca cuentan más realizaciones que su objetivo efectivo al decidir si el periodo está cumplido, aunque el historial conserva todas las fechas marcadas.
 - Si todas las oportunidades de un periodo se omiten, el periodo es neutral y no aumenta ni rompe la racha.
 - La fecha civil y los cambios de periodo se calculan con la zona `Europe/Madrid`.
-- La fecha de inicio se elige al crear la actividad y puede ser hoy o futura. Puede corregirse mientras la actividad no tenga registros; después permanece estable para no reinterpretar el historial.
-- Si una actividad flexible empieza dentro de un periodo ya iniciado, su primer objetivo se limita a los días disponibles y la interfaz lo identifica como primer periodo parcial.
+- La fecha de inicio no se solicita en el formulario: Rust la fija en el lunes de la semana actual y React no puede alterarla.
 - Editar nombre, categoría o icono no altera el historial.
 - Una modificación de frecuencia se aplica desde el día local de la edición. Los periodos ya finalizados conservan la frecuencia anterior; el periodo actual puede recalcularse.
 - La interfaz puede anticipar validaciones, pero Rust es la autoridad de reglas, estados y métricas.
@@ -107,21 +106,20 @@ El módulo debe cubrir tanto hábitos orientados a constancia —leer, estudiar 
 
 ## Criterios de aceptación
 
-- [ ] Se puede crear cada una de las cuatro frecuencias y reaparece tras reiniciar la aplicación.
-- [ ] Un hábito diario se completa y desmarca desde Hoy con un clic.
-- [ ] Un objetivo de cuatro veces por semana se puede completar en días distintos a los habituales y muestra `4 de 4`.
-- [ ] Omitir una ocasión de ese objetivo lo convierte en `3 de 3` y mantiene neutral la racha.
-- [ ] Los días concretos no se sustituyen con realizaciones fuera de esos días.
-- [ ] Semana permite corregir realizaciones y omisiones de fechas pasadas y nunca del futuro.
-- [ ] Una tarea mensual aparece en Hoy desde su día orientativo y deja de estar pendiente al completarla.
-- [ ] Un objetivo mensual de dos veces puede usar dos días orientativos y completarse anticipadamente.
-- [ ] Una actividad que empieza el lunes no genera obligaciones ni estadísticas durante el fin de semana anterior.
-- [ ] Hoy separa hábitos y tareas recurrentes en escritorio y vuelve a una columna en anchuras reducidas.
-- [ ] Una frecuencia semanal nueva sugiere empezar el lunes y una primera semana incompleta se identifica como parcial.
-- [ ] Al consultar una semana anterior se avisa de que las modificaciones actualizarán sus estadísticas.
-- [ ] La omisión usa una acción secundaria reconocible y un estado visual diferenciado sin alterar el comportamiento del checkbox.
-- [ ] Las estadísticas cambian al seleccionar semana, mes, año, historial o un intervalo personalizado.
-- [ ] Pausar excluye los días correspondientes y reanudar no altera el pasado.
-- [ ] Las estadísticas actualizan porcentaje, rachas y progreso tras cada cambio.
-- [ ] Archivar conserva el historial; restaurar reactiva; eliminar definitivamente exige confirmación.
-- [ ] Todo el módulo funciona sin red y React no calcula reglas de cumplimiento.
+- [x] Se puede crear cada una de las cuatro frecuencias y reaparece tras reiniciar la aplicación.
+- [x] Un hábito diario se completa y desmarca desde Hoy con un clic.
+- [x] Un objetivo de cuatro veces por semana se puede completar en días distintos a los habituales y muestra `4 de 4`.
+- [x] Omitir una ocasión de ese objetivo lo convierte en `3 de 3` y mantiene neutral la racha.
+- [x] Los días concretos no se sustituyen con realizaciones fuera de esos días.
+- [x] Semana permite corregir realizaciones y omisiones de fechas pasadas y nunca del futuro.
+- [x] Una tarea mensual aparece en Hoy desde su día orientativo y deja de estar pendiente al completarla.
+- [x] Un objetivo mensual de dos veces puede usar dos días orientativos y completarse anticipadamente.
+- [x] Una actividad creada entre semana empieza el lunes de esa misma semana y permite omitir manualmente los días anteriores.
+- [x] Hoy separa hábitos y tareas recurrentes en escritorio y vuelve a una columna en anchuras reducidas.
+- [x] Al consultar una semana anterior se avisa de que las modificaciones actualizarán sus estadísticas.
+- [x] La omisión usa una acción secundaria reconocible y un estado visual diferenciado sin alterar el comportamiento del checkbox.
+- [x] Las estadísticas cambian al seleccionar semana, mes, año, historial o un intervalo personalizado.
+- [x] Pausar excluye los días correspondientes y reanudar no altera el pasado.
+- [x] Las estadísticas actualizan porcentaje, rachas y progreso tras cada cambio.
+- [x] Archivar conserva el historial; restaurar reactiva; eliminar definitivamente exige confirmación.
+- [x] Todo el módulo funciona sin red y React no calcula reglas de cumplimiento.

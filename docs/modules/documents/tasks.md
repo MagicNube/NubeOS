@@ -1,7 +1,7 @@
 # Tareas — Documentos
 
-- Estado: Módulo completado y aprobado por Nube
-- Última actualización: 2026-08-14
+- Estado: Aprobado por Nube (módulo cerrado)
+- Última actualización: 2026-08-22
 
 ## Cómo usar este documento
 
@@ -208,3 +208,13 @@ El orden desarrolla primero reglas y persistencia, después un vertical mínimo 
 - Verificación: `cargo fmt --check`, `cargo test`, `cargo clippy`, `pnpm build`, `git diff --check` y recorrido manual de importar, buscar, filtrar, editar, caducar, archivar, reemplazar, visualizar, abrir, copiar, guardar y eliminar.
 
 **Resultado:** se revisaron límites de capas, contratos Tauri, permisos, rutas privadas, compensaciones de archivos, liberación del visor y coherencia con spec, design y ADR. `cargo fmt --check`, las 61 pruebas Rust, `cargo clippy --all-targets -- -D warnings`, `pnpm build` y `git diff --check` finalizan correctamente. Tras el recorrido funcional y el último refinamiento de carga, el módulo queda cerrado.
+
+## T-021 — Mantener accesibles las acciones del detalle
+
+- Estado: Implementada y aprobada
+- Dependencias: T-019, T-020
+- Alcance: mover editar, reemplazar, archivar, restaurar y eliminar a la cabecera funcional del detalle, aplicar los tokens tipográficos y el scrollbar compartidos y reducir el ruido de favoritos no activos hasta interactuar con la fila.
+- Criterios de aceptación: todas las acciones están disponibles antes del visor aunque el PDF tenga muchas páginas; los favoritos activos siguen siendo visibles; las acciones ocultas por defecto reaparecen mediante puntero o foco y permanecen visibles en dispositivos sin `hover`.
+- Verificación: `pnpm build` y recorrido manual de un PDF de varias páginas, foco de teclado, Archivo y favorito.
+
+**Resultado:** las acciones principales y de ciclo de vida preceden al visor; la colección conserva una jerarquía más limpia y adopta la escala tipográfica y el scrollbar transversales sin modificar contratos, persistencia ni archivos administrados.

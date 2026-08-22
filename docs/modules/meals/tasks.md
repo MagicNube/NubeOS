@@ -1,7 +1,7 @@
 # Tareas — Planificador de comidas, compra y productos
 
-- Estado: Refinamiento de comidas implementado; comprobación visual pendiente
-- Última actualización: 2026-08-14
+- Estado: Aprobado por Nube (módulo cerrado)
+- Última actualización: 2026-08-22
 
 ## Cómo usar este documento
 
@@ -137,7 +137,7 @@ Las tareas se realizan de una en una y requieren aprobación antes de implementa
 - Criterios de aceptación: la interfaz muestra los cálculos de Rust y no mantiene lógica de agregación propia.
 - Verificación: pruebas de contratos y comprobación manual de los flujos de compra.
 
-**Resultado:** la pestaña de compra presenta la proyección calculada por Rust y permite indicar “ya tengo”, registrar una compra parcial o completar el pendiente de una vez. Los controles admiten unidades cuando el producto tiene conversión válida. Requiere comprobación visual manual en la ventana Tauri.
+**Resultado:** la pestaña de compra presenta la proyección calculada por Rust y permite indicar “ya tengo”, registrar una compra parcial o completar el pendiente de una vez. Los controles admiten unidades cuando el producto tiene conversión válida. El flujo fue comprobado posteriormente durante las iteraciones visuales en Tauri.
 
 ## T-014 — Revisión del primer flujo vertical
 
@@ -227,7 +227,7 @@ Estas tareas aplican la spec y el diseño aprobados el 2026-08-03. Nube aprobó 
 
 ## T-024 — Revisar el segundo incremento de comidas
 
-- Estado: Completada con comprobación visual manual pendiente
+- Estado: Completada y aprobada
 - Dependencias: T-016, T-018, T-019, T-021, T-023
 - Alcance: revisar coherencia entre documentación, migraciones, contratos, interfaz, accesibilidad básica y flujos de uso diario.
 - Criterios de aceptación: verificaciones disponibles ejecutadas, deuda o discrepancias documentadas y aprendizaje Rust/Tauri actualizado cuando corresponda.
@@ -239,7 +239,7 @@ Estas tareas aplican la spec y el diseño aprobados el 2026-08-03. Nube aprobó 
 - T-016 a T-019: los catálogos activos abren directamente, Archivo es una acción secundaria, se conservan los filtros durante la sesión y se añaden búsquedas, filtro de comidas por producto y momentos recomendados.
 - T-020 y T-021: Rust mueve y reindexa instancias de forma transaccional; React usa arrastrar y soltar, muestra macros diarios y resalta el día actual con la zona `Europe/Madrid`.
 - T-023: Compra usa solo «Tienes» en gramos y muestra las categorías en español. Ya no ofrece compras parciales ni completar compra.
-- T-024: `cargo test` ejecuta 21 pruebas y `pnpm build` compila correctamente. Falta comprobar visualmente el flujo en la ventana Tauri antes de dar la revisión de interfaz por cerrada.
+- T-024: `cargo test` y `pnpm build` completaron las verificaciones disponibles; el recorrido visual posterior de Nube dio la revisión de interfaz por cerrada.
 
 ## T-025 — Afinar controles, tarjetas y filtros del catálogo
 
@@ -455,10 +455,20 @@ Estas tareas aplican la spec y el diseño aprobados el 2026-08-03. Nube aprobó 
 
 ## T-046 — Unificar formularios, selectores y navegación visual
 
-- Estado: Implementada; comprobación manual pendiente
+- Estado: Implementada y aprobada
 - Dependencias: T-029, T-034, T-045
 - Alcance: mover los formularios de creación y edición de Productos y Comidas a diálogos modales; extraer un contenedor modal y un selector visual compartidos con Documentos; retirar implementaciones duplicadas de chevrón y unificar la salida de Archivo como «Volver». No cambia DTO, comandos, dominio ni persistencia.
 - Criterios de aceptación: ningún formulario comparte simultáneamente el plano activo con las tarjetas del catálogo; el fondo queda atenuado y bloqueado; foco, `Escape`, cierre y desplazamiento son consistentes; todos los selectores nativos reservan el mismo espacio para el chevrón; Productos, Comidas y Documentos muestran «Archivo» al entrar y «Volver» al salir.
 - Verificación: `pnpm build`, búsqueda de selectores y overlays duplicados, y recorrido manual de crear, editar, cancelar y guardar producto, comida y documento.
 
 **Resultado:** crear y editar productos o comidas abre un modal desplazable y deja el catálogo atenuado detrás. Todos los diálogos activos del módulo reutilizan el mismo contenedor accesible; los selectores nativos comparten chevrón y margen, los filtros personalizados adoptan su geometría y Archivo vuelve siempre mediante «Volver». Se eliminaron wrappers y estilos obsoletos; el build pasa y queda la comprobación visual en Tauri.
+
+## T-047 — Cerrar la coherencia visual del catálogo
+
+- Estado: Implementada y aprobada
+- Dependencias: T-046
+- Alcance: aplicar la escala tipográfica transversal a títulos y búsquedas, mostrar las acciones secundarias de las tarjetas al pasar el puntero o darles foco y adoptar el scrollbar oscuro compartido.
+- Criterios de aceptación: Productos y Comidas conservan acciones accesibles por ratón y teclado sin ruido permanente; en dispositivos sin `hover` siguen visibles; títulos de sección y búsquedas usan los tamaños comunes; las áreas desplazables respetan el tema oscuro y morado.
+- Verificación: `pnpm build`, revisión de foco y recorrido visual de ambos catálogos.
+
+**Resultado:** los dos catálogos reutilizan los tokens tipográficos y el scrollbar global; editar y las acciones de menú aparecen al interactuar con la tarjeta, conservando la alternativa visible en dispositivos sin puntero fino.

@@ -1,7 +1,7 @@
 # Diseño — Hábitos y rutinas
 
-- Estado: Aprobado por Nube; módulo cerrado
-- Última actualización: 2026-08-16
+- Estado: Aprobado por Nube (módulo cerrado)
+- Última actualización: 2026-08-22
 
 ## Alcance del diseño
 
@@ -20,7 +20,7 @@ Representa la identidad estable de una actividad:
 - `icon`: identificador de un conjunto cerrado que React traduce a Lucide.
 - `status`: `active`, `paused` o `archived`.
 - `position`: orden manual dentro del catálogo.
-- `starts_on`: primera fecha civil que puede generar una obligación.
+- `starts_on`: lunes de la semana de creación y primera fecha civil que puede generar una obligación.
 - fechas de creación y actualización.
 
 El tipo modifica la prioridad visual y las métricas destacadas, pero no crea dos motores de recurrencia.
@@ -116,15 +116,13 @@ El módulo vive en `src/habits/` y se carga de forma diferida desde `App.tsx`.
 
 Vistas:
 
-1. **Hoy:** dos columnas adaptables para hábitos y tareas recurrentes. Checkbox de un clic y acción secundaria `CircleMinus` para omitir; el estado omitido diferencia visualmente esa acción.
-2. **Semana:** matriz compacta de actividades y siete fechas, con progreso al final, navegación semanal y aviso al editar una semana anterior.
+1. **Hoy:** dos columnas adaptables para hábitos y tareas recurrentes. Checkbox de un clic y acción secundaria `CircleMinus` para omitir; editar y omitir aparecen mediante puntero o foco para reducir ruido y permanecen visibles en dispositivos sin `hover`.
+2. **Semana:** matriz compacta de actividades y siete fechas, con progreso al final, navegación semanal y aviso al editar una semana anterior. La estrella es el único distintivo de un día orientativo: su checkbox conserva exactamente el mismo estado pendiente y completado que el resto.
 3. **Mes:** progreso agregado y tareas mensuales del mes seleccionado.
 4. **Estadísticas:** resumen global, tarjetas comparables por porcentaje y filtros de periodo.
-5. **Catálogo:** búsqueda, filtros alineados, creación, edición, pausa, archivo y orden por arrastre.
+5. **Catálogo:** búsqueda, filtros alineados, creación, edición, pausa, archivo y orden por arrastre. Sus acciones secundarias siguen el mismo patrón de aparición por puntero o foco.
 
-Crear y editar usan `Modal`; los selectores usan `SelectControl`; Archivo reutiliza la etiqueta y jerarquía visual común. El formulario permite elegir una fecha de inicio, sugiere el próximo lunes para frecuencias semanales nuevas, representa «todos excepto» mediante la selección semanal existente y administra los días orientativos mensuales sin desplegar un número variable de campos. Los formularios no aparecen debajo de la colección.
-
-`ProgressDto` indica si el periodo es parcial. Rust calcula este estado cuando la actividad empieza después del límite inicial del periodo; React únicamente muestra la explicación correspondiente.
+Crear y editar usan `Modal`; los selectores usan `SelectControl`; Archivo reutiliza la etiqueta y jerarquía visual común. El formulario no expone la fecha de inicio: el comando de creación utiliza el lunes de la semana actual. También representa «todos excepto» mediante la selección semanal existente y administra los días orientativos mensuales sin desplegar un número variable de campos. Los formularios no aparecen debajo de la colección.
 
 ## Flujo de actualización
 
@@ -140,7 +138,7 @@ Las solicitudes de filtros conservan el resultado previo y descartan respuestas 
 ## Errores y seguridad
 
 - Identificador, fecha, frecuencia, días y objetivos inválidos producen mensajes recuperables.
-- Crear exige una fecha de inicio igual o posterior al día actual. Cambiarla exige que todavía no existan registros.
+- Crear fija internamente `starts_on` al lunes de la semana actual; actualizar conserva siempre ese valor.
 - El intervalo estadístico personalizado exige `desde <= hasta` y se recorta al día actual.
 - Modificar el futuro se rechaza en Rust.
 - Solo una actividad archivada puede eliminarse definitivamente.

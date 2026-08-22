@@ -1,7 +1,7 @@
 # Spec — Documentos
 
-- Estado: Aprobada por Nube
-- Última actualización: 2026-08-14
+- Estado: Aprobado por Nube (módulo cerrado)
+- Última actualización: 2026-08-22
 
 ## Objetivo
 
@@ -107,6 +107,8 @@ El usuario puede ordenar los resultados con caducidad por «Caducan antes» o «
 
 Al seleccionar un documento se abre un diálogo modal independiente con sus datos y una previsualización integrada del PDF. La colección permanece atenuada detrás y recupera el foco al cerrar. La previsualización permite recorrer todas sus páginas sin modificar el archivo.
 
+Las acciones del documento se mantienen en la parte superior del detalle, antes de los metadatos y del visor, para que editar, reemplazar o archivar no exija recorrer un PDF largo.
+
 Desde el detalle se puede:
 
 - Abrir el PDF con la aplicación predeterminada de Windows.
@@ -195,19 +197,19 @@ Eliminar definitivamente nunca elimina el archivo original desde el que se reali
 
 ## Criterios de aceptación
 
-- [ ] Se puede importar individualmente un PDF válido y continúa disponible después de mover o borrar el original.
-- [ ] Una importación fallida no crea un documento incompleto ni una copia administrada huérfana.
-- [ ] Se pueden editar nombre, categoría, etiquetas y fechas opcionales sin modificar el PDF.
-- [ ] La lista compacta permite buscar, filtrar y ordenar documentos activos.
-- [ ] Los favoritos activos aparecen como accesos rápidos y los archivados no.
-- [ ] Los documentos se clasifican correctamente como vigentes, próximos a caducar, caducados o sin caducidad.
-- [ ] Se puede filtrar por caducados, próximos 30 días, este año y sin caducidad, y ordenar por los que caducan antes o después.
-- [ ] Se puede previsualizar un PDF de varias páginas dentro de NubeOS.
-- [ ] Se puede abrir el PDF con la aplicación predeterminada de Windows 11.
-- [ ] Se puede copiar el PDF como archivo y pegarlo en una aplicación compatible de Windows 11.
-- [ ] Se puede guardar una copia en una ubicación elegida sin alterar el documento administrado.
-- [ ] Se puede reemplazar el PDF conservando sus datos; un fallo mantiene intacta la versión anterior.
-- [ ] Archivar conserva el documento y permite restaurarlo.
-- [ ] Eliminar definitivamente un documento archivado borra sus datos y su PDF privado tras una confirmación explícita.
-- [ ] NubeOS nunca elimina el PDF original ni una copia exportada por el usuario.
-- [ ] Los documentos y metadatos pueden utilizarse sin conexión y no se envían fuera del equipo.
+- [x] Se puede importar individualmente un PDF válido y continúa disponible después de mover o borrar el original.
+- [x] Una importación fallida no crea un documento incompleto ni una copia administrada huérfana.
+- [x] Se pueden editar nombre, categoría, etiquetas y fechas opcionales sin modificar el PDF.
+- [x] La lista compacta permite buscar, filtrar y ordenar documentos activos.
+- [x] Los favoritos activos aparecen como accesos rápidos y los archivados no.
+- [x] Los documentos se clasifican correctamente como vigentes, próximos a caducar, caducados o sin caducidad.
+- [x] Se puede filtrar por caducados, próximos 30 días, este año y sin caducidad, y ordenar por los que caducan antes o después.
+- [x] Se puede previsualizar un PDF de varias páginas dentro de NubeOS.
+- [x] Se puede abrir el PDF con la aplicación predeterminada de Windows 11.
+- [x] Se puede copiar el PDF como archivo y pegarlo en una aplicación compatible de Windows 11.
+- [x] Se puede guardar una copia en una ubicación elegida sin alterar el documento administrado.
+- [x] Se puede reemplazar el PDF conservando sus datos; un fallo mantiene intacta la versión anterior.
+- [x] Archivar conserva el documento y permite restaurarlo.
+- [x] Eliminar definitivamente un documento archivado borra sus datos y su PDF privado tras una confirmación explícita.
+- [x] NubeOS nunca elimina el PDF original ni una copia exportada por el usuario.
+- [x] Los documentos y metadatos pueden utilizarse sin conexión y no se envían fuera del equipo.

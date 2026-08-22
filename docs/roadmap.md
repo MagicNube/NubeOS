@@ -1,13 +1,13 @@
 # Roadmap de NubeOS
 
 - Estado: Aprobado por Nube
-- Última actualización: 2026-08-16
+- Última actualización: 2026-08-22
 
 ## Propósito
 
 Este roadmap ordena el trabajo por hitos de producto y aprendizaje. No sustituye a las specs, diseños, ADRs ni tareas: cada hito solo avanza mediante cambios pequeños aprobados.
 
-No contiene fechas. La prioridad es terminar un flujo vertical útil del módulo de comidas antes de iniciar otro módulo.
+No contiene fechas. La prioridad es cerrar y revisar cada módulo antes de concentrar el trabajo en el siguiente.
 
 ## Estado actual
 
@@ -35,7 +35,7 @@ No contiene fechas. La prioridad es terminar un flujo vertical útil del módulo
 - [x] Redactar y aprobar `docs/modules/meals/spec.md`.
 - [x] Redactar y aprobar `docs/modules/meals/design.md`.
 - [x] Crear y aprobar tareas pequeñas en `docs/modules/meals/tasks.md`.
-- [ ] Proponer una ADR solo si el diseño descubre una decisión arquitectónica nueva o de alto coste de cambio.
+- [x] Confirmar que el diseño no necesitó una ADR adicional: concretó las decisiones base ya aprobadas.
 
 **Salida:** el primer incremento de comidas está definido, acotado y listo para implementar.
 
@@ -65,12 +65,12 @@ El alcance concreto se determinará mediante una nueva actualización de spec, d
 
 **Objetivo:** revisar el uso real antes de abrir un segundo módulo.
 
-- [ ] Revisar experiencia, errores y deuda técnica observada.
-- [ ] Decidir si el prototipo previo aporta alguna interfaz recuperable.
-- [ ] Revisar la decisión de recuperación de datos cuando existan datos reales.
-- [ ] Evaluar si el modelo de datos ya justifica exportación/importación mediante una ADR nueva.
+- [x] Revisar la experiencia, los errores y la deuda técnica observada mediante iteraciones de uso real.
+- [x] Sustituir el prototipo previo, conservando solo el cascarón y recursos que superaron la revisión del módulo.
+- [x] Revisar la ADR-005 con datos reales y mantener aceptado el riesgo local durante esta etapa.
+- [x] Confirmar que exportación, copias y sincronización continúan aplazadas y no justifican todavía una ADR nueva.
 
-**Salida:** decisión informada sobre qué mejorar en comidas y qué módulo abordar después.
+**Salida:** módulo de comidas consolidado y cerrado; recuperación y sincronización permanecen como trabajo futuro explícito.
 
 ## Hito 5 — Documentos personales
 
@@ -96,6 +96,19 @@ El alcance concreto se determinará mediante una nueva actualización de spec, d
 
 **Salida:** seguimiento diario, semanal y mensual con historial y métricas calculadas en Rust.
 
+## Hito 7 — Anime, Series y Películas
+
+**Objetivo:** sustituir las bases relacionales de Notion por tres trackers audiovisuales separados en la navegación, con Anime como área principal compleja y Series y Películas como áreas sencillas.
+
+- [ ] Revisar `docs/modules/anime/`, `series/` y `movies/` tras el refactor autorizado.
+- [x] Aprobar ADR-008 sobre módulos audiovisuales y núcleo compartido.
+- [x] Implementar como lote autorizado una primera versión técnica completa.
+- [x] Separar Anime, Series y Películas como tres entradas de la barra lateral.
+- [ ] Probar las tres bibliotecas, portadas, progreso e historial con datos reales.
+- [ ] Refinar la experiencia y cerrar el módulo.
+
+**Salida provisional:** Anime conserva contenidos y progreso detallado; Series usa posición simple; Películas usa seguimiento binario. Las tres áreas comparten infraestructura sin mezclar sus bibliotecas.
+
 ## Preparación de la versión instalable
 
 **Objetivo:** cerrar los detalles de distribución cuando NubeOS tenga una build estable.
@@ -112,7 +125,6 @@ Los siguientes módulos siguen siendo candidatos, sin orden comprometido. Cada u
 - Finanzas personales.
 - Proyectos.
 - Lectura.
-- Series.
 
 ## Fuera del roadmap inicial
 

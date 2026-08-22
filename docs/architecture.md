@@ -1,11 +1,11 @@
 # Arquitectura de NubeOS
 
 - Estado: Aprobada por Nube
-- Última actualización: 2026-08-02
+- Última actualización: 2026-08-22
 
 ## Propósito
 
-Este documento describe los límites arquitectónicos ya acordados y las decisiones que aún deben aprobarse. No sustituye a las ADRs ni prescribe una estructura de carpetas antes de decidirla.
+Este documento describe los límites arquitectónicos acordados y enlaza las decisiones que los concretan. No sustituye a las ADRs.
 
 NubeOS es una aplicación de escritorio construida con Tauri, React y Rust. Su arquitectura debe permitir desarrollar módulos personales de forma independiente, proteger los datos locales y mantener la lógica de negocio fuera de la interfaz.
 
@@ -51,23 +51,23 @@ La interfaz puede validar para mejorar la experiencia, pero la validación que p
 
 Cada módulo es dueño de sus casos de uso y de los datos que define. Un módulo no accede a los datos internos de otro módulo; cualquier relación futura debe expresarse mediante un contrato explícito y documentarse en ambos diseños.
 
-La organización concreta de los módulos en carpetas Rust y TypeScript está pendiente de ADR. El objetivo es que dicha organización haga visibles los límites de módulo, no introducir capas ceremoniales.
+La organización vertical por módulo en Rust y TypeScript está aprobada mediante la ADR-003. Su objetivo es hacer visibles los límites de módulo sin introducir capas ceremoniales.
 
-## Estado del prototipo existente
+## Estado del prototipo inicial
 
-El código de interfaz creado antes de establecer este proceso se considera un prototipo de exploración. Puede servir como referencia de producto, pero no establece la arquitectura final ni autoriza a trasladar su lógica actual directamente a producción.
+El código de interfaz creado antes de establecer este proceso se consideró un prototipo de exploración. Sus flujos fueron sustituidos incrementalmente por verticales documentados y ya no define el estado actual de la aplicación.
 
-Cada parte que se conserve deberá pasar por la spec, diseño, tarea y revisión del módulo correspondiente.
+Las piezas conservadas —como el cascarón Tauri, la navegación o algunos recursos visuales— pasaron por las tareas y revisiones de sus módulos correspondientes. Este punto queda cerrado.
 
-## Decisiones pendientes
+## Decisiones aprobadas
 
-Estas cuestiones necesitan ADR antes de implementar la base de producción:
+La base actual se apoya en las siguientes decisiones:
 
-1. Estrategia de persistencia local y migraciones.
-2. Forma de exponer casos de uso Rust a React mediante comandos Tauri.
-3. Organización de módulos y contratos en Rust y TypeScript.
-4. Estrategia de pruebas para dominio, persistencia y comandos.
-5. Estrategia de exportación y recuperación de datos personales.
+1. [ADR-001: SQLite local con migraciones](decisions/adr-001-local-first-sqlite.md).
+2. [ADR-002: comandos Tauri como frontera entre React y Rust](decisions/adr-002-tauri-commands-as-application-boundary.md).
+3. [ADR-003: organización vertical por módulos](decisions/adr-003-feature-first-module-organization.md).
+4. [ADR-004: pruebas por capas](decisions/adr-004-layered-testing-strategy.md).
+5. [ADR-005: aplazar copias de seguridad y sincronización](decisions/adr-005-export-and-recovery-strategy.md).
 
 ## Restricciones arquitectónicas
 

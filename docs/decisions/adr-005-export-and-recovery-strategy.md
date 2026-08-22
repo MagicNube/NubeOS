@@ -31,13 +31,17 @@ El uso previsto en la primera etapa es en un único PC y el propietario consider
    - Ventajas: permitiría usar NubeOS en varios equipos con datos actualizados.
    - Inconvenientes: requiere infraestructura, autenticación, seguridad, resolución de conflictos, disponibilidad y costes; no responde a una necesidad actual prioritaria.
 
-## Decisión propuesta
+## Decisión
 
 Durante la primera etapa, NubeOS usará SQLite local como única fuente de verdad y **no implementará copias de seguridad automáticas, exportación/importación ni sincronización entre dispositivos**.
 
 Los datos permanecerán únicamente en el equipo local. Esta es una limitación conocida y aceptada para el MVP, no una garantía de recuperación. La aplicación no enviará datos a ningún servicio remoto.
 
 La decisión se revisará cuando el módulo de comidas sea usable con datos reales o cuando aparezca una necesidad concreta de cambio de equipo. En ese momento se evaluará primero una solución de exportación e importación manual; una sincronización con servidor seguirá siendo una iniciativa independiente y de baja prioridad.
+
+## Revisión de 2026-08-22
+
+Se revisa la decisión tras completar varios módulos. Nube mantiene por ahora la estrategia local sin copias automáticas, exportación ni sincronización. El riesgo continúa aceptado y se reconsiderará antes de una versión estable o instalable.
 
 ## Consecuencias
 
