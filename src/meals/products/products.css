@@ -49,7 +49,7 @@
   color: #eee;
   background: transparent;
   font: inherit;
-  font-size: 13px;
+  font-size: var(--ui-control-font-size);
 }
 .products-catalog-heading {
   display: flex;
@@ -60,7 +60,7 @@
 .products-catalog-heading h2 {
   margin: 0;
   color: #f0f0f0;
-  font-size: 21px;
+  font-size: var(--ui-section-title-font-size);
   letter-spacing: -0.035em;
 }
 .category-control,
@@ -178,6 +178,19 @@
 .card-icon-actions {
   display: flex;
   gap: 6px;
+}
+.product-card .card-icon-actions {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+.product-card:hover .card-icon-actions,
+.product-card:focus-within .card-icon-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+@media (hover: none) {
+  .product-card .card-icon-actions { opacity: 1; pointer-events: auto; }
 }
 .card-menu {
   top: calc(100% + 5px);
@@ -441,7 +454,7 @@
 
 /* Tipografía y acciones de esta iteración. */
 .product-card h3 {
-  font-size: 18px;
+  font-size: var(--ui-card-title-font-size);
 }
 .product-card-heading p,
 .product-presentation {
@@ -458,7 +471,7 @@
 .product-catalog-controls .catalog-search input,
 .category-button,
 .category-menu button {
-  font-size: 14px;
+  font-size: var(--ui-control-font-size);
 }
 .product-field input::placeholder {
   color: #777;

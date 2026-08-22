@@ -156,24 +156,15 @@ function DayColumn({
                     row.habit.kind === "routine") && (
                     <>
                       {isFlexible(row.habit.schedule) && (
-                        <>
-                          <strong>
-                            {row.progress.completed} de{" "}
-                            {row.progress.effectiveTarget}
-                          </strong>
-                          <span>({progressPeriodLabel(row.habit.schedule)})</span>
-                          {row.progress.partial && (
-                            <span>Primer periodo parcial</span>
-                          )}
-                        </>
-                      )}
-                      {row.habit.kind === "routine" && (
-                        <span>
-                          Última:{" "}
-                          {row.lastCompletedOn
-                            ? formatShortDate(row.lastCompletedOn)
-                            : "todavía no"}
-                        </span>
+                        <strong>
+                          {row.progress.completed} de{" "}
+                          {row.progress.effectiveTarget}{" "}
+                          <span>
+                            (
+                            {progressPeriodLabel(row.habit.schedule)}
+                            )
+                          </span>
+                        </strong>
                       )}
                     </>
                   )}
@@ -289,9 +280,7 @@ export function WeekView({
                     {row.progress.completed}/{row.progress.effectiveTarget}
                   </strong>
                   <span>
-                    {row.progress.partial
-                      ? "Primer periodo parcial"
-                      : row.progress.neutral
+                    {row.progress.neutral
                       ? "Omitida"
                       : completionText(
                           row.progress.completed,
@@ -337,6 +326,7 @@ function HabitWeekCell({
       )}
       <button
         aria-label={complete ? "Desmarcar" : "Completar"}
+        className="habit-week-check"
         disabled={!cell.canEdit || disabled}
         onClick={() => change(complete ? null : "completed")}
         type="button"

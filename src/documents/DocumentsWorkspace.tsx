@@ -168,7 +168,7 @@ function DocumentRow({ document, selected, open, toggleFavorite }: { document: D
     <div className="document-row-icon"><FileText size={19} /></div>
     <div className="document-row-main"><strong>{document.name}</strong><span>{document.originalFileName} ({formatBytes(document.fileSizeBytes)})</span><div>{document.tags.map((tag) => <span className="document-tag" key={tag}>{tag}</span>)}</div></div>
     <span className="document-category">{categoryLabels[document.category]}</span><span className={`document-expiry ${document.expiryStatus}`}>{expiryLabels[document.expiryStatus]}</span>
-    {document.status === "active" && <button aria-label={document.favorite ? "Quitar de favoritos" : "Añadir a favoritos"} className="favorite-button" onClick={(event) => { event.stopPropagation(); toggleFavorite(); }} type="button"><Star fill={document.favorite ? "currentColor" : "none"} size={17} /></button>}
+    {document.status === "active" && <button aria-label={document.favorite ? "Quitar de favoritos" : "Añadir a favoritos"} className={document.favorite ? "favorite-button active" : "favorite-button"} onClick={(event) => { event.stopPropagation(); toggleFavorite(); }} type="button"><Star fill={document.favorite ? "currentColor" : "none"} size={17} /></button>}
   </div>;
 }
 
@@ -193,12 +193,12 @@ function DocumentDetail({ document, knownTags, editing, setEditing, busy, close,
       <div className="document-detail-heading"><div className="document-detail-identity"><div className="document-row-icon"><FileText size={21} /></div><div><p className="section-kicker">DETALLE</p><h3 id="document-detail-title">{document.name}</h3></div></div><div className="document-detail-heading-actions">{document.status === "active" && <button className="icon-button" onClick={() => void run(() => documentApi.setFavorite(document.id, !document.favorite))} title="Favorito" type="button"><Star fill={document.favorite ? "currentColor" : "none"} size={18} /></button>}<button aria-label="Cerrar detalle" onClick={close} type="button"><X size={18} /></button></div></div>
       <p className="document-detail-file">{document.originalFileName} ({formatBytes(document.fileSizeBytes)})</p>
       <div className="document-detail-actions"><button onClick={() => void run(() => documentApi.openPdf(document.id))} type="button"><ExternalLink size={16} /> Abrir</button><button onClick={() => void run(() => documentApi.copyPdf(document.id), "PDF listo para pegar.")} type="button"><Clipboard size={16} /> Copiar</button><button onClick={() => void run(() => documentApi.saveCopy(document.id), (saved) => saved === true ? "Copia guardada." : undefined)} type="button"><Download size={16} /> Guardar copia</button></div>
-      <dl><div><dt>Categoría</dt><dd>{categoryLabels[document.category]}</dd></div><div><dt>Estado</dt><dd>{expiryLabels[document.expiryStatus]}</dd></div><div><dt>Fecha del documento</dt><dd>{formatDate(document.documentDate)}</dd></div><div><dt>Caducidad</dt><dd>{formatDate(document.expiresOn)}</dd></div></dl>
-      {document.tags.length > 0 && <div className="document-detail-tags"><span><Tag size={15} /> Etiquetas</span><div>{document.tags.map((tag) => <span className="document-tag" key={tag}>{tag}</span>)}</div></div>}
-      <PdfPreview documentId={document.id} />
       <div className="document-secondary-actions">
         {document.status === "active" ? <><button onClick={() => setEditing(true)} type="button"><Pencil size={15} /> Editar</button><button onClick={() => void replace()} type="button"><RefreshCw size={15} /> Reemplazar PDF</button><button onClick={() => void archive()} type="button"><Archive size={15} /> Archivar</button></> : <><button onClick={() => void restore()} type="button"><ArchiveRestore size={15} /> Restaurar</button><button className="danger" onClick={() => void remove()} type="button"><Trash2 size={15} /> Eliminar definitivamente</button></>}
       </div>
+      <dl><div><dt>Categoría</dt><dd>{categoryLabels[document.category]}</dd></div><div><dt>Estado</dt><dd>{expiryLabels[document.expiryStatus]}</dd></div><div><dt>Fecha del documento</dt><dd>{formatDate(document.documentDate)}</dd></div><div><dt>Caducidad</dt><dd>{formatDate(document.expiresOn)}</dd></div></dl>
+      {document.tags.length > 0 && <div className="document-detail-tags"><span><Tag size={15} /> Etiquetas</span><div>{document.tags.map((tag) => <span className="document-tag" key={tag}>{tag}</span>)}</div></div>}
+      <PdfPreview documentId={document.id} />
     </>}
   </Modal>;
 }

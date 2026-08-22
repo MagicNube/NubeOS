@@ -98,7 +98,7 @@
 .section-heading h2 {
   margin: 0;
   color: #f0f0f0;
-  font-size: 21px;
+  font-size: var(--ui-section-title-font-size);
   letter-spacing: -0.035em;
 }
 .workspace-empty,
@@ -354,6 +354,19 @@
 .card-icon-actions {
   display: flex;
   gap: 6px;
+}
+.meal-card .card-icon-actions {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+.meal-card:hover .card-icon-actions,
+.meal-card:focus-within .card-icon-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+@media (hover: none) {
+  .meal-card .card-icon-actions { opacity: 1; pointer-events: auto; }
 }
 .card-menu {
   position: absolute;
@@ -1232,7 +1245,7 @@
 }
 .meal-card h3,
 .shopping-entry h3 {
-  font-size: 18px;
+  font-size: var(--ui-card-title-font-size);
 }
 .meal-card-heading p {
   font-size: 14px;
@@ -1336,7 +1349,7 @@
 /* Quinto incremento: filtro escalable y detalle de receta. */
 .meal-catalog-controls > .catalog-search input {
   min-height: 36px;
-  font-size: 14px;
+  font-size: var(--ui-control-font-size);
 }
 .meal-card {
   height: 310px;
