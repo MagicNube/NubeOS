@@ -15,8 +15,8 @@ use super::{
     repository::{format_date, parse_date, HabitRepository, HabitRepositoryError},
     service::{
         build_overview, build_statistics, resolve_statistics_window, validate_log_date,
-        HabitStatistics, OverviewKind, OverviewRow, Progress, StatisticsOverview, StatisticsPeriod,
-        StreakUnit,
+        week_bounds, HabitStatistics, OverviewKind, OverviewRow, Progress, StatisticsOverview,
+        StatisticsPeriod, StreakUnit,
     },
 };
 
@@ -108,7 +108,6 @@ pub struct HabitInputDto {
     pub kind: HabitKindDto,
     pub category: HabitCategoryDto,
     pub icon: HabitIconDto,
-    pub starts_on: String,
     pub schedule: HabitScheduleDto,
 }
 
@@ -188,7 +187,6 @@ pub struct HabitProgressDto {
     pub target: u32,
     pub effective_target: u32,
     pub neutral: bool,
-    pub partial: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -285,12 +283,7 @@ pub fn create_habit(
 ) -> Result<HabitDto, String> {
     with_connection(&state, |connection| {
         let today = madrid_today();
-        let starts_on = parse_input_date(&input.starts_on)?;
-        if starts_on < today {
-            return Err(HabitCommandError::Rule(
-                "La fecha de inicio debe ser hoy o una fecha futura.",
-            ));
-        }
+        let starts_on = week_bounds(today).0;
         let mut repository = HabitRepository::new(connection);
         let habit = habit_from_input(
             HabitId::generate(),
@@ -318,12 +311,7 @@ pub fn update_habit(
         let id = HabitId::new(habit_id)?;
         let mut repository = HabitRepository::new(connection);
         let current = repository.find_aggregate(&id)?;
-        let starts_on = parse_input_date(&input.starts_on)?;
-        if starts_on != current.habit.starts_on && starts_on < today {
-            return Err(HabitCommandError::Rule(
-                "La nueva fecha de inicio debe ser hoy o una fecha futura.",
-            ));
-        }
+        let starts_on = current.habit.starts_on;
         let habit = habit_from_input(
             id,
             input,
@@ -553,7 +541,6 @@ fn progress_dto(progress: Progress) -> HabitProgressDto {
         target: progress.target,
         effective_target: progress.effective_target,
         neutral: progress.neutral,
-        partial: progress.partial,
     }
 }
 

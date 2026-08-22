@@ -104,6 +104,7 @@ export function progressPeriodLabel(schedule: HabitSchedule) {
   return schedule.type === "monthlyTarget" ? "este mes" : "esta semana";
 }
 
+
 export function completionText(done: number, target: number) {
   if (target === 0) return "Sin obligación";
   return done >= target ? "Objetivo cumplido" : `${target - done} pendientes`;
@@ -140,11 +141,6 @@ export function addDays(value: string, days: number) {
   const date = parseDate(value);
   date.setDate(date.getDate() + days);
   return iso(date);
-}
-export function nextMonday(value: string) {
-  const date = parseDate(value);
-  const daysFromMonday = (date.getDay() + 6) % 7;
-  return addDays(value, daysFromMonday === 0 ? 0 : 7 - daysFromMonday);
 }
 export function addMonths(value: string, months: number) {
   const date = parseDate(value);

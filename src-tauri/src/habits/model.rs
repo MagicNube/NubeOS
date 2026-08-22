@@ -184,9 +184,6 @@ impl Habit {
         if name.chars().count() > 100 {
             return Err(HabitError::NameTooLong);
         }
-        if starts_on < created_on {
-            return Err(HabitError::StartBeforeCreation);
-        }
         Ok(Self {
             id,
             name,
@@ -255,7 +252,6 @@ pub enum HabitError {
     InvalidMonthlyDay,
     DuplicateMonthlyDay,
     TooManyMonthlyDays,
-    StartBeforeCreation,
 }
 
 impl fmt::Display for HabitError {
@@ -274,7 +270,6 @@ impl fmt::Display for HabitError {
             Self::TooManyMonthlyDays => {
                 "No puede haber más días orientativos que realizaciones mensuales."
             }
-            Self::StartBeforeCreation => "La fecha de inicio no puede ser anterior a la creación.",
         })
     }
 }
@@ -316,6 +311,31 @@ mod tests {
         }
         .validate()
         .is_ok());
+    }
+
+    #[test]
+    fn an_activity_can_start_on_the_monday_before_its_creation() {
+        let starts_on = NaiveDate::from_ymd_opt(2026, 8, 10).unwrap();
+        let created_on = NaiveDate::from_ymd_opt(2026, 8, 16).unwrap();
+
+        let habit = Habit::new(
+            HabitId::generate(),
+            "Preparar la semana".into(),
+            HabitKind::Routine,
+            HabitCategory::Organization,
+            HabitIcon::CalendarRange,
+            HabitStatus::Active,
+            0,
+            created_on,
+            starts_on,
+            Schedule::WeeklyTarget {
+                target: 1,
+                preferred_weekdays: vec![7],
+            },
+        )
+        .unwrap();
+
+        assert_eq!(habit.starts_on, starts_on);
     }
 
     #[test]

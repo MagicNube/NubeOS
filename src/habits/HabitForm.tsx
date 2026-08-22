@@ -10,20 +10,13 @@ import type {
   HabitRecord,
   HabitSchedule,
 } from "./api";
-import {
-  categories,
-  iconOptions,
-  nextMonday,
-  todayIso,
-  weekdays,
-} from "./presentation";
+import { categories, iconOptions, weekdays } from "./presentation";
 
 type Draft = {
   name: string;
   kind: HabitKind;
   category: HabitCategory;
   icon: HabitIcon;
-  startsOn: string;
   scheduleType: HabitSchedule["type"];
   target: string;
   weekdays: number[];
@@ -37,7 +30,6 @@ function emptyDraft(): Draft {
     kind: "habit",
     category: "other",
     icon: "check",
-    startsOn: todayIso(),
     scheduleType: "daily",
     target: "1",
     weekdays: [],
@@ -83,12 +75,6 @@ export default function HabitForm({
     setDraft((current) => ({
       ...current,
       scheduleType: type,
-      startsOn:
-        !habit &&
-        current.startsOn === todayIso() &&
-        (type === "specificWeekdays" || type === "weeklyTarget")
-          ? nextMonday(current.startsOn)
-          : current.startsOn,
       weekdays:
         type === "specificWeekdays" && current.scheduleType === "daily"
           ? weekdays.map((day) => day.value)
@@ -130,7 +116,6 @@ export default function HabitForm({
       kind: draft.kind,
       category: draft.category,
       icon: draft.icon,
-      startsOn: draft.startsOn,
       schedule,
     });
   }
@@ -202,18 +187,6 @@ export default function HabitForm({
                 ))}
               </select>
             </SelectControl>
-          </label>
-          <label>
-            Empieza el
-            <input
-              min={habit?.startsOn ?? todayIso()}
-              onChange={(event) =>
-                setDraft({ ...draft, startsOn: event.target.value })
-              }
-              required
-              type="date"
-              value={draft.startsOn}
-            />
           </label>
           <label>
             Frecuencia
@@ -378,7 +351,6 @@ export default function HabitForm({
             disabled={
               busy ||
               !draft.name.trim() ||
-              !draft.startsOn ||
               (draft.scheduleType === "specificWeekdays" &&
                 draft.weekdays.length === 0)
             }
@@ -422,7 +394,6 @@ function draftFromHabit(habit: HabitRecord): Draft {
     kind: habit.kind,
     category: habit.category,
     icon: habit.icon,
-    startsOn: habit.startsOn,
     scheduleType: schedule.type,
     target:
       schedule.type === "weeklyTarget" || schedule.type === "monthlyTarget"

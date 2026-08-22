@@ -55,7 +55,7 @@ export type HabitRecord = {
 
 export type HabitInput = Omit<
   HabitRecord,
-  "id" | "status" | "position" | "createdOn"
+  "id" | "status" | "position" | "createdOn" | "startsOn"
 >;
 
 export type HabitProgress = {
@@ -63,7 +63,6 @@ export type HabitProgress = {
   target: number;
   effectiveTarget: number;
   neutral: boolean;
-  partial: boolean;
 };
 export type HabitOverviewCell = {
   date: string;

@@ -60,7 +60,6 @@ pub struct Progress {
     pub target: u32,
     pub effective_target: u32,
     pub neutral: bool,
-    pub partial: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -402,7 +401,6 @@ fn progress_for_span(aggregate: &HabitAggregate, start: NaiveDate, end: NaiveDat
             total.target += progress.target;
             total.effective_target += progress.effective_target;
             total.neutral = total.effective_target == 0;
-            total.partial |= progress.partial;
             total
         })
 }
@@ -412,7 +410,6 @@ fn progress_for_single_period(
     start: NaiveDate,
     end: NaiveDate,
 ) -> Progress {
-    let partial = start < aggregate.habit.starts_on && aggregate.habit.starts_on <= end;
     let Some(schedule) = aggregate
         .schedule_at(end)
         .or_else(|| aggregate.schedule_at(start))
@@ -441,7 +438,6 @@ fn progress_for_single_period(
                 target,
                 effective_target: target.saturating_sub(skipped),
                 neutral: target == skipped,
-                partial,
             }
         }
         Schedule::WeeklyTarget { target, .. } | Schedule::MonthlyTarget { target, .. } => {
@@ -470,7 +466,6 @@ fn progress_for_single_period(
                 target,
                 effective_target,
                 neutral: effective_target == 0,
-                partial,
             }
         }
     }
@@ -718,25 +713,6 @@ mod tests {
             week_bounds(NaiveDate::from_ymd_opt(2026, 8, 6).unwrap()).0,
             NaiveDate::from_ymd_opt(2026, 8, 3).unwrap()
         );
-    }
-
-    #[test]
-    fn a_weekly_activity_started_on_saturday_has_a_partial_first_week() {
-        let mut item = aggregate(Schedule::WeeklyTarget {
-            target: 4,
-            preferred_weekdays: vec![1, 3, 5, 6],
-        });
-        item.habit.starts_on = NaiveDate::from_ymd_opt(2026, 8, 8).unwrap();
-        item.revisions[0].effective_from = item.habit.starts_on;
-
-        let progress = progress_for_single_period(
-            &item,
-            NaiveDate::from_ymd_opt(2026, 8, 3).unwrap(),
-            NaiveDate::from_ymd_opt(2026, 8, 9).unwrap(),
-        );
-
-        assert_eq!(progress.effective_target, 2);
-        assert!(progress.partial);
     }
 
     #[test]
