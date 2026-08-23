@@ -265,3 +265,13 @@ El flujo habitual exige aprobación y ejecución individual. Excepcionalmente, N
 - Verificación: `pnpm build` y recorrido manual de Hoy, Semana y Actividades mediante ratón y teclado.
 
 **Resultado:** las acciones secundarias dejan de competir con el contenido hasta interactuar con la fila. Semana usa una clase explícita para el checkbox, conserva la estrella como única señal de día orientativo y aumenta el texto de frecuencia. El módulo adopta además los tokens tipográficos y el scrollbar transversal.
+
+## T-027 — Reforzar los contadores de Hoy
+
+- Estado: Implementada; comprobación visual pendiente
+- Dependencias: T-024, T-026
+- Alcance: colocar el progreso total junto a `Hoy` y aumentar la legibilidad de los contadores de Hábitos y Tareas recurrentes.
+- Criterios: el progreso deja de quedar aislado en el extremo derecho; los tres contadores se leen con claridad sin aumentar la altura de las filas.
+- Verificación: build TypeScript y recorrido visual de Hoy con ambas columnas.
+
+**Resultado:** el total acompaña al título y los contadores de columna adoptan mayor tamaño, peso y área visual.

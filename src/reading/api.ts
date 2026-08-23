@@ -2,7 +2,6 @@ import { invoke } from "@tauri-apps/api/core";
 
 export type ReadingStatus =
   | "pending"
-  | "researching"
   | "reading"
   | "paused"
   | "completed"

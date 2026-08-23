@@ -61,6 +61,9 @@ pub fn apply_migrations(connection: &mut Connection) -> rusqlite_migration::Resu
             "../../migrations/0017_create_reading_books.sql"
         )),
         M::up(include_str!("../../migrations/0018_add_reading_covers.sql")),
+        M::up(include_str!(
+            "../../migrations/0019_remove_reading_researching_status.sql"
+        )),
     ])
     .to_latest(connection)
 }

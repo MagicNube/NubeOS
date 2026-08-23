@@ -2,7 +2,6 @@ import type { ReadingStatus } from "./api";
 
 export const readingStatuses: Array<{ value: ReadingStatus; label: string }> = [
   { value: "pending", label: "Pendiente" },
-  { value: "researching", label: "Por investigar" },
   { value: "reading", label: "Leyendo" },
   { value: "paused", label: "En pausa" },
   { value: "completed", label: "Terminado" },

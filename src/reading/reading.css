@@ -34,7 +34,6 @@
 .reading-status.status-completed { border-color: #286747; color: #a7f3d0; background: rgba(6, 78, 59, .35); }
 .reading-status.status-paused { border-color: #426686; color: #bfdbfe; background: rgba(30, 64, 175, .25); }
 .reading-status.status-abandoned { border-color: #7f3948; color: #fecdd3; background: rgba(127, 29, 29, .28); }
-.reading-status.status-researching { border-color: #75642e; color: #fde68a; background: rgba(113, 63, 18, .25); }
 .reading-genres { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 17px; }
 .reading-genres span { padding: 4px 7px; border-radius: 5px; color: #bdb5c2; background: #242126; font-size: 10px; }
 .reading-card-footer { display: flex; align-items: end; justify-content: space-between; gap: 12px; margin-top: auto; padding-top: 20px; }

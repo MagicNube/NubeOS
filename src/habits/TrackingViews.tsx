@@ -48,21 +48,22 @@ export function DayView({
 }) {
   const habits = overview.rows.filter((row) => row.habit.kind === "habit");
   const routines = overview.rows.filter((row) => row.habit.kind === "routine");
+  const completed = overview.rows.filter(
+    (row) => row.cells[0]?.state === "completed",
+  ).length;
   return (
     <div className="habit-day-view">
       <div className="habit-view-heading">
         <div>
           <p className="section-kicker">TU DÍA</p>
-          <h2>Hoy</h2>
+          <div className="habit-day-title-row">
+            <h2>Hoy</h2>
+            <span title={`${completed} de ${overview.rows.length} completadas`}>
+              {completed} de {overview.rows.length} completadas
+            </span>
+          </div>
           <p>{formatLongDate(overview.start)}</p>
         </div>
-        <span>
-          {
-            overview.rows.filter((row) => row.cells[0]?.state === "completed")
-              .length
-          }{" "}
-          de {overview.rows.length} completadas
-        </span>
       </div>
       {overview.rows.length === 0 ? (
         <HabitsEmpty />

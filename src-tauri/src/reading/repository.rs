@@ -246,7 +246,6 @@ fn conversion_error(column: usize, field: &'static str) -> rusqlite::Error {
 pub fn status_to_str(status: ReadingStatus) -> &'static str {
     match status {
         ReadingStatus::Pending => "pending",
-        ReadingStatus::Researching => "researching",
         ReadingStatus::Reading => "reading",
         ReadingStatus::Paused => "paused",
         ReadingStatus::Completed => "completed",
@@ -257,7 +256,6 @@ pub fn status_to_str(status: ReadingStatus) -> &'static str {
 pub fn status_from_str(value: &str) -> Option<ReadingStatus> {
     Some(match value {
         "pending" => ReadingStatus::Pending,
-        "researching" => ReadingStatus::Researching,
         "reading" => ReadingStatus::Reading,
         "paused" => ReadingStatus::Paused,
         "completed" => ReadingStatus::Completed,
@@ -274,6 +272,7 @@ pub fn normalize(value: &str) -> String {
 mod tests {
     use super::*;
     use crate::reading::model::BookDraft;
+    use uuid::Uuid;
 
     fn database() -> Connection {
         let connection = Connection::open_in_memory().unwrap();
@@ -284,6 +283,11 @@ mod tests {
             .unwrap();
         connection
             .execute_batch(include_str!("../../migrations/0018_add_reading_covers.sql"))
+            .unwrap();
+        connection
+            .execute_batch(include_str!(
+                "../../migrations/0019_remove_reading_researching_status.sql"
+            ))
             .unwrap();
         connection
     }
@@ -321,5 +325,38 @@ mod tests {
         repository.archive(&book.id, true).unwrap();
         repository.delete(&book.id).unwrap();
         assert!(repository.find(&book.id).unwrap().is_none());
+    }
+
+    #[test]
+    fn migration_maps_researching_books_to_pending() {
+        let connection = Connection::open_in_memory().unwrap();
+        connection
+            .execute_batch(include_str!(
+                "../../migrations/0017_create_reading_books.sql"
+            ))
+            .unwrap();
+        connection
+            .execute_batch(include_str!("../../migrations/0018_add_reading_covers.sql"))
+            .unwrap();
+        connection
+            .execute(
+                "INSERT INTO reading_books (
+                id, title, normalized_title, author, normalized_author, reading_status,
+                created_at, updated_at
+             ) VALUES (?1, 'Libro', 'libro', 'Autor', 'autor', 'researching', ?2, ?2)",
+                params![Uuid::new_v4().to_string(), Utc::now().to_rfc3339()],
+            )
+            .unwrap();
+        connection
+            .execute_batch(include_str!(
+                "../../migrations/0019_remove_reading_researching_status.sql"
+            ))
+            .unwrap();
+        let status: String = connection
+            .query_row("SELECT reading_status FROM reading_books", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(status, "pending");
     }
 }

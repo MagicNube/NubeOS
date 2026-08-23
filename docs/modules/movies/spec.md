@@ -34,5 +34,5 @@ Mantener un tracker independiente y de baja fricción para películas convencion
 
 - [ ] Una película puede marcarse vista con fecha y reaparece igual tras reiniciar.
 - [ ] La puntuación y opinión son opcionales.
-- [ ] Películas anime no aparecen en esta Biblioteca.
+- [ ] Películas Anime no aparecen en esta Biblioteca.
 - [ ] Archivo y eliminación definitiva conservan sus confirmaciones.

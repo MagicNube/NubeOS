@@ -70,3 +70,9 @@
 - Estado: Implementada; comprobación visual pendiente
 - Alcance: componente compartido con restaurar y papelera, iconográfico y visible por hover/foco en las colecciones archivadas.
 - Verificación: build y revisión visual transversal.
+
+## T-R12 — Simplificar los estados de Lectura
+
+- Estado: Implementada; comprobación manual pendiente
+- Alcance: retirar Por investigar de dominio, contratos e interfaz y migrar posibles registros existentes a Pendiente.
+- Verificación: prueba de migración, pruebas Rust y build TypeScript.

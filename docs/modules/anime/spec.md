@@ -34,7 +34,7 @@ Mantener una biblioteca dedicada de anime que permita seguir franquicias complej
 - La cantidad de títulos mostrada en `Mis top anime` puede elegirse entre 5, 10 y 25.
 - Favorito se representa mediante una estrella accesible en la cabecera, no mediante una casilla dentro del formulario.
 - La puntuación rápida se guarda automáticamente después de una breve pausa al escribir; Enter y el cambio de foco la confirman inmediatamente.
-- Cambiar entre Anime y Películas anime no reordena durante un instante la colección anterior.
+- Cambiar entre Anime y Películas Anime no reordena durante un instante la colección anterior.
 - Omitir y volver a incluir un contenido desde su tarjeta, sin abrir el formulario completo.
 - Editar el estado de un contenido directamente en su tarjeta.
 - Mostrar la confirmación manual del progreso únicamente cuando exista una corrección pendiente.

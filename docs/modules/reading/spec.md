@@ -12,7 +12,7 @@ Mantener una biblioteca personal de libros pendientes, en lectura y terminados, 
 - Vistas `Biblioteca`, `Leyendo` y `Estadísticas`, con Biblioteca como vista inicial.
 - Crear, consultar y editar libros mediante formularios modales.
 - Guardar título, autor, uno o varios géneros de una lista cerrada, estado, fecha de inicio, fecha de fin, puntuación, opinión y portada local.
-- Estados: Pendiente, Por investigar, Leyendo, En pausa, Terminado y Abandonado.
+- Estados: Pendiente, Leyendo, En pausa, Terminado y Abandonado.
 - Buscar por título o autor y filtrar por estado y género. El filtro de favoritos solo aparece en Biblioteca.
 - Marcar un libro como favorito con una estrella vacía o rellena.
 - Ordenar la Biblioteca por actualización, título, autor o puntuación.
@@ -40,7 +40,7 @@ Los CSV aportados se usan únicamente para validar el modelo. Contienen 27 libro
 
 - Prioridad no forma parte de NubeOS.
 - No se importan libros, portadas, URLs ni valoraciones.
-- `Sin empezar`, `En progreso`, `Pausa temporal`, `Acabado` e `Investigar` se corresponden conceptualmente con los estados definidos por NubeOS.
+- `Sin empezar`, `En progreso`, `Pausa temporal` y `Acabado` se corresponden conceptualmente con los estados definidos por NubeOS. Los registros antiguos de `Investigar`, si existieran, se migran a Pendiente.
 
 ## Fuera de alcance
 

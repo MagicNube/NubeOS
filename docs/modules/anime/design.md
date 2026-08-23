@@ -44,7 +44,7 @@ Una franquicia usa `MediaTitle(kind = anime, is_anime = true)`. Una película an
 - Los formularios comparan su borrador normalizado con el valor inicial y confirman el cierre si existen cambios.
 - El estudio continúa perteneciendo al contenido. El autocompletado consulta valores distintos existentes y la biblioteca filtra un anime si alguno de sus contenidos coincide.
 - Las fechas de estreno, inicio y final permanecen editables. La primera y última actividad se calculan para presentación desde el historial, pero no sobrescriben esos metadatos.
-- La Biblioteca mantiene dos minivistas efímeras en React: `Anime` muestra únicamente franquicias y `Películas anime` únicamente películas independientes. No se crea otra entidad ni otro módulo.
+- La Biblioteca mantiene dos minivistas efímeras en React: `Anime` muestra únicamente franquicias y `Películas Anime` únicamente películas independientes. No se crea otra entidad ni otro módulo.
 - El número de catálogo se asigna solo si `kind = anime`. Los números existentes de las franquicias son inmutables; una película nunca participa en el orden ni en el Top de anime.
 - `Mis top anime` se calcula sobre franquicias puntuadas y React limita la presentación a 5, 10 o 25 elementos según una preferencia visual local.
 - Favorito se modifica con una estrella en la cabecera mediante el mismo caso de uso de actualización; el formulario deja de presentar una casilla secundaria.

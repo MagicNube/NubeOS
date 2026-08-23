@@ -21,7 +21,7 @@ Book
 └── archived: bool
 ```
 
-`ReadingStatus` contiene `pending`, `researching`, `reading`, `paused`, `completed` y `abandoned`. El ID técnico es UUID y no tiene significado visible.
+`ReadingStatus` contiene `pending`, `reading`, `paused`, `completed` y `abandoned`. El ID técnico es UUID y no tiene significado visible. La migración `0019` convierte cualquier valor histórico `researching` a `pending` y cierra de nuevo la restricción de SQLite.
 
 ## Responsabilidades
 

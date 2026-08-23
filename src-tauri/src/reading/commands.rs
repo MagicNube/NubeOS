@@ -21,7 +21,6 @@ pub struct ReadingCoverState {
 #[serde(rename_all = "camelCase")]
 pub enum ReadingStatusDto {
     Pending,
-    Researching,
     Reading,
     Paused,
     Completed,
@@ -399,7 +398,6 @@ pub fn get_reading_statistics(
         .collect::<Vec<_>>();
     let statuses = [
         ReadingStatus::Pending,
-        ReadingStatus::Researching,
         ReadingStatus::Reading,
         ReadingStatus::Paused,
         ReadingStatus::Completed,
@@ -477,7 +475,6 @@ impl From<ReadingStatusDto> for ReadingStatus {
     fn from(value: ReadingStatusDto) -> Self {
         match value {
             ReadingStatusDto::Pending => Self::Pending,
-            ReadingStatusDto::Researching => Self::Researching,
             ReadingStatusDto::Reading => Self::Reading,
             ReadingStatusDto::Paused => Self::Paused,
             ReadingStatusDto::Completed => Self::Completed,
@@ -490,7 +487,6 @@ impl From<ReadingStatus> for ReadingStatusDto {
     fn from(value: ReadingStatus) -> Self {
         match value {
             ReadingStatus::Pending => Self::Pending,
-            ReadingStatus::Researching => Self::Researching,
             ReadingStatus::Reading => Self::Reading,
             ReadingStatus::Paused => Self::Paused,
             ReadingStatus::Completed => Self::Completed,

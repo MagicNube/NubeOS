@@ -550,13 +550,13 @@ function LibraryView({
       <div className="library-heading-row">
         <ViewHeading
           eyebrow={archived ? "ARCHIVO" : "TU COLECCIÓN"}
-          title={archived ? (section === "anime" ? "Anime archivado" : "Películas anime archivadas") : (section === "anime" ? "Biblioteca de anime" : "Películas anime")}
+          title={archived ? (section === "anime" ? "Anime archivado" : "Películas Anime archivadas") : (section === "anime" ? "Biblioteca de anime" : "Películas Anime")}
           subtitle={archived ? "Restaura o elimina definitivamente." : section === "anime" ? "Tus franquicias, con su catálogo y contenidos relacionados." : "Películas independientes que no pertenecen a una franquicia."}
         />
       </div>
       <div className="media-library-sections" role="tablist" aria-label="Tipo de biblioteca anime">
         <button className={section === "anime" ? "active" : ""} onClick={() => setSection("anime")} role="tab" type="button">Anime</button>
-        <button className={section === "movies" ? "active" : ""} onClick={() => setSection("movies")} role="tab" type="button">Películas anime</button>
+        <button className={section === "movies" ? "active" : ""} onClick={() => setSection("movies")} role="tab" type="button">Películas Anime</button>
       </div>
       <div className="media-filters">
         <label className="media-search">
@@ -648,7 +648,7 @@ function StatisticsView({ statistics, open }: { statistics: MediaStatistics; ope
           <h3>Biblioteca</h3>
           <div className="media-kind-breakdown">
             <span><b>{statistics.animeTitles}</b> Franquicias</span>
-            <span><b>{statistics.movieTitles}</b> Películas anime</span>
+            <span><b>{statistics.movieTitles}</b> Películas Anime</span>
             <span><b>{statistics.activeTitles}</b> Total</span>
           </div>
           <div className="media-status-breakdown">

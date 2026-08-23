@@ -37,7 +37,6 @@ impl BookId {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ReadingStatus {
     Pending,
-    Researching,
     Reading,
     Paused,
     Completed,
