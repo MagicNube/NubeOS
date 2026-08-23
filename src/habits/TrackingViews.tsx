@@ -51,17 +51,32 @@ export function DayView({
   const completed = overview.rows.filter(
     (row) => row.cells[0]?.state === "completed",
   ).length;
+  const total = overview.rows.length;
+  const percentage = total === 0 ? 0 : Math.round((completed / total) * 100);
   return (
     <div className="habit-day-view">
+      <section
+        aria-label={`${completed} de ${total} actividades completadas hoy`}
+        className="habit-day-progress"
+      >
+        <div className="habit-day-progress-icon" aria-hidden="true">
+          <CheckCircle2 size={22} />
+        </div>
+        <div className="habit-day-progress-copy">
+          <span>Progreso de hoy</span>
+          <strong>
+            {completed} <small>de {total} completadas</small>
+          </strong>
+        </div>
+        <b>{percentage}%</b>
+        <div className="habit-day-progress-track" aria-hidden="true">
+          <span style={{ width: `${percentage}%` }} />
+        </div>
+      </section>
       <div className="habit-view-heading">
         <div>
           <p className="section-kicker">TU DÍA</p>
-          <div className="habit-day-title-row">
-            <h2>Hoy</h2>
-            <span title={`${completed} de ${overview.rows.length} completadas`}>
-              {completed} de {overview.rows.length} completadas
-            </span>
-          </div>
+          <h2>Hoy</h2>
           <p>{formatLongDate(overview.start)}</p>
         </div>
       </div>

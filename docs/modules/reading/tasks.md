@@ -76,3 +76,11 @@
 - Estado: Implementada; comprobación manual pendiente
 - Alcance: retirar Por investigar de dominio, contratos e interfaz y migrar posibles registros existentes a Pendiente.
 - Verificación: prueba de migración, pruebas Rust y build TypeScript.
+
+## T-R13 — Reordenar el formulario de libros
+
+- Estado: Implementada; comprobación visual pendiente
+- Alcance: mover la gestión de portada después de Opinión y acercar la secuencia del formulario al patrón de Anime.
+- Verificación: build TypeScript y recorrido visual de creación y edición.
+
+**Resultado:** los datos bibliográficos y de seguimiento se completan antes de la opinión y la portada queda como último bloque opcional.

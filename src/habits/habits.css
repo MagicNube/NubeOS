@@ -78,16 +78,70 @@
   gap: 24px;
   margin-bottom: 18px;
 }
-.habit-day-title-row {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 11px;
+.habit-day-progress {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px 14px;
+  width: min(100%, 620px);
+  padding: 14px 16px 12px;
+  margin-bottom: 20px;
+  border: 1px solid rgba(139, 92, 246, 0.38);
+  border-radius: 12px;
+  background: linear-gradient(
+    135deg,
+    rgba(139, 92, 246, 0.16),
+    rgba(23, 23, 23, 0.96) 62%
+  );
 }
-.habit-day-title-row > span {
+.habit-day-progress-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
   color: #c4b5fd;
-  font-size: 15px;
-  font-weight: 750;
+  background: rgba(139, 92, 246, 0.16);
+}
+.habit-day-progress-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.habit-day-progress-copy > span {
+  color: #a4a4a4;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.habit-day-progress-copy strong {
+  color: #fff;
+  font-size: 24px;
+  line-height: 1.1;
+}
+.habit-day-progress-copy small {
+  color: #d2d2d2;
+  font-size: 14px;
+  font-weight: 650;
+}
+.habit-day-progress > b {
+  color: #c4b5fd;
+  font-size: 21px;
+}
+.habit-day-progress-track {
+  grid-column: 1 / -1;
+  height: 5px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: #2b2730;
+}
+.habit-day-progress-track > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #8b5cf6, #a855f7);
+  transition: width 180ms ease;
 }
 .habit-view-heading h2,
 .habit-catalog-heading h2 {

@@ -59,7 +59,7 @@ La consulta admite archivo, texto, estado, género y favoritos. La ordenación p
 - Favorito se puede alternar desde la tarjeta y se filtra con `FavoriteFilter` únicamente en Biblioteca.
 - El formulario usa una selección múltiple de diez géneros predefinidos.
 - La tarjeta y el detalle cargan la portada local mediante `read_reading_cover`; el formulario gestiona selección provisional, sustitución y retirada.
-- El formulario es modal, avisa ante cambios sin guardar y agrupa Identificación, Seguimiento, Valoración y Opinión.
+  - El formulario es modal, avisa ante cambios sin guardar y ordena Identificación, Seguimiento, Opinión y Portada, dejando la gestión visual al final como en el módulo Anime.
 - El detalle también es modal y mantiene Editar, Archivar y Cerrar en la cabecera.
 - `src/ui/score.ts` concentra la escala SeriesGraph para Media y Lectura.
 

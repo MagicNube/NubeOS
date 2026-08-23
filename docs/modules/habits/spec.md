@@ -51,7 +51,7 @@ El módulo debe cubrir tanto hábitos orientados a constancia —leer, estudiar 
 
 - Mostrar vistas Hoy, Semana y Mes.
 - Hoy separa visualmente hábitos y tareas recurrentes en dos columnas cuando existe espacio suficiente.
-- Hoy muestra el progreso total junto al título de la vista y un contador legible en la cabecera de cada columna.
+  - Hoy muestra antes del contenido un resumen destacado con el total completado, porcentaje y barra de progreso, además de un contador legible en la cabecera de cada columna.
 - Hoy permite completar o desmarcar con un solo clic y omitir mediante una acción secundaria con icono. El estado omitido se expresa mediante el tratamiento visual de esa acción, no con una raya dentro de la casilla.
 - Semana muestra cada actividad, sus siete días y el progreso del periodo; permite corregir hoy y fechas pasadas. Una semana anterior muestra un aviso antes de su matriz.
 - Mes resume objetivos, cumplimiento y tareas mensuales pendientes.

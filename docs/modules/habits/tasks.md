@@ -275,3 +275,13 @@ El flujo habitual exige aprobación y ejecución individual. Excepcionalmente, N
 - Verificación: build TypeScript y recorrido visual de Hoy con ambas columnas.
 
 **Resultado:** el total acompaña al título y los contadores de columna adoptan mayor tamaño, peso y área visual.
+
+## T-028 — Destacar el progreso de Hoy
+
+- Estado: Implementada; comprobación visual pendiente
+- Dependencias: T-027
+- Alcance: separar el progreso total del título y convertirlo en el primer resumen operativo de la vista.
+- Criterios: mostrar cifra completada, total, porcentaje y barra sin aumentar la altura de las filas ni competir con los contadores de columna.
+- Verificación: build TypeScript y recorrido visual de Hoy con progreso vacío, parcial y completo.
+
+**Resultado:** Hoy comienza con un resumen horizontal compacto y reconocible; el título y la fecha recuperan una jerarquía limpia.
