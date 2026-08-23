@@ -84,3 +84,12 @@
 - Verificación: build TypeScript y recorrido visual de creación y edición.
 
 **Resultado:** los datos bibliográficos y de seguimiento se completan antes de la opinión y la portada queda como último bloque opcional.
+
+## T-R14 — Dar protagonismo a la portada en Biblioteca
+
+- Estado: Implementada; comprobación visual pendiente
+- Alcance: sustituir la cabecera horizontal recortada por una portada vertical completa y redistribuir la información en el espacio lateral.
+- Criterios: la imagen mantiene proporción de libro, las fechas ocupan una fila legible y la puntuación conserva su jerarquía sin crear vacíos en la tarjeta.
+- Verificación: build TypeScript y recorrido visual con portada, sin portada, fechas parciales y puntuación vacía.
+
+**Resultado:** las tarjetas adoptan una composición lateral más compacta y muestran la cubierta completa mediante `object-fit: contain`.

@@ -167,9 +167,17 @@ function BookCard({ book, archived, busy, open, favorite, restore, remove }: { b
   return <article className="reading-card">
     <button className="reading-card-open" onClick={open} type="button">
       <ReadingCoverImage alt={`Portada de ${book.title}`} bookId={book.id} hasCover={book.hasCover} />
-      <div className="reading-card-heading"><span className={`reading-status status-${book.status}`}>{readingStatusLabel(book.status)}</span><h3>{book.title}</h3><p>{book.author}</p></div>
-      <div className="reading-genres">{book.genres.slice(0, 3).map((genre) => <span key={genre}>{genre}</span>)}</div>
-      <div className="reading-card-footer"><div><small>{book.startedOn ? `Inicio ${formatReadingDate(book.startedOn)}` : "Sin fecha de inicio"}</small>{book.finishedOn && <small>Fin {formatReadingDate(book.finishedOn)}</small>}</div><strong className="reading-score" style={{ borderColor: scoreColor(book.score), color: scoreColor(book.score) }}>{book.score === null ? "—" : formatScore(book.score)}</strong></div>
+      <div className="reading-card-content">
+        <div className="reading-card-heading"><span className={`reading-status status-${book.status}`}>{readingStatusLabel(book.status)}</span><h3>{book.title}</h3><p>{book.author}</p></div>
+        <div className="reading-genres">{book.genres.slice(0, 3).map((genre) => <span key={genre}>{genre}</span>)}</div>
+        <div className="reading-card-footer">
+          <div className="reading-card-dates">
+            <div><small>Inicio</small><strong>{formatReadingDate(book.startedOn)}</strong></div>
+            <div><small>Fin</small><strong>{formatReadingDate(book.finishedOn)}</strong></div>
+          </div>
+          <strong className="reading-score" style={{ borderColor: scoreColor(book.score), color: scoreColor(book.score) }}>{book.score === null ? "—" : formatScore(book.score)}</strong>
+        </div>
+      </div>
     </button>
     {!archived && <button aria-label={book.favorite ? "Quitar de favoritos" : "Añadir a favoritos"} className={`reading-card-favorite${book.favorite ? " active" : ""}`} disabled={busy} onClick={favorite} title={book.favorite ? "Quitar de favoritos" : "Añadir a favoritos"} type="button"><Star fill={book.favorite ? "currentColor" : "none"} size={18} /></button>}
     {archived && <ArchiveItemActions busy={busy} itemLabel={book.title} remove={remove} restore={restore} />}

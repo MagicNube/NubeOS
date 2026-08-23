@@ -55,7 +55,7 @@ La consulta admite archivo, texto, estado, género y favoritos. La ordenación p
 
 - `ReadingWorkspace` contiene `Biblioteca`, `Leyendo` y `Estadísticas`, en ese orden y con los mismos iconos y medidas que Media.
 - La cabecera coloca Archivo antes de Añadir libro.
-- Biblioteca usa tarjetas estables con título, autor, géneros, estado, fechas y una puntuación numérica prominente.
+- Biblioteca usa tarjetas estables en dos columnas: portada vertical completa a la izquierda y título, autor, géneros, fechas y puntuación numérica prominente a la derecha.
 - Favorito se puede alternar desde la tarjeta y se filtra con `FavoriteFilter` únicamente en Biblioteca.
 - El formulario usa una selección múltiple de diez géneros predefinidos.
 - La tarjeta y el detalle cargan la portada local mediante `read_reading_cover`; el formulario gestiona selección provisional, sustitución y retirada.

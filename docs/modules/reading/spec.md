@@ -16,6 +16,7 @@ Mantener una biblioteca personal de libros pendientes, en lectura y terminados, 
 - Buscar por título o autor y filtrar por estado y género. El filtro de favoritos solo aparece en Biblioteca.
 - Marcar un libro como favorito con una estrella vacía o rellena.
 - Ordenar la Biblioteca por actualización, título, autor o puntuación.
+- Mostrar cada libro con una portada vertical completa y distribuir a su lado estado, identidad, géneros, fechas y puntuación.
 - Mostrar puntuaciones de 0 a 10, con un decimal y la escala cromática SeriesGraph usada por los módulos audiovisuales.
 - Archivar, restaurar y eliminar definitivamente con confirmación.
 - Restaurar y eliminar definitivamente desde Archivo mediante dos acciones iconográficas comunes al resto de módulos.
