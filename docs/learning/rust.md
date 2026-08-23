@@ -117,3 +117,7 @@ Este documento recoge solo conceptos que se utilicen realmente en NubeOS.
 - **Qué problema evita:** cambios que funcionan en una base recién creada pero fallan o pierden significado en el equipo del usuario, donde las migraciones anteriores ya se ejecutaron.
 - **¿Es idiomático?:** sí. Mantener migraciones incrementales e incluir una prueba de actualización es una práctica habitual. El dominio sigue usando tipos actuales; la compatibilidad queda localizada en SQL y en una lectura defensiva del repositorio.
 - **Ejemplo pequeño:** un objetivo mensual guardado con `monthly_start_day = 15` reaparece como `preferred_days = [15]` tras actualizar, sin intervención manual.
+
+## Materializar una consulta antes de devolverla
+
+Los iteradores de `rusqlite::query_map` toman prestada la sentencia SQL. Si la consulta es la última expresión de una función, Rust puede considerar que el temporal vive hasta después de intentar destruir la sentencia y rechazarlo por seguridad. El patrón idiomático es recoger primero las filas en un `Vec`, dejando que termine el préstamo, y devolver después ese vector.

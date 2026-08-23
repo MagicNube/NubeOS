@@ -15,6 +15,8 @@ No contiene fechas. La prioridad es cerrar y revisar cada módulo antes de conce
 - Comidas y compras está implementado y cerrado tras varias rondas de uso real.
 - Documentos está implementado, revisado y cerrado.
 - Hábitos y rutinas está implementado, revisado y cerrado.
+- El bloque audiovisual está implementado y continúa en revisión visual.
+- Lectura tiene una primera versión técnica completa pendiente de revisión con datos reales.
 - Los datos continúan siendo locales, sin copias ni sincronización durante esta etapa.
 
 ## Hito 0 — Fundaciones documentadas
@@ -118,13 +120,25 @@ El alcance concreto se determinará mediante una nueva actualización de spec, d
 
 **Salida:** instalador de Windows con las opciones de inicio revisadas, sin afectar al flujo de desarrollo.
 
+## Hito 8 — Lectura
+
+**Objetivo:** sustituir la base sencilla de Notion por una biblioteca local enfocada, sin importar datos automáticamente.
+
+- [x] Auditar los CSV como referencia de campos sin incorporarlos al repositorio.
+- [x] Definir spec, diseño y tareas del módulo.
+- [x] Implementar persistencia, casos de uso, Biblioteca, En lectura, Estadísticas y Archivo.
+- [x] Unificar favoritos mediante una estrella compacta compartida.
+- [ ] Probar formularios, filtros, ordenación y tarjetas con datos reales.
+- [ ] Refinar la experiencia y cerrar el módulo.
+
+**Salida provisional:** biblioteca de lectura local y vacía con título, autor, géneros, estado, fechas, puntuación y opinión.
+
 ## Módulos posteriores
 
 Los siguientes módulos siguen siendo candidatos, sin orden comprometido. Cada uno comenzará de nuevo por spec, diseño y tareas:
 
 - Finanzas personales.
 - Proyectos.
-- Lectura.
 
 ## Fuera del roadmap inicial
 

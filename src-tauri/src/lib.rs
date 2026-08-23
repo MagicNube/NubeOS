@@ -2,6 +2,7 @@ pub mod documents;
 pub mod habits;
 pub mod meals;
 pub mod media;
+pub mod reading;
 
 use tauri::{Manager, WebviewWindow};
 
@@ -45,6 +46,12 @@ use media::{
     },
     cover::CoverStore,
 };
+use reading::commands::{
+    archive_reading_book, create_reading_book, delete_reading_book, discard_pending_reading_cover,
+    get_reading_statistics, list_reading_books, read_reading_cover, restore_reading_book,
+    select_reading_cover, set_reading_book_favorite, update_reading_book, ReadingCoverState,
+};
+use reading::cover::ReadingCoverStore;
 
 /// Coloca la ventana principal en una pantalla secundaria cuando existe y, en
 /// cualquier caso, inicia NubeOS maximizado pero conserva el modo ventana.
@@ -87,6 +94,7 @@ pub fn run() {
             let database = ProductDatabase::open(data_directory.join("nubeos.sqlite3"))?;
             let store = PdfStore::open(data_directory.join("documents"))?;
             let media_cover_store = CoverStore::open(data_directory.join("media"))?;
+            let reading_cover_store = ReadingCoverStore::open(data_directory.join("reading"))?;
             {
                 let mut connection = database
                     .connection
@@ -104,6 +112,9 @@ pub fn run() {
             });
             app.manage(MediaCoverState {
                 store: std::sync::Mutex::new(media_cover_store),
+            });
+            app.manage(ReadingCoverState {
+                store: std::sync::Mutex::new(reading_cover_store),
             });
             Ok(())
         })
@@ -190,6 +201,17 @@ pub fn run() {
             delete_media_title,
             read_media_cover,
             get_media_statistics,
+            list_reading_books,
+            select_reading_cover,
+            discard_pending_reading_cover,
+            create_reading_book,
+            update_reading_book,
+            set_reading_book_favorite,
+            archive_reading_book,
+            restore_reading_book,
+            delete_reading_book,
+            get_reading_statistics,
+            read_reading_cover,
         ])
         .run(tauri::generate_context!())
         .expect("error while running NubeOS");

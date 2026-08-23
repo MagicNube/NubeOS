@@ -20,6 +20,7 @@ const HabitsWorkspace = lazy(() => import("./habits/HabitsWorkspace"));
 const AnimeWorkspace = lazy(() => import("./media/AnimeWorkspace"));
 const SeriesWorkspace = lazy(() => import("./series/SeriesWorkspace"));
 const MoviesWorkspace = lazy(() => import("./movies/MoviesWorkspace"));
+const ReadingWorkspace = lazy(() => import("./reading/ReadingWorkspace"));
 
 type ModuleId =
   | "inicio"
@@ -248,13 +249,19 @@ export default function App() {
             <MoviesWorkspace />
           </Suspense>
         )}
+        {activeModule === "lectura" && (
+          <Suspense fallback={<section className="placeholder-card"><p>Cargando Lectura…</p></section>}>
+            <ReadingWorkspace />
+          </Suspense>
+        )}
         {activeModule !== "inicio" &&
           activeModule !== "comidas" &&
           activeModule !== "documentos" &&
           activeModule !== "habitos" &&
           activeModule !== "anime" &&
           activeModule !== "series" &&
-          activeModule !== "peliculas" && (
+          activeModule !== "peliculas" &&
+          activeModule !== "lectura" && (
             <Placeholder activeModule={activeModule} />
           )}
       </section>

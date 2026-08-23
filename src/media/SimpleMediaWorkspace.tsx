@@ -4,7 +4,6 @@ import {
   CalendarDays,
   Edit3,
   Film,
-  Heart,
   Plus,
   RotateCcw,
   Search,
@@ -14,6 +13,8 @@ import {
   X,
 } from "lucide-react";
 import Modal from "../ui/Modal";
+import FavoriteFilter from "../ui/FavoriteFilter";
+import ArchiveItemActions from "../ui/ArchiveItemActions";
 import SelectControl from "../ui/SelectControl";
 import type {
   MediaArea,
@@ -175,9 +176,7 @@ export default function SimpleMediaWorkspace({ area }: { area: SimpleArea }) {
             {trackingStatuses.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
           </select>
         </SelectControl>
-        <button className={favoritesOnly ? "favorite-filter active" : "favorite-filter"} onClick={() => setFavoritesOnly(!favoritesOnly)} type="button">
-          <Heart fill={favoritesOnly ? "currentColor" : "none"} size={16} /> Favoritos
-        </button>
+        <FavoriteFilter active={favoritesOnly} onChange={setFavoritesOnly} />
       </div>
 
       {loading ? (
@@ -204,15 +203,10 @@ export default function SimpleMediaWorkspace({ area }: { area: SimpleArea }) {
                   </div>
                 </div>
               </button>
-              {archived && (
-                <div className="library-archive-actions">
-                  <button disabled={busy} onClick={async () => { if (await runAction(() => mediaApi.restore(item.id))) await load(false); }} type="button"><RotateCcw size={15} /> Restaurar</button>
-                  <button disabled={busy} onClick={async () => {
-                    if (!window.confirm(`¿Eliminar definitivamente “${item.name}” y todo su historial?`)) return;
-                    if (await runAction(() => mediaApi.delete(item.id))) await load(false);
-                  }} type="button"><Trash2 size={15} /> Eliminar</button>
-                </div>
-              )}
+              {archived && <ArchiveItemActions busy={busy} itemLabel={item.name}
+                restore={() => void (async () => { if (await runAction(() => mediaApi.restore(item.id))) await load(false); })()}
+                remove={() => void (async () => { if (!window.confirm(`¿Eliminar definitivamente “${item.name}” y todo su historial?`)) return; if (await runAction(() => mediaApi.delete(item.id))) await load(false); })()}
+              />}
             </article>
           ))}
         </div>

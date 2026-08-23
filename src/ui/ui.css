@@ -82,6 +82,58 @@
   outline: 0;
 }
 
+.ui-favorite-filter {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 43px;
+  width: 43px;
+  min-height: 43px;
+  padding: 0;
+  border: 1px solid #39363b;
+  border-radius: 8px;
+  color: #aaa4ad;
+  background: #151416;
+  cursor: pointer;
+  transition: border-color .16s ease, color .16s ease, background .16s ease;
+}
+
+.ui-favorite-filter:hover,
+.ui-favorite-filter:focus-visible { border-color: #685096; color: #ddd6fe; outline: 0; }
+.ui-favorite-filter.active { border-color: #8b5cf6; color: #c4b5fd; background: rgba(139, 92, 246, .13); }
+
+.ui-archive-item-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  opacity: 0;
+  transition: opacity .16s ease;
+}
+
+:is(.reading-card, .library-card, .habit-catalog-row, .document-row, .document-detail, .meal-card, .product-card):hover .ui-archive-item-actions,
+.ui-archive-item-actions:focus-within { opacity: 1; }
+
+.ui-archive-item-actions.ui-archive-item-actions button {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid #454047;
+  border-radius: 50%;
+  color: #c1bac4;
+  background: #211f22;
+  cursor: pointer;
+}
+
+.ui-archive-item-actions.ui-archive-item-actions button:hover,
+.ui-archive-item-actions.ui-archive-item-actions button:focus-visible { border-color: #8b5cf6; color: #ddd6fe; outline: 0; }
+.ui-archive-item-actions.ui-archive-item-actions button.danger { color: #fda4af; }
+.ui-archive-item-actions.ui-archive-item-actions button.danger:hover,
+.ui-archive-item-actions.ui-archive-item-actions button.danger:focus-visible { border-color: #be5269; color: #fecdd3; }
+.ui-archive-item-actions.ui-archive-item-actions button:disabled { cursor: not-allowed; opacity: .45; }
+
+@media (hover: none) { .ui-archive-item-actions { opacity: 1; } }
+
 @media (max-width: 640px) {
   .ui-modal-backdrop { padding: 12px; }
   .ui-modal-surface { max-height: calc(100vh - 24px); }

@@ -13,6 +13,8 @@ import {
   X,
 } from "lucide-react";
 import SelectControl from "../ui/SelectControl";
+import FavoriteFilter from "../ui/FavoriteFilter";
+import ArchiveItemActions from "../ui/ArchiveItemActions";
 import type {
   MediaContent,
   MediaContentInput,
@@ -65,7 +67,7 @@ function contentInput(content: MediaContent, overrides: Partial<MediaContentInpu
 }
 
 export default function AnimeWorkspace() {
-  const [view, setView] = useState<View>("watching");
+  const [view, setView] = useState<View>("library");
   const [items, setItems] = useState<MediaTitle[]>([]);
   const [statistics, setStatistics] = useState<MediaStatistics | null>(null);
   const [detail, setDetail] = useState<MediaDetail | null>(null);
@@ -243,8 +245,8 @@ export default function AnimeWorkspace() {
     <section className="media-workspace">
       <div className="media-primary-toolbar">
         <div className="media-tabs" role="tablist">
-          <Tab active={view === "watching"} icon={Film} label="En curso" onClick={() => changeView("watching")} />
           <Tab active={view === "library"} icon={Library} label="Biblioteca" onClick={() => changeView("library")} />
+          <Tab active={view === "watching"} icon={Film} label="En curso" onClick={() => changeView("watching")} />
           <Tab active={view === "statistics"} icon={BarChart3} label="Estadísticas" onClick={() => changeView("statistics")} />
           <Tab active={view === "history"} icon={HistoryIcon} label="Historial" onClick={() => changeView("history")} />
         </div>
@@ -582,9 +584,7 @@ function LibraryView({
             <option value="titleAsc">Título (A–Z)</option>
           </select>
         </SelectControl>
-        <button className={favoritesOnly ? "favorite-filter active" : "favorite-filter"} onClick={() => setFavoritesOnly(!favoritesOnly)} type="button">
-          <Star fill={favoritesOnly ? "currentColor" : "none"} size={16} /> Favoritos
-        </button>
+        <FavoriteFilter active={favoritesOnly} onChange={setFavoritesOnly} />
       </div>
       {items.length === 0 ? (
         <MediaEmpty text={archived ? "El Archivo está vacío." : section === "anime" ? "No hay anime con estos filtros." : "No hay películas anime con estos filtros."} />
@@ -622,12 +622,7 @@ function LibraryView({
                   <Star fill={item.favorite ? "currentColor" : "none"} size={17} />
                 </button>
               )}
-              {archived && (
-                <div className="library-archive-actions">
-                  <button disabled={busy} onClick={() => void restore(item.id)} type="button"><RotateCcw size={15} /> Restaurar</button>
-                  <button disabled={busy} onClick={() => void remove(item.id, item.name)} type="button"><Trash2 size={15} /> Eliminar</button>
-                </div>
-              )}
+              {archived && <ArchiveItemActions busy={busy} itemLabel={item.name} remove={() => void remove(item.id, item.name)} restore={() => void restore(item.id)} />}
             </article>
           ))}
         </div>

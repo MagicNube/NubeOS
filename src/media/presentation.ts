@@ -51,31 +51,7 @@ export function progressLabel(progress: MediaProgress) {
   return `${progress.watched} de ${progress.total ?? "?"}`;
 }
 
-export function scoreColor(score: number | null) {
-  if (score === null) return "#8d8790";
-  if (score < 5) return "#ef4444";
-  if (score < 6) return "#fb7185";
-  if (score < 7) return "#f59e0b";
-  if (score < 8) return "#f9d442";
-  if (score < 9) return "#22c777";
-  if (score < 9.5) return "#16824f";
-  return "#19a7e8";
-}
-
-export function scoreTone(score: number | null) {
-  if (score === null) return "unrated";
-  if (score < 5) return "garbage";
-  if (score < 6) return "bad";
-  if (score < 7) return "regular";
-  if (score < 8) return "good";
-  if (score < 9) return "great";
-  if (score < 9.5) return "awesome";
-  return "cinema";
-}
-
-export function formatScore(score: number | null) {
-  return score === null ? "Sin puntuar" : score.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-}
+export { formatScore, scoreColor, scoreTone } from "../ui/score";
 
 export function formatDate(date: string) {
   return new Intl.DateTimeFormat("es-ES", {

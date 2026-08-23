@@ -54,6 +54,8 @@ Estos principios guían las decisiones cotidianas del proyecto. Una excepción d
 - Todas las áreas desplazables reutilizan un scrollbar oscuro con acento morado y contraste suficiente; ningún módulo depende del estilo claro predeterminado del sistema.
 - Los formularios modales avisan antes de cerrar mediante botón, fondo o tecla Escape cuando contienen cambios sin guardar.
 - En una cabecera de colección, la acción secundaria `Archivo` se coloca inmediatamente antes de la acción principal de creación. Los módulos no invierten este orden.
+- Los filtros booleanos de favoritos usan el control compacto compartido con estrella vacía o rellena; no usan corazones, casillas ni texto largo.
+- En Archivo, restaurar y eliminar definitivamente usan el componente compartido de dos botones iconográficos: flecha circular y papelera. Las acciones aparecen con hover o foco, y permanecen disponibles mediante teclado y en dispositivos sin hover.
 - La zona compartida contiene únicamente presentación y accesibilidad. Los textos, borradores, validaciones y decisiones de negocio siguen perteneciendo al módulo correspondiente.
 
 ## Calidad y verificación

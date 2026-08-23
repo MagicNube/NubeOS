@@ -6,11 +6,10 @@ import {
   Pause,
   Pencil,
   Play,
-  RotateCcw,
   Search,
-  Trash2,
 } from "lucide-react";
 import SelectControl from "../ui/SelectControl";
+import ArchiveItemActions from "../ui/ArchiveItemActions";
 import { habitsApi } from "./api";
 import type { HabitCategory, HabitKind, HabitRecord } from "./api";
 import {
@@ -219,32 +218,10 @@ export default function CatalogView({
                 )}
                 <div className="habit-catalog-actions">
                   {archived ? (
-                    <>
-                      <button
-                        onClick={() =>
-                          void run(() => habitsApi.restore(habit.id))
-                        }
-                        title="Restaurar"
-                        type="button"
-                      >
-                        <RotateCcw size={17} />
-                      </button>
-                      <button
-                        className="danger"
-                        onClick={() => {
-                          if (
-                            window.confirm(
-                              `¿Eliminar definitivamente “${habit.name}” y todo su historial?`,
-                            )
-                          )
-                            void run(() => habitsApi.delete(habit.id));
-                        }}
-                        title="Eliminar definitivamente"
-                        type="button"
-                      >
-                        <Trash2 size={17} />
-                      </button>
-                    </>
+                    <ArchiveItemActions itemLabel={habit.name}
+                      restore={() => void run(() => habitsApi.restore(habit.id))}
+                      remove={() => { if (window.confirm(`¿Eliminar definitivamente “${habit.name}” y todo su historial?`)) void run(() => habitsApi.delete(habit.id)); }}
+                    />
                   ) : (
                     <>
                       <button

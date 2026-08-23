@@ -29,6 +29,7 @@ import {
 import { useLatestRequest } from "../useLatestRequest";
 import Modal from "../../ui/Modal";
 import SelectControl from "../../ui/SelectControl";
+import ArchiveItemActions from "../../ui/ArchiveItemActions";
 import "./products.css";
 
 type PresentationKind = "package" | "bulkByWeight";
@@ -651,7 +652,10 @@ export default function ProductsPage({
                       : "Cualquiera"}
                   </p>
                 </div>
-                <div className="card-icon-actions">
+                {product.status === "archived" ? <ArchiveItemActions itemLabel={product.name}
+                  restore={() => void changeStatus(product)}
+                  remove={() => setPermanentDeletion(product)}
+                /> : <div className="card-icon-actions">
                   <button
                     aria-label={`Editar ${product.name}`}
                     className="product-icon-button"
@@ -682,10 +686,9 @@ export default function ProductsPage({
                         }}
                         type="button"
                       >
-                        {product.status === "active" ? "Archivar" : "Restaurar"}
+                        Archivar
                       </button>
-                      {product.status === "active" && (
-                        <>
+                      <>
                           <button
                             onClick={() => {
                               setActionsFor(null);
@@ -705,22 +708,9 @@ export default function ProductsPage({
                             Buscar comidas con este producto
                           </button>
                         </>
-                      )}
-                      {product.status === "archived" && (
-                        <button
-                          className="danger-menu-action"
-                          onClick={() => {
-                            setActionsFor(null);
-                            setPermanentDeletion(product);
-                          }}
-                          type="button"
-                        >
-                          Eliminar definitivamente
-                        </button>
-                      )}
                     </div>
                   )}
-                </div>
+                </div>}
               </div>
               <p className="product-presentation">
                 <strong>{presentationSummary(product.presentation)}</strong>

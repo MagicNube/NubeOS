@@ -57,6 +57,10 @@ pub fn apply_migrations(connection: &mut Connection) -> rusqlite_migration::Resu
         M::up(include_str!(
             "../../migrations/0016_separate_anime_movies_from_catalog.sql"
         )),
+        M::up(include_str!(
+            "../../migrations/0017_create_reading_books.sql"
+        )),
+        M::up(include_str!("../../migrations/0018_add_reading_covers.sql")),
     ])
     .to_latest(connection)
 }

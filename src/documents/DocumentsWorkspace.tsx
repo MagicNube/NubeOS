@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Archive, ArchiveRestore, ArrowLeft, Clipboard, Download, ExternalLink, FilePlus2, FileText,
+  Archive, ArrowLeft, Clipboard, Download, ExternalLink, FilePlus2, FileText,
   LoaderCircle, Pencil, RefreshCw, Search, Star, Tag, Trash2, X,
 } from "lucide-react";
 import {
@@ -12,6 +12,8 @@ import type {
 } from "./api";
 import PdfPreview from "./PdfPreview";
 import Modal from "../ui/Modal";
+import FavoriteFilter from "../ui/FavoriteFilter";
+import ArchiveItemActions from "../ui/ArchiveItemActions";
 import SelectControl from "../ui/SelectControl";
 import { useTransientNotice } from "../ui/useTransientNotice";
 import "./documents.css";
@@ -149,7 +151,7 @@ export default function DocumentsWorkspace() {
       <input aria-label="Filtrar por etiquetas" list="document-filter-tags" value={tagFilter} onChange={(event) => applyTagFilter(event.target.value)} placeholder="Etiquetas (comas)" /><datalist id="document-filter-tags">{knownTags.map((tag) => <option key={tag} value={tag} />)}</datalist>
       <SelectControl><select aria-label="Filtrar por caducidad" value={query.expiry ?? ""} onChange={(event) => setQuery({ ...query, expiry: (event.target.value || null) as ExpiryFilter | null })}><option value="">Cualquier caducidad</option><option value="expired">Caducados</option><option value="nextThirtyDays">Próximos 30 días</option><option value="thisYear">Este año</option><option value="noExpiry">Sin caducidad</option></select></SelectControl>
       <SelectControl><select aria-label="Ordenar documentos" value={query.sort} onChange={(event) => setQuery({ ...query, sort: event.target.value as DocumentSort })}><option value="importedNewest">Más recientes</option><option value="importedOldest">Más antiguos</option><option value="name">Nombre</option><option value="expirySoonest">Caducan antes</option><option value="expiryLatest">Caducan después</option></select></SelectControl>
-      {query.status === "active" && <label className="favorite-filter"><input checked={query.favoritesOnly} onChange={(event) => setQuery({ ...query, favoritesOnly: event.target.checked })} type="checkbox" /> Solo favoritos</label>}
+      {query.status === "active" && <FavoriteFilter active={query.favoritesOnly} onChange={(favoritesOnly) => setQuery({ ...query, favoritesOnly })} />}
     </div>
 
     <div className="documents-layout">
@@ -194,7 +196,7 @@ function DocumentDetail({ document, knownTags, editing, setEditing, busy, close,
       <p className="document-detail-file">{document.originalFileName} ({formatBytes(document.fileSizeBytes)})</p>
       <div className="document-detail-actions"><button onClick={() => void run(() => documentApi.openPdf(document.id))} type="button"><ExternalLink size={16} /> Abrir</button><button onClick={() => void run(() => documentApi.copyPdf(document.id), "PDF listo para pegar.")} type="button"><Clipboard size={16} /> Copiar</button><button onClick={() => void run(() => documentApi.saveCopy(document.id), (saved) => saved === true ? "Copia guardada." : undefined)} type="button"><Download size={16} /> Guardar copia</button></div>
       <div className="document-secondary-actions">
-        {document.status === "active" ? <><button onClick={() => setEditing(true)} type="button"><Pencil size={15} /> Editar</button><button onClick={() => void replace()} type="button"><RefreshCw size={15} /> Reemplazar PDF</button><button onClick={() => void archive()} type="button"><Archive size={15} /> Archivar</button></> : <><button onClick={() => void restore()} type="button"><ArchiveRestore size={15} /> Restaurar</button><button className="danger" onClick={() => void remove()} type="button"><Trash2 size={15} /> Eliminar definitivamente</button></>}
+        {document.status === "active" ? <><button onClick={() => setEditing(true)} type="button"><Pencil size={15} /> Editar</button><button onClick={() => void replace()} type="button"><RefreshCw size={15} /> Reemplazar PDF</button><button onClick={() => void archive()} type="button"><Archive size={15} /> Archivar</button></> : <ArchiveItemActions busy={busy} itemLabel={document.name} remove={() => void remove()} restore={() => void restore()} />}
       </div>
       <dl><div><dt>Categoría</dt><dd>{categoryLabels[document.category]}</dd></div><div><dt>Estado</dt><dd>{expiryLabels[document.expiryStatus]}</dd></div><div><dt>Fecha del documento</dt><dd>{formatDate(document.documentDate)}</dd></div><div><dt>Caducidad</dt><dd>{formatDate(document.expiresOn)}</dd></div></dl>
       {document.tags.length > 0 && <div className="document-detail-tags"><span><Tag size={15} /> Etiquetas</span><div>{document.tags.map((tag) => <span className="document-tag" key={tag}>{tag}</span>)}</div></div>}

@@ -63,8 +63,6 @@
 .media-progress-editor input:focus { border-color: #8b5cf6; box-shadow: 0 0 0 2px rgba(139, 92, 246, .14); }
 .media-search:focus-within { border-color: #8b5cf6; box-shadow: 0 0 0 2px rgba(139, 92, 246, .14); }
 .media-search input { min-width: 0; border: 0; background: transparent; box-shadow: none !important; }
-.favorite-filter { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 43px; padding: 0 14px; border: 1px solid #39363b; border-radius: 8px; color: #aaa4ad; background: #151416; font: inherit; font-size: var(--ui-control-font-size); font-weight: 700; cursor: pointer; }
-.favorite-filter.active { border-color: #8b5cf6; color: #c4b5fd; background: rgba(139, 92, 246, .13); }
 
 .watching-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; }
 .watching-card { overflow: hidden; border: 1px solid var(--media-border); border-radius: 12px; background: var(--media-surface); transition: border-color .18s ease, transform .18s ease; }
@@ -106,9 +104,7 @@
 .library-card-copy > div { display: flex; justify-content: space-between; gap: 10px; margin-top: auto; padding-top: 13px; font-size: 12px; }
 .library-card-copy b { font-size: 14px; }
 .media-score-badge { display: inline-flex; align-items: center; justify-content: center; width: fit-content; min-width: 42px; min-height: 28px; padding: 0 8px; border: 1px solid currentColor; border-radius: 6px; background: color-mix(in srgb, currentColor 11%, transparent); font-weight: 850; line-height: 1; }
-.library-archive-actions { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--media-border); }
-.library-archive-actions button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 38px; border: 0; color: #a9a2ac; background: transparent; font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; }
-.library-archive-actions button + button { border-left: 1px solid var(--media-border); color: #fda4af; }
+.library-card > .ui-archive-item-actions { position: absolute; right: 10px; bottom: 10px; z-index: 2; padding: 5px; border-radius: 999px; background: rgba(18, 17, 19, .84); }
 
 .media-status,
 .media-canon { display: inline-flex; align-items: center; width: fit-content; min-height: 22px; padding: 0 8px; border: 1px solid #48414d; border-radius: 999px; color: #c9c3cc; background: rgba(15, 14, 16, .78); font-size: 10px; font-weight: 800; }

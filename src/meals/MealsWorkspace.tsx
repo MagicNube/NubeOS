@@ -7,7 +7,6 @@ import {
   ChevronRight,
   ChevronUp,
   ClipboardList,
-  MoreHorizontal,
   Pencil,
   Plus,
   RefreshCw,
@@ -44,6 +43,7 @@ import {
 import { useLatestRequest } from "./useLatestRequest";
 import Modal from "../ui/Modal";
 import SelectControl from "../ui/SelectControl";
+import ArchiveItemActions from "../ui/ArchiveItemActions";
 import "./meals.css";
 
 type Section = "products" | "meals" | "planner" | "shopping";
@@ -778,7 +778,6 @@ function MealsPage({
   const [editing, setEditing] = useState<Meal | null | undefined>(undefined);
   const [detailMeal, setDetailMeal] = useState<Meal | null>(null);
   const [permanentDeletion, setPermanentDeletion] = useState<Meal | null>(null);
-  const [actionsFor, setActionsFor] = useState<string | null>(null);
   const [slotFilter, setSlotFilter] = useState<MealSlot | "all">("all");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -949,7 +948,10 @@ function MealsPage({
                       </span>
                     )}
                   </div>
-                  <div className="card-icon-actions">
+                  {meal.status === "archived" ? <ArchiveItemActions itemLabel={meal.name}
+                    restore={() => void changeStatus(meal)}
+                    remove={() => setPermanentDeletion(meal)}
+                  /> : <div className="card-icon-actions">
                     <button
                       aria-label={`Editar ${meal.name}`}
                       className="product-icon-button"
@@ -961,8 +963,7 @@ function MealsPage({
                     >
                       <Pencil size={16} />
                     </button>
-                    {meal.status === "active" ? (
-                      <button
+                    <button
                         aria-label={`Archivar ${meal.name}`}
                         className="product-icon-button"
                         onClick={(event) => {
@@ -973,49 +974,7 @@ function MealsPage({
                       >
                         <Archive size={16} />
                       </button>
-                    ) : (
-                      <>
-                        <button
-                          aria-label={`Más acciones de ${meal.name}`}
-                          className="product-icon-button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            setActionsFor((current) =>
-                              current === meal.id ? null : meal.id,
-                            );
-                          }}
-                          type="button"
-                        >
-                          <MoreHorizontal size={17} />
-                        </button>
-                        {actionsFor === meal.id && (
-                          <div className="card-menu">
-                            <button
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                setActionsFor(null);
-                                void changeStatus(meal);
-                              }}
-                              type="button"
-                            >
-                              Restaurar
-                            </button>
-                            <button
-                              className="danger-menu-action"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                setActionsFor(null);
-                                setPermanentDeletion(meal);
-                              }}
-                              type="button"
-                            >
-                              Eliminar definitivamente
-                            </button>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
+                  </div>}
                 </div>
                 <ul>
                   {shownIngredients.map((ingredient, index) => (
