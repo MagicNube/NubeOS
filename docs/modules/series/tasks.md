@@ -24,3 +24,29 @@
 - Verificación: migraciones, pruebas Rust, Clippy, build y uso manual.
 
 **Resultado:** persistencia de posición verificada en SQLite; 91 pruebas Rust y build TypeScript/Vite correctos.
+
+## T-S05 — Crear recorridos audiovisuales
+
+- Estado: Propuesta pendiente de aprobación
+- Alcance: `MediaTitleRun`, migración e invariantes compartidas con Películas.
+- Verificación: migración de fechas existentes y un recorrido abierto máximo.
+
+## T-S06 — Implementar casos de uso de revisionado
+
+- Estado: Propuesta pendiente de aprobación
+- Dependencias: T-S05
+- Alcance: iniciar, finalizar, registrar, corregir y retirar visionados de Series.
+- Verificación: transacciones de estado, posición e historial.
+
+## T-S07 — Añadir Historial y acciones de detalle
+
+- Estado: Propuesta pendiente de aprobación
+- Dependencias: T-S06
+- Alcance: API, filtros, `Volver a ver`, finalizar y correcciones.
+- Verificación: build y recorrido con dos visionados.
+
+## T-S08 — Revisar la ampliación
+
+- Estado: Propuesta pendiente de aprobación
+- Dependencias: T-S05 a T-S07
+- Verificación: pruebas Rust, Clippy, formato, build y uso manual.

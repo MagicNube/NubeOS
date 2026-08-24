@@ -1,6 +1,6 @@
 # Spec — Series
 
-- Estado: Refactor aprobado por Nube; comprobación funcional pendiente
+- Estado: Ampliación de revisionados pendiente de aprobación
 - Última actualización: 2026-08-16
 
 ## Objetivo
@@ -12,7 +12,9 @@ Registrar series convencionales mediante un tracker sencillo que recuerde qué s
 - Biblioteca exclusiva de Series con tarjetas y portadas.
 - Crear y editar nombre, título alternativo, estado, puntuación, opinión y favorito.
 - Temporada y episodio actuales opcionales.
-- Fecha de inicio y finalización opcionales.
+- Fecha de inicio y finalización opcionales para cada periodo de visionado.
+- Registrar cada visionado completo como un periodo independiente y permitir volver a ver una serie.
+- Consultar, corregir y retirar periodos desde Historial.
 - Buscar y filtrar por estado y favoritos.
 - Archivar, restaurar y eliminar definitivamente desde Archivo.
 - Mostrar de forma compacta `T2 · E5` cuando existe posición.
@@ -24,11 +26,13 @@ Registrar series convencionales mediante un tracker sencillo que recuerde qué s
 - La fecha final no puede ser anterior a la fecha inicial.
 - Series nunca muestra Anime ni Películas.
 - Los contenidos detallados creados durante el prototipo se conservan en modo lectura para no perder datos.
+- Solo puede existir un visionado abierto por serie.
+- Empezar de nuevo crea otro periodo y reinicia la posición actual sin sobrescribir los anteriores.
 
 ## Fuera de alcance
 
 - Jerarquía de temporadas, películas vinculadas, OVA o especiales.
-- Seguimiento de cada episodio e historial `+1`.
+- Seguimiento histórico de cada episodio o sesiones diarias `+1`.
 - APIs externas y calendario de emisión.
 
 ## Criterios de aceptación
@@ -37,3 +41,5 @@ Registrar series convencionales mediante un tracker sencillo que recuerde qué s
 - [ ] Las tarjetas muestran posición, estado y puntuación sin datos de Anime.
 - [ ] Editar posición o fechas no altera datos históricos ajenos.
 - [ ] Archivo y borrado funcionan igual que en los demás trackers.
+- [ ] Se puede registrar un segundo visionado sin alterar el primero.
+- [ ] Historial permite corregir y retirar periodos completos.
