@@ -89,6 +89,7 @@ export type WatchSession = {
   source: "quickAdd" | "manualAdjustment";
   canDelete: boolean;
 };
+export type MovieViewing = { id: string; titleId: string; watchedOn: string };
 
 export type MediaHistoryEntry = {
   id: string;
@@ -215,6 +216,7 @@ export const mediaApi = {
   delete: (titleId: string) =>
     invoke<void>("delete_media_title", { titleId }),
   selectCover: () => invoke<PendingCover | null>("select_media_cover"),
+  preparePastedCover: (bytes: number[]) => invoke<PendingCover>("prepare_pasted_media_cover", { bytes }),
   discardCover: (token: string) =>
     invoke<void>("discard_pending_media_cover", { token }),
   readCover: (titleId: string) =>
@@ -222,6 +224,10 @@ export const mediaApi = {
   statistics: (area?: MediaArea | null) =>
     invoke<MediaStatistics>("get_media_statistics", { area: area ?? null }),
   listStudios: () => invoke<string[]>("list_media_studios"),
+  movieViewings: (titleId?: string | null) => invoke<MovieViewing[]>("list_movie_viewings", { titleId: titleId ?? null }),
+  createMovieViewing: (titleId: string, watchedOn: string) => invoke<MovieViewing[]>("create_movie_viewing", { titleId, watchedOn }),
+  updateMovieViewing: (viewingId: string, watchedOn: string) => invoke<MovieViewing[]>("update_movie_viewing", { viewingId, watchedOn }),
+  deleteMovieViewing: (viewingId: string) => invoke<MovieViewing[]>("delete_movie_viewing", { viewingId }),
   history: (input: {
     area?: MediaArea | null;
     year?: number | null;

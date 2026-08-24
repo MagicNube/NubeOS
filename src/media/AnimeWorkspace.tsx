@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Archive,
   BarChart3,
+  Building2,
   Film,
   History as HistoryIcon,
   Library,
@@ -599,11 +600,11 @@ function LibraryView({
                   <span className={`media-status status-${item.status}`}>{statusLabel(item.status)}</span>
                 </div>
                 <div className="library-card-copy">
-                  <span>{item.kind === "movie" ? "Película de anime" : "Anime"}</span>
+                  {item.kind === "movie" && <span>Película Anime</span>}
                   <h3>{item.name}</h3>
                   {item.alternativeTitle && <p>{item.alternativeTitle}</p>}
                   {item.genres.length > 0 && <p>{item.genres.join(", ")}</p>}
-                  {item.studios.length > 0 && <p>{item.studios.join(", ")}</p>}
+                  {item.studios.length > 0 && <p className="library-card-studios" title="El estudio se edita dentro de cada contenido"><Building2 size={13} /><span>{item.studios.join(", ")}</span></p>}
                   <div>
                     <strong>{progressLabel(item.progress)}</strong>
                     <b className={`media-score-badge score-${scoreTone(item.score ?? item.averageContentScore)}`} style={{ color: scoreColor(item.score ?? item.averageContentScore) }}>{formatScore(item.score ?? item.averageContentScore)}</b>

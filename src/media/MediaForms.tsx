@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { ImagePlus, X } from "lucide-react";
+import { ImagePlus, Star, X } from "lucide-react";
 import Modal from "../ui/Modal";
 import SelectControl from "../ui/SelectControl";
+import { pastedCoverAsJpeg } from "../ui/pastedCover";
 import type {
   ContentKind,
   MediaContent,
@@ -14,7 +15,7 @@ import type {
   PendingCover,
   TrackingStatus,
 } from "./api";
-import { mediaApi } from "./api";
+import { mediaApi, mediaErrorMessage } from "./api";
 import {
   canonStatuses,
   contentKinds,
@@ -86,6 +87,19 @@ export function MediaTitleForm({
     } finally {
       setCoverBusy(false);
     }
+  }
+
+  async function pasteCover(event: React.ClipboardEvent<HTMLElement>) {
+    setCoverBusy(true);
+    try {
+      const bytes = await pastedCoverAsJpeg(event);
+      if (!bytes) return;
+      const selected = await mediaApi.preparePastedCover(bytes);
+      if (cover) await mediaApi.discardCover(cover.token).catch(() => undefined);
+      setCover(selected);
+      setRemoveCover(false);
+    } catch (reason) { window.alert(mediaErrorMessage(reason)); }
+    finally { setCoverBusy(false); }
   }
 
   async function cancel() {
@@ -179,7 +193,7 @@ export function MediaTitleForm({
               {Boolean(detail?.contents.length) && <small>El formato no puede cambiarse mientras existan contenidos asociados.</small>}
             </label>
           )}
-          <label className="media-field">
+          {area !== "movies" && <label className="media-field">
             Estado
             <SelectControl>
               <select
@@ -195,18 +209,9 @@ export function MediaTitleForm({
                 ))}
               </select>
             </SelectControl>
-          </label>
+          </label>}
           <ScoreField score={score} setScore={setScore} />
-          {area !== "anime" && (
-            <label className="media-check-field">
-              <input
-                checked={favorite}
-                onChange={(event) => setFavorite(event.target.checked)}
-                type="checkbox"
-              />
-              Marcar como favorito
-            </label>
-          )}
+          {area !== "anime" && <div className="media-field"><span>Favorito</span><button aria-pressed={favorite} className={`media-form-favorite${favorite ? " active" : ""}`} onClick={() => setFavorite(!favorite)} type="button"><Star fill={favorite ? "currentColor" : "none"} size={18} /> {favorite ? "En favoritos" : "Añadir a favoritos"}</button></div>}
           {area === "series" && (
             <>
               <label className="media-field">
@@ -230,7 +235,7 @@ export function MediaTitleForm({
               </label>
             </>
           )}
-          {(area === "movies" || (area === "anime" && kind === "movie")) && (
+          {area === "anime" && kind === "movie" && (
             <label className="media-field">
               Fecha de visionado (opcional)
               <input max={todayMadrid()} onChange={(event) => {
@@ -256,10 +261,10 @@ export function MediaTitleForm({
             />
           </label>
         </div>
-        <section className="cover-picker">
+        <section className="cover-picker" onPaste={(event) => void pasteCover(event)} tabIndex={0}>
           <div>
             <strong>Portada (opcional)</strong>
-            <span>JPEG, PNG, WebP o GIF (máximo 8 MB)</span>
+            <span>Elige una imagen o pégala con Ctrl+V. Las pegadas se guardan como JPEG.</span>
           </div>
           <button
             className="secondary-button"

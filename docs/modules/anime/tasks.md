@@ -181,3 +181,10 @@
 - Verificación: revisar tarjetas puntuadas y sin puntuar, comprobar la alineación de las dos filas de seguimiento, ejecutar build TypeScript/Vite y `git diff --check`.
 
 **Resultado:** la puntuación queda alineada con la parte superior de la identidad; Historial deja de ocupar una celda de metadatos y se alinea bajo la fecha, mientras `Guardar cambios` conserva el ancho del contador. Build TypeScript/Vite y `git diff --check` correctos. Comprobación visual en Tauri pendiente.
+
+## T-A23 — Aclarar estudio y pegar portadas
+
+- Estado: Implementada; comprobación visual pendiente
+- Alcance: retirar el rótulo redundante Anime de las tarjetas, presentar el estudio como metadato diferenciado y admitir portadas pegadas convertidas a JPEG.
+- Restricciones: el estudio continúa perteneciendo al contenido y se edita desde su formulario; GIF sigue admitido al elegir un archivo.
+- Verificación: build, formulario de contenido y pegado manual de PNG/WebP.

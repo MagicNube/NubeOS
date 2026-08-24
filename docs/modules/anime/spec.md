@@ -26,6 +26,7 @@ Mantener una biblioteca dedicada de anime que permita seguir franquicias complej
 - Consultar un historial global por año, mes, anime y contenido, con orden cronológico configurable.
 - Editar la fecha de una entrada del historial y retirar únicamente el último episodio registrado de cada contenido.
 - Usar portadas JPEG, PNG, WebP o GIF animado.
+- Permitir pegar una portada desde el portapapeles y normalizar esa copia a JPEG.
 - Filtrar animes por estudio de animación calculado a partir de sus contenidos.
 - Editar rápidamente estado y puntuación general desde el detalle, sin abrir el formulario completo.
 - Mostrar una sugerencia de estado calculada a partir de los contenidos sin modificar nunca el estado manual.

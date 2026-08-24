@@ -4,6 +4,8 @@ import {
   CalendarDays,
   Edit3,
   Film,
+  History,
+  Library,
   Plus,
   RotateCcw,
   Search,
@@ -16,11 +18,13 @@ import Modal from "../ui/Modal";
 import FavoriteFilter from "../ui/FavoriteFilter";
 import ArchiveItemActions from "../ui/ArchiveItemActions";
 import SelectControl from "../ui/SelectControl";
+import { TrackerDetailTabs, TrackerMetricGrid } from "../ui/TrackerDetail";
 import type {
   MediaArea,
   MediaDetail,
   MediaTitle,
   MediaTitleInput,
+  MovieViewing,
   TrackingStatus,
 } from "./api";
 import { mediaApi, mediaErrorMessage } from "./api";
@@ -54,7 +58,10 @@ export default function SimpleMediaWorkspace({ area }: { area: SimpleArea }) {
         icon: Film,
       };
   const [items, setItems] = useState<MediaTitle[]>([]);
+  const [view, setView] = useState<"library" | "history">("library");
+  const [allViewings, setAllViewings] = useState<MovieViewing[]>([]);
   const [detail, setDetail] = useState<MediaDetail | null>(null);
+  const [viewings, setViewings] = useState<MovieViewing[]>([]);
   const [form, setForm] = useState<"new" | "edit" | null>(null);
   const [archived, setArchived] = useState(false);
   const [search, setSearch] = useState("");
@@ -69,15 +76,12 @@ export default function SimpleMediaWorkspace({ area }: { area: SimpleArea }) {
     const id = ++requestId.current;
     if (showLoading) setLoading(true);
     try {
-      const data = await mediaApi.list({
-        archived,
-        area,
-        search: search || null,
-        status: status || null,
-        favoritesOnly,
-      });
+      const [data, viewingData] = await Promise.all([mediaApi.list({
+        archived, area, search: search || null, status: status || null, favoritesOnly,
+      }), area === "movies" ? mediaApi.movieViewings() : Promise.resolve([])]);
       if (requestId.current === id) {
         setItems(data);
+        setAllViewings(viewingData);
         setError(null);
       }
     } catch (reason) {
@@ -124,7 +128,10 @@ export default function SimpleMediaWorkspace({ area }: { area: SimpleArea }) {
   }
 
   async function open(id: string) {
-    const result = await run(() => mediaApi.get(id));
+    const result = await run(async () => {
+      const [media, movieViewings] = await Promise.all([mediaApi.get(id), area === "movies" ? mediaApi.movieViewings(id) : Promise.resolve([])]);
+      setViewings(movieViewings); return media;
+    });
     if (result) setDetail(result);
   }
 
@@ -139,13 +146,14 @@ export default function SimpleMediaWorkspace({ area }: { area: SimpleArea }) {
   const Icon = copy.icon;
   return (
     <section className="media-workspace simple-media-workspace">
+      {area === "movies" && <nav aria-label="Vistas de Películas" className="media-tabs simple-media-tabs"><button className={view === "library" ? "active" : ""} onClick={() => setView("library")} type="button"><Library size={16} /> Biblioteca</button><button className={view === "history" ? "active" : ""} onClick={() => { setView("history"); setArchived(false); setDetail(null); setSearch(""); setStatus(""); setFavoritesOnly(false); }} type="button"><History size={16} /> Historial</button></nav>}
       <div className="library-heading-row simple-media-heading">
         <header className="media-view-heading">
-          <span>{archived ? "ARCHIVO" : "TU COLECCIÓN"}</span>
-          <h2>{archived ? `${copy.plural[0].toUpperCase()}${copy.plural.slice(1)} archivadas` : `Tus ${copy.plural}`}</h2>
-          <p>{archived ? "Restaura o elimina definitivamente." : area === "series" ? "Un seguimiento sencillo de lo que ves y por dónde vas." : "Pendientes, vistas y valoraciones sin mezclarlas con el anime."}</p>
+          <span>{view === "history" ? "TU HISTORIAL" : archived ? "ARCHIVO" : "TU COLECCIÓN"}</span>
+          <h2>{view === "history" ? "Visionados" : archived ? `${copy.plural[0].toUpperCase()}${copy.plural.slice(1)} archivadas` : `Tus ${copy.plural}`}</h2>
+          <p>{view === "history" ? "Primeros visionados y revisiones, conservados por separado." : archived ? "Restaura o elimina definitivamente." : area === "series" ? "Un seguimiento sencillo de lo que ves y por dónde vas." : "Pendientes, vistas y valoraciones sin mezclarlas con el anime."}</p>
         </header>
-        <div className="simple-media-heading-actions">
+        {view === "library" && <div className="simple-media-heading-actions">
           <button className="text-action" onClick={() => { setArchived(!archived); setDetail(null); }} type="button">
             {archived ? <RotateCcw size={16} /> : <Archive size={16} />}
             {archived ? "Volver" : "Archivo"}
@@ -155,7 +163,7 @@ export default function SimpleMediaWorkspace({ area }: { area: SimpleArea }) {
               <Plus size={17} /> Añadir {copy.singular}
             </button>
           )}
-        </div>
+        </div>}
       </div>
 
       {error && (
@@ -165,7 +173,7 @@ export default function SimpleMediaWorkspace({ area }: { area: SimpleArea }) {
         </div>
       )}
 
-      <div className="media-filters">
+      {view === "history" && area === "movies" ? <MovieHistory entries={allViewings} titles={items} edit={async (id, date) => { const result = await run(() => mediaApi.updateMovieViewing(id, date)); if (result) await load(false); }} remove={async (id) => { if (!window.confirm("¿Eliminar este visionado del historial?")) return; const result = await run(() => mediaApi.deleteMovieViewing(id)); if (result) await load(false); }} /> : <><div className="media-filters">
         <label className="media-search">
           <Search size={17} />
           <input onChange={(event) => setSearch(event.target.value)} placeholder={`Buscar ${copy.plural}`} value={search} />
@@ -210,7 +218,7 @@ export default function SimpleMediaWorkspace({ area }: { area: SimpleArea }) {
             </article>
           ))}
         </div>
-      )}
+      )}</>}
 
       {detail && (
         <SimpleMediaDetail
@@ -218,6 +226,7 @@ export default function SimpleMediaWorkspace({ area }: { area: SimpleArea }) {
           busy={busy}
           close={() => setDetail(null)}
           detail={detail}
+          viewings={viewings}
           edit={() => setForm("edit")}
           archive={async () => {
             if (await runAction(() => mediaApi.archive(detail.title.id))) {
@@ -238,7 +247,9 @@ export default function SimpleMediaWorkspace({ area }: { area: SimpleArea }) {
               await load(false);
             }
           }}
-          setWatched={(watched, date) => updateDetail(() => mediaApi.setProgress("title", detail.title.id, watched, date))}
+          addViewing={async (date) => { const result = await run(() => mediaApi.createMovieViewing(detail.title.id, date)); if (!result) return false; setViewings(result); setDetail(await mediaApi.get(detail.title.id)); await load(false); return true; }}
+          editViewing={async (id, date) => { const result = await run(() => mediaApi.updateMovieViewing(id, date)); if (!result) return; setViewings(result); setDetail(await mediaApi.get(detail.title.id)); await load(false); }}
+          deleteViewing={async (id) => { const result = await run(() => mediaApi.deleteMovieViewing(id)); if (!result) return; setViewings(result); setDetail(await mediaApi.get(detail.title.id)); await load(false); }}
         />
       )}
 
@@ -277,7 +288,10 @@ function SimpleMediaDetail({
   archive,
   restore,
   remove,
-  setWatched,
+  viewings,
+  addViewing,
+  editViewing,
+  deleteViewing,
 }: {
   detail: MediaDetail;
   area: SimpleArea;
@@ -287,13 +301,17 @@ function SimpleMediaDetail({
   archive: () => Promise<void>;
   restore: () => Promise<void>;
   remove: () => Promise<void>;
-  setWatched: (watched: number, date: string) => Promise<boolean>;
+  viewings: MovieViewing[];
+  addViewing: (date: string) => Promise<boolean>;
+  editViewing: (id: string, date: string) => Promise<void>;
+  deleteViewing: (id: string) => Promise<void>;
 }) {
   const { title } = detail;
   const [watchedOn, setWatchedOn] = useState(title.finishedOn ?? todayMadrid());
+  const [detailView, setDetailView] = useState<"summary" | "history">("summary");
   return (
     <Modal className="media-detail-dialog simple-media-detail-dialog" labelledBy="simple-media-detail-title" onClose={close}>
-      <article className="media-detail">
+      <article className={`media-detail simple-media-detail simple-${area}-detail`}>
         <header className="media-detail-header">
           <CoverImage alt={`Portada de ${title.name}`} className="media-detail-cover" hasCover={title.hasCover} titleId={title.id} />
           <div className="media-detail-heading">
@@ -304,7 +322,7 @@ function SimpleMediaDetail({
             </div>
             <h2 id="simple-media-detail-title">{title.name}</h2>
             {title.alternativeTitle && <p>{title.alternativeTitle}</p>}
-            <strong className={`simple-media-score media-score-badge score-${scoreTone(title.score)}`} style={{ color: scoreColor(title.score) }}>{formatScore(title.score)}</strong>
+            {area === "series" && <strong className={`simple-media-score media-score-badge score-${scoreTone(title.score)}`} style={{ color: scoreColor(title.score) }}>{formatScore(title.score)}</strong>}
           </div>
           <div className="media-detail-actions">
             {!title.archived ? (
@@ -322,7 +340,9 @@ function SimpleMediaDetail({
           </div>
         </header>
 
-        <section className="simple-media-facts">
+        {area === "movies" && <TrackerDetailTabs onChange={setDetailView} value={detailView} />}
+
+        {area === "series" && <section className="simple-media-facts">
           {area === "series" && (
             <>
               <Fact label="Por dónde vas" value={seriesPosition(title)} />
@@ -330,28 +350,25 @@ function SimpleMediaDetail({
               <Fact label="Finalizada" value={title.finishedOn ? formatDate(title.finishedOn) : "Sin indicar"} />
             </>
           )}
-          {area === "movies" && (
-            <>
-              <Fact label="Visionado" value={title.watchedUnits ? "Vista" : "Pendiente"} />
-              <Fact label="Fecha" value={title.finishedOn ? formatDate(title.finishedOn) : "Sin indicar"} />
-              <Fact label="Sesiones" value={detail.sessions.length.toString()} />
-            </>
-          )}
-        </section>
+        </section>}
 
-        {area === "movies" && !title.archived && (
+        {area === "movies" && detailView === "summary" && <><TrackerMetricGrid metrics={[{ label: "Puntuación", value: formatScore(title.score), color: scoreColor(title.score) }, { label: "Visionados", value: viewings.length }, { label: "Estado", value: title.watchedUnits ? "Vista" : "Pendiente" }]} />{title.opinion && <section className="media-opinion"><span>Opinión</span><p>{title.opinion}</p></section>}</>}
+
+        {area === "movies" && detailView === "history" && !title.archived && (
           <section className="media-detail-section simple-watch-control">
             <div>
               <CalendarDays size={17} />
               <input max={todayMadrid()} onChange={(event) => setWatchedOn(event.target.value)} type="date" value={watchedOn} />
             </div>
-            <button className={title.watchedUnits ? "secondary-button" : "primary-button"} disabled={busy} onClick={() => void setWatched(title.watchedUnits ? 0 : 1, watchedOn)} type="button">
-              {title.watchedUnits ? "Volver a pendiente" : "Marcar como vista"}
+            <button className="primary-button" disabled={busy} onClick={() => void addViewing(watchedOn)} type="button">
+              {viewings.length ? "Registrar revisionado" : "Marcar como vista"}
             </button>
           </section>
         )}
 
-        {title.opinion && <section className="media-opinion"><span>Opinión</span><p>{title.opinion}</p></section>}
+        {area === "movies" && detailView === "history" && viewings.length > 0 && <section className="media-detail-section simple-movie-history"><h3><History size={17} /> Historial de visionados</h3>{viewings.map((viewing, index) => <article key={viewing.id}><strong>{index === viewings.length - 1 ? "Primer visionado" : `Revisionado ${viewings.length - index - 1}`}</strong><input max={todayMadrid()} onChange={(event) => void editViewing(viewing.id, event.target.value)} type="date" value={viewing.watchedOn} /><button className="media-icon-button" onClick={() => { if (window.confirm("¿Eliminar este visionado del historial?")) void deleteViewing(viewing.id); }} title="Eliminar" type="button"><Trash2 size={15} /></button></article>)}</section>}
+
+        {area === "series" && title.opinion && <section className="media-opinion"><span>Opinión</span><p>{title.opinion}</p></section>}
 
         {area === "series" && detail.contents.length > 0 && (
           <section className="media-detail-section">
@@ -364,6 +381,57 @@ function SimpleMediaDetail({
         )}
       </article>
     </Modal>
+  );
+}
+
+function MovieHistory({
+  entries,
+  titles,
+  edit,
+  remove,
+}: {
+  entries: MovieViewing[];
+  titles: MediaTitle[];
+  edit: (id: string, date: string) => Promise<void>;
+  remove: (id: string) => Promise<void>;
+}) {
+  const [titleId, setTitleId] = useState("");
+  const [year, setYear] = useState("");
+  const titleNames = new Map(titles.map((title) => [title.id, title.name]));
+  const visibleEntries = entries.filter((entry) => titleNames.has(entry.titleId));
+  const years = [...new Set(visibleEntries.map((entry) => entry.watchedOn.slice(0, 4)))].sort((left, right) => right.localeCompare(left));
+  const filtered = visibleEntries.filter((entry) => (!titleId || entry.titleId === titleId) && (!year || entry.watchedOn.startsWith(year)));
+
+  return (
+    <section className="simple-movie-history-view">
+      <div className="simple-movie-history-filters">
+        <SelectControl>
+          <select aria-label="Filtrar historial por película" onChange={(event) => setTitleId(event.target.value)} value={titleId}>
+            <option value="">Todas las películas</option>
+            {titles.map((title) => <option key={title.id} value={title.id}>{title.name}</option>)}
+          </select>
+        </SelectControl>
+        <SelectControl>
+          <select aria-label="Filtrar historial por año" onChange={(event) => setYear(event.target.value)} value={year}>
+            <option value="">Todos los años</option>
+            {years.map((item) => <option key={item} value={item}>{item}</option>)}
+          </select>
+        </SelectControl>
+      </div>
+      {filtered.length === 0 ? (
+        <div className="media-empty"><History size={28} /><strong>Todavía no hay visionados con estos filtros.</strong></div>
+      ) : (
+        <div className="simple-movie-history-list">
+          {filtered.map((entry) => (
+            <article key={entry.id}>
+              <div><Film size={17} /><span><strong>{titleNames.get(entry.titleId)}</strong><small>{formatDate(entry.watchedOn)}</small></span></div>
+              <input aria-label={`Fecha de visionado de ${titleNames.get(entry.titleId)}`} max={todayMadrid()} onChange={(event) => { if (event.target.value) void edit(entry.id, event.target.value); }} type="date" value={entry.watchedOn} />
+              <button aria-label={`Eliminar visionado de ${titleNames.get(entry.titleId)}`} className="media-icon-button" onClick={() => void remove(entry.id)} title="Eliminar visionado" type="button"><Trash2 size={16} /></button>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 
