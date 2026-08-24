@@ -111,6 +111,7 @@ pub struct MediaTitle {
     pub name: String,
     pub alternative_title: Option<String>,
     pub genres: Vec<String>,
+    pub primary_studio: Option<String>,
     pub kind: MediaKind,
     pub is_anime: bool,
     pub status: TrackingStatus,
@@ -131,6 +132,7 @@ pub struct MediaTitleDraft {
     pub name: String,
     pub alternative_title: Option<String>,
     pub genres: Vec<String>,
+    pub primary_studio: Option<String>,
     pub kind: MediaKind,
     pub is_anime: bool,
     pub status: TrackingStatus,
@@ -163,6 +165,7 @@ impl MediaTitle {
             name: draft.name,
             alternative_title: draft.alternative_title,
             genres: draft.genres,
+            primary_studio: draft.primary_studio,
             kind: draft.kind,
             is_anime: draft.is_anime,
             status: draft.status,
@@ -184,6 +187,7 @@ impl MediaTitle {
         self.name = draft.name;
         self.alternative_title = draft.alternative_title;
         self.genres = draft.genres;
+        self.primary_studio = draft.primary_studio;
         self.kind = draft.kind;
         self.is_anime = draft.is_anime;
         self.status = draft.status;
@@ -243,6 +247,7 @@ impl MediaTitleDraft {
         self.name = clean_required(self.name, 150)?;
         self.alternative_title = clean_optional(self.alternative_title, 150)?;
         self.genres = clean_genres(self.genres)?;
+        self.primary_studio = clean_optional(self.primary_studio, 150)?;
         self.opinion = clean_optional(self.opinion, 4000)?;
         validate_score(self.score)?;
         if (self.kind == MediaKind::Anime && !self.is_anime)
@@ -571,6 +576,7 @@ mod tests {
             name: "Título".into(),
             alternative_title: None,
             genres: vec!["Drama".into()],
+            primary_studio: None,
             kind: MediaKind::Series,
             is_anime: false,
             status: TrackingStatus::Watching,
@@ -615,6 +621,7 @@ mod tests {
                 name: "Your Name".into(),
                 alternative_title: None,
                 genres: vec!["Romance".into()],
+                primary_studio: None,
                 kind: MediaKind::Movie,
                 is_anime: true,
                 status: TrackingStatus::Completed,

@@ -147,6 +147,9 @@ pub fn suggested_title_status(aggregate: &MediaAggregate) -> Option<TrackingStat
 
 pub fn studios_for(aggregate: &MediaAggregate) -> Vec<String> {
     let mut studios = Vec::new();
+    if let Some(studio) = aggregate.title.primary_studio.as_ref() {
+        studios.push(studio.clone());
+    }
     for studio in aggregate
         .contents
         .iter()
@@ -307,6 +310,7 @@ mod tests {
                 name: "Boku no Hero Academia".into(),
                 alternative_title: None,
                 genres: vec!["Acción".into()],
+                primary_studio: None,
                 kind,
                 is_anime: kind == MediaKind::Anime,
                 status: TrackingStatus::Watching,

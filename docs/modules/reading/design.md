@@ -75,6 +75,8 @@ La consulta admite archivo, texto, estado, género y favoritos. La ordenación p
 - El detalle también es modal y mantiene Editar, Archivar y Cerrar en la cabecera.
 - El detalle usa las subvistas compartidas `Resumen` e `Historial`. Resumen muestra, en este orden, puntuación, número de lecturas y estado; Historial contiene la lectura abierta, lecturas anteriores y accesos rápidos para iniciar, finalizar, registrar, corregir o retirar.
 - Historial filtra por año y libro y permite corregir o retirar periodos con confirmación.
+- Estadísticas delega en Rust los filtros por género y puntuación mínima; todos los contadores y medias se recalculan sobre el subconjunto filtrado.
+- La portada del detalle usa un marco vertical `2:3` estable y rellena dicho marco sin deformarse.
 - `src/ui/score.ts` concentra la escala SeriesGraph para Media y Lectura.
 
 ## Coherencia transversal

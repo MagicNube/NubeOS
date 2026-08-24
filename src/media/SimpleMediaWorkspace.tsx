@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Archive,
+  BarChart3,
   CalendarDays,
   Edit3,
   Film,
@@ -24,6 +25,7 @@ import type {
   MediaDetail,
   MediaTitle,
   MediaTitleInput,
+  MediaStatistics,
   MovieViewing,
   TrackingStatus,
 } from "./api";
@@ -58,7 +60,10 @@ export default function SimpleMediaWorkspace({ area }: { area: SimpleArea }) {
         icon: Film,
       };
   const [items, setItems] = useState<MediaTitle[]>([]);
-  const [view, setView] = useState<"library" | "history">("library");
+  const [view, setView] = useState<"library" | "history" | "statistics">("library");
+  const [statistics, setStatistics] = useState<MediaStatistics | null>(null);
+  const [statisticsYear, setStatisticsYear] = useState("");
+  const [statisticsMinimumScore, setStatisticsMinimumScore] = useState("");
   const [allViewings, setAllViewings] = useState<MovieViewing[]>([]);
   const [detail, setDetail] = useState<MediaDetail | null>(null);
   const [viewings, setViewings] = useState<MovieViewing[]>([]);
@@ -76,12 +81,13 @@ export default function SimpleMediaWorkspace({ area }: { area: SimpleArea }) {
     const id = ++requestId.current;
     if (showLoading) setLoading(true);
     try {
-      const [data, viewingData] = await Promise.all([mediaApi.list({
+      const [data, viewingData, stats] = await Promise.all([mediaApi.list({
         archived, area, search: search || null, status: status || null, favoritesOnly,
-      }), area === "movies" ? mediaApi.movieViewings() : Promise.resolve([])]);
+      }), area === "movies" ? mediaApi.movieViewings() : Promise.resolve([]), view === "statistics" ? mediaApi.statistics({ area, completedYear: statisticsYear ? Number(statisticsYear) : null, minimumScore: statisticsMinimumScore ? Number(statisticsMinimumScore) : null }) : Promise.resolve(null)]);
       if (requestId.current === id) {
         setItems(data);
         setAllViewings(viewingData);
+        if (stats) setStatistics(stats);
         setError(null);
       }
     } catch (reason) {
@@ -89,7 +95,7 @@ export default function SimpleMediaWorkspace({ area }: { area: SimpleArea }) {
     } finally {
       if (requestId.current === id) setLoading(false);
     }
-  }, [archived, area, favoritesOnly, search, status]);
+  }, [archived, area, favoritesOnly, search, statisticsMinimumScore, statisticsYear, status, view]);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => void load(loading), 150);
@@ -146,11 +152,11 @@ export default function SimpleMediaWorkspace({ area }: { area: SimpleArea }) {
   const Icon = copy.icon;
   return (
     <section className="media-workspace simple-media-workspace">
-      {area === "movies" && <nav aria-label="Vistas de Películas" className="media-tabs simple-media-tabs"><button className={view === "library" ? "active" : ""} onClick={() => setView("library")} type="button"><Library size={16} /> Biblioteca</button><button className={view === "history" ? "active" : ""} onClick={() => { setView("history"); setArchived(false); setDetail(null); setSearch(""); setStatus(""); setFavoritesOnly(false); }} type="button"><History size={16} /> Historial</button></nav>}
+      {area === "movies" && <nav aria-label="Vistas de Películas" className="media-tabs simple-media-tabs"><button className={view === "library" ? "active" : ""} onClick={() => setView("library")} type="button"><Library size={16} /> Biblioteca</button><button className={view === "history" ? "active" : ""} onClick={() => { setView("history"); setArchived(false); setDetail(null); setSearch(""); setStatus(""); setFavoritesOnly(false); }} type="button"><History size={16} /> Historial</button><button className={view === "statistics" ? "active" : ""} onClick={() => { setView("statistics"); setArchived(false); setDetail(null); }} type="button"><BarChart3 size={16} /> Estadísticas</button></nav>}
       <div className="library-heading-row simple-media-heading">
         <header className="media-view-heading">
-          <span>{view === "history" ? "TU HISTORIAL" : archived ? "ARCHIVO" : "TU COLECCIÓN"}</span>
-          <h2>{view === "history" ? "Visionados" : archived ? `${copy.plural[0].toUpperCase()}${copy.plural.slice(1)} archivadas` : `Tus ${copy.plural}`}</h2>
+          <span>{view === "history" ? "TU HISTORIAL" : view === "statistics" ? "TU COLECCIÓN" : archived ? "ARCHIVO" : "TU COLECCIÓN"}</span>
+          <h2>{view === "history" ? "Visionados" : view === "statistics" ? "Estadísticas" : archived ? `${copy.plural[0].toUpperCase()}${copy.plural.slice(1)} archivadas` : `Tus ${copy.plural}`}</h2>
           <p>{view === "history" ? "Primeros visionados y revisiones, conservados por separado." : archived ? "Restaura o elimina definitivamente." : area === "series" ? "Un seguimiento sencillo de lo que ves y por dónde vas." : "Pendientes, vistas y valoraciones sin mezclarlas con el anime."}</p>
         </header>
         {view === "library" && <div className="simple-media-heading-actions">
@@ -173,7 +179,7 @@ export default function SimpleMediaWorkspace({ area }: { area: SimpleArea }) {
         </div>
       )}
 
-      {view === "history" && area === "movies" ? <MovieHistory entries={allViewings} titles={items} edit={async (id, date) => { const result = await run(() => mediaApi.updateMovieViewing(id, date)); if (result) await load(false); }} remove={async (id) => { if (!window.confirm("¿Eliminar este visionado del historial?")) return; const result = await run(() => mediaApi.deleteMovieViewing(id)); if (result) await load(false); }} /> : <><div className="media-filters">
+      {view === "statistics" && area === "movies" ? <SimpleMediaStatistics data={statistics} entries={allViewings} minimumScore={statisticsMinimumScore} setMinimumScore={setStatisticsMinimumScore} setYear={setStatisticsYear} year={statisticsYear} /> : view === "history" && area === "movies" ? <MovieHistory entries={allViewings} titles={items} edit={async (id, date) => { const result = await run(() => mediaApi.updateMovieViewing(id, date)); if (result) await load(false); }} remove={async (id) => { if (!window.confirm("¿Eliminar este visionado del historial?")) return; const result = await run(() => mediaApi.deleteMovieViewing(id)); if (result) await load(false); }} /> : <><div className="media-filters">
         <label className="media-search">
           <Search size={17} />
           <input onChange={(event) => setSearch(event.target.value)} placeholder={`Buscar ${copy.plural}`} value={search} />
@@ -322,7 +328,6 @@ function SimpleMediaDetail({
             </div>
             <h2 id="simple-media-detail-title">{title.name}</h2>
             {title.alternativeTitle && <p>{title.alternativeTitle}</p>}
-            {area === "series" && <strong className={`simple-media-score media-score-badge score-${scoreTone(title.score)}`} style={{ color: scoreColor(title.score) }}>{formatScore(title.score)}</strong>}
           </div>
           <div className="media-detail-actions">
             {!title.archived ? (
@@ -342,15 +347,14 @@ function SimpleMediaDetail({
 
         {area === "movies" && <TrackerDetailTabs onChange={setDetailView} value={detailView} />}
 
-        {area === "series" && <section className="simple-media-facts">
-          {area === "series" && (
-            <>
-              <Fact label="Por dónde vas" value={seriesPosition(title)} />
-              <Fact label="Empezada" value={title.startedOn ? formatDate(title.startedOn) : "Sin indicar"} />
-              <Fact label="Finalizada" value={title.finishedOn ? formatDate(title.finishedOn) : "Sin indicar"} />
-            </>
-          )}
-        </section>}
+        {area === "series" && <><TrackerMetricGrid metrics={[
+          { label: "Puntuación", value: formatScore(title.score), color: scoreColor(title.score) },
+          { label: "Por dónde vas", value: seriesPosition(title) },
+          { label: "Estado", value: statusLabel(title.status) },
+        ]} /><section className="simple-series-dates">
+          <Fact label="Empezada" value={title.startedOn ? formatDate(title.startedOn) : "Sin indicar"} />
+          <Fact label="Finalizada" value={title.finishedOn ? formatDate(title.finishedOn) : "Sin indicar"} />
+        </section></>}
 
         {area === "movies" && detailView === "summary" && <><TrackerMetricGrid metrics={[{ label: "Puntuación", value: formatScore(title.score), color: scoreColor(title.score) }, { label: "Visionados", value: viewings.length }, { label: "Estado", value: title.watchedUnits ? "Vista" : "Pendiente" }]} />{title.opinion && <section className="media-opinion"><span>Opinión</span><p>{title.opinion}</p></section>}</>}
 
@@ -382,6 +386,15 @@ function SimpleMediaDetail({
       </article>
     </Modal>
   );
+}
+
+function SimpleMediaStatistics({ data, entries, year, minimumScore, setYear, setMinimumScore }: { data: MediaStatistics | null; entries: MovieViewing[]; year: string; minimumScore: string; setYear: (value: string) => void; setMinimumScore: (value: string) => void }) {
+  const years = [...new Set(entries.map((entry) => entry.watchedOn.slice(0, 4)))].sort((left, right) => right.localeCompare(left));
+  if (!data) return <div className="media-empty"><strong>Cargando estadísticas…</strong></div>;
+  return <section className="simple-media-statistics">
+    <div className="media-stat-filters"><SelectControl><select aria-label="Filtrar estadísticas por año" onChange={(event) => setYear(event.target.value)} value={year}><option value="">Todos los años</option>{years.map((item) => <option key={item} value={item}>{item}</option>)}</select></SelectControl><SelectControl><select aria-label="Filtrar estadísticas por puntuación mínima" onChange={(event) => setMinimumScore(event.target.value)} value={minimumScore}><option value="">Cualquier puntuación</option><option value="5">5 o más</option><option value="6">6 o más</option><option value="7">7 o más</option><option value="8">8 o más</option><option value="9">9 o más</option></select></SelectControl></div>
+    <TrackerMetricGrid metrics={[{ label: "Películas", value: data.activeTitles }, { label: "Vistas", value: data.completedMovies }, { label: "Puntuación media", value: formatScore(data.averageScore), color: scoreColor(data.averageScore) }]} />
+  </section>;
 }
 
 function MovieHistory({

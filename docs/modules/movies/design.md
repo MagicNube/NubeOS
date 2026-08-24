@@ -18,10 +18,11 @@ Películas reutiliza `MediaTitle` con `kind = movie` e `is_anime = false`. Cada 
 ## Interfaz
 
 - Biblioteca simple con búsqueda, estado, favoritos y Archivo.
-- Tarjeta horizontal con Pendiente/Vista y puntuación; la imagen usa `object-fit: contain` y no hereda la portada vertical de Anime.
+- Tarjeta horizontal 16:9 con Pendiente/Vista y puntuación; comparte altura y cuadrícula con Series y Videojuegos y no hereda la portada vertical de Anime.
 - Detalle con portada horizontal y subvistas compartidas `Resumen` e `Historial`. Resumen muestra, en este orden, puntuación, visionados y estado; Historial permite registrar el primer visionado o uno nuevo y corregir los existentes.
 - Acción `Volver a ver`, contador de visionados e Historial filtrable.
 - Formulario sin campos de temporadas o contenidos y con favorito mediante estrella, no checkbox.
+- Estadísticas solicita a Rust un subconjunto por año de finalización y puntuación mínima antes de calcular sus agregados.
 
 ## Persistencia
 

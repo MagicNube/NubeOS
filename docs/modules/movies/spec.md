@@ -16,6 +16,7 @@ Mantener un tracker independiente y de baja fricción para películas convencion
 - Registrar varios visionados de la misma película sin sobrescribir fechas anteriores.
 - Consultar, corregir y retirar visionados desde Historial.
 - Buscar, filtrar, archivar, restaurar y eliminar definitivamente.
+- Consultar estadísticas filtradas por año de finalización y puntuación mínima.
 - Mostrar portadas horizontales completas en Biblioteca y detalle.
 - Dividir el detalle en `Resumen` e `Historial`: el resumen muestra puntuación, visionados y estado; el historial concentra las fechas y acciones de revisionado.
 - Elegir favorito mediante el patrón común de estrella vacía o rellena, también en el formulario.
@@ -44,3 +45,4 @@ Mantener un tracker independiente y de baja fricción para películas convencion
 - [ ] Archivo y eliminación definitiva conservan sus confirmaciones.
 - [ ] Una película admite varios visionados con fechas independientes.
 - [ ] Historial permite corregir o retirar un visionado sin crear entradas negativas.
+- [ ] Estadísticas recalcula títulos, vistas y media al filtrar por año o puntuación mínima.

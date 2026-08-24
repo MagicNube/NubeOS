@@ -73,6 +73,7 @@ Los CSV aportados se usan únicamente para validar el modelo. Contienen 27 libro
 - [x] La puntuación usa valor numérico y colores SeriesGraph, no estrellas acumulativas.
 - [x] Archivo permite restaurar y exige confirmación antes del borrado definitivo.
 - [x] Las estadísticas se calculan desde los datos persistidos.
+- [x] Las estadísticas pueden acotarse por género y puntuación mínima.
 - [x] Se puede iniciar y finalizar una relectura sin modificar periodos anteriores.
 - [ ] El historial permite corregir y retirar periodos de lectura.
 - [ ] Los campos de inicio y fin visibles representan la lectura actual o la última lectura, no un dato sobrescrito manualmente.

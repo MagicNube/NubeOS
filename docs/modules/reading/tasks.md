@@ -138,3 +138,9 @@
 - Estado: Implementada; comprobación visual pendiente
 - Alcance: dividir el detalle en Resumen e Historial y aplicar la misma jerarquía de métricas que Videojuegos y Películas.
 - Verificación: build y prueba manual con libro pendiente, lectura abierta y varias relecturas.
+
+## T-R22 — Refinar detalle y estadísticas
+
+- Estado: Implementada; comprobación visual pendiente
+- Alcance: normalizar la portada vertical del detalle y filtrar estadísticas por género y puntuación mínima desde casos de uso Rust.
+- Verificación: pruebas Rust, build y prueba manual con filtros combinados.

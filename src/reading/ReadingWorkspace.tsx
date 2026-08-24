@@ -30,6 +30,8 @@ export default function ReadingWorkspace() {
   const [view, setView] = useState<View>("library");
   const [books, setBooks] = useState<ReadingBook[]>([]);
   const [statistics, setStatistics] = useState<ReadingStatistics | null>(null);
+  const [statisticsGenre, setStatisticsGenre] = useState("");
+  const [statisticsMinimumScore, setStatisticsMinimumScore] = useState("");
   const [history, setHistory] = useState<ReadingHistoryEntry[]>([]);
   const [historyBook, setHistoryBook] = useState("");
   const [historyYear, setHistoryYear] = useState("");
@@ -53,7 +55,7 @@ export default function ReadingWorkspace() {
     try {
       const [items, stats, entries] = await Promise.all([
         readingApi.list({ archived }),
-        readingApi.statistics(),
+        readingApi.statistics({ genre: statisticsGenre || null, minimumScore: statisticsMinimumScore ? Number(statisticsMinimumScore) : null }),
         readingApi.history({ bookId: historyBook || null, year: historyYear ? Number(historyYear) : null }),
       ]);
       if (id === requestId.current) {
@@ -67,7 +69,7 @@ export default function ReadingWorkspace() {
     } finally {
       if (id === requestId.current) setLoading(false);
     }
-  }, [archived, historyBook, historyYear]);
+  }, [archived, historyBook, historyYear, statisticsGenre, statisticsMinimumScore]);
 
   useEffect(() => { void load(true); return () => { requestId.current += 1; }; }, [load]);
 
@@ -122,7 +124,7 @@ export default function ReadingWorkspace() {
       {error && <div className="reading-error" role="alert"><span>{error}</span><button aria-label="Cerrar error" onClick={() => setError(null)} type="button"><X size={15} /></button></div>}
 
       {view === "statistics" && !archived ? (
-        <Statistics data={statistics} />
+        <Statistics data={statistics} genre={statisticsGenre} minimumScore={statisticsMinimumScore} setGenre={setStatisticsGenre} setMinimumScore={setStatisticsMinimumScore} />
       ) : view === "history" && !archived ? (
         <ReadingHistory entries={history} books={books} bookId={historyBook} year={historyYear} setBookId={setHistoryBook} setYear={setHistoryYear} edit={(entry) => setRunForm({ bookId: entry.run.bookId, run: entry.run })} remove={(entry) => { if (window.confirm(`¿Eliminar esta lectura de “${entry.bookTitle}”?`)) void action(() => readingApi.deleteRun(entry.run.id)); }} />
       ) : (
@@ -247,9 +249,9 @@ function ReadingHistory({ entries, books, bookId, year, setBookId, setYear, edit
   return <div><header className="reading-view-heading"><span>TU HISTORIAL</span><h2>Lecturas y relecturas</h2><p>Cada vuelta a un libro permanece separada.</p></header><div className="reading-history-filters"><SelectControl><select onChange={(event) => setBookId(event.target.value)} value={bookId}><option value="">Todos los libros</option>{books.map((book) => <option key={book.id} value={book.id}>{book.title}</option>)}</select></SelectControl><SelectControl><select onChange={(event) => setYear(event.target.value)} value={year}><option value="">Todos los años</option>{years.map((item) => <option key={item}>{item}</option>)}</select></SelectControl></div>{entries.length === 0 ? <Empty text="Todavía no hay lecturas en el historial." /> : <div className="reading-history-list">{entries.map((entry) => <article key={entry.run.id}><CalendarDays size={18} /><div><strong>{entry.bookTitle}</strong><span>{entry.bookAuthor} · {formatReadingDate(entry.run.startedOn)} → {entry.run.finishedOn ? formatReadingDate(entry.run.finishedOn) : "En curso"}</span></div><div><button className="reading-icon-action" onClick={() => edit(entry)} title="Editar" type="button"><Edit3 size={15} /></button><button className="reading-icon-action" onClick={() => remove(entry)} title="Eliminar" type="button"><Trash2 size={15} /></button></div></article>)}</div>}</div>;
 }
 
-function Statistics({ data }: { data: ReadingStatistics | null }) {
+function Statistics({ data, genre, minimumScore, setGenre, setMinimumScore }: { data: ReadingStatistics | null; genre: string; minimumScore: string; setGenre: (value: string) => void; setMinimumScore: (value: string) => void }) {
   if (!data) return <Empty text="Cargando estadísticas…" />;
-  return <div className="reading-statistics"><header className="reading-view-heading"><span>TU BIBLIOTECA</span><h2>Estadísticas</h2><p>Una vista sencilla de lo que lees y terminas.</p></header><div className="reading-stat-grid"><Stat label="Libros" value={data.activeBooks} /><Stat label="En lectura" value={data.currentlyReading} /><Stat label="Terminados" value={data.completedBooks} /><Stat label="Favoritos" value={data.favoriteBooks} /><Stat label="Puntuación media" value={data.averageScore === null ? "—" : formatScore(data.averageScore)} color={scoreColor(data.averageScore)} /></div><div className="reading-stat-columns"><section><h3>Por estado</h3>{data.byStatus.map((item) => <div className="reading-stat-row" key={item.status}><span>{readingStatusLabel(item.status)}</span><strong>{item.count}</strong></div>)}</section><section><h3>Géneros principales</h3>{data.topGenres.length ? data.topGenres.map((item) => <div className="reading-stat-row" key={item.genre}><span>{item.genre}</span><strong>{item.count}</strong></div>) : <p>Sin datos todavía.</p>}</section></div></div>;
+  return <div className="reading-statistics"><header className="reading-view-heading"><span>TU BIBLIOTECA</span><h2>Estadísticas</h2><p>Una vista sencilla de lo que lees y terminas.</p></header><div className="reading-stat-filters"><SelectControl><select aria-label="Filtrar estadísticas por género" onChange={(event) => setGenre(event.target.value)} value={genre}><option value="">Todos los géneros</option>{readingGenres.map((item) => <option key={item} value={item}>{item}</option>)}</select></SelectControl><SelectControl><select aria-label="Filtrar estadísticas por puntuación mínima" onChange={(event) => setMinimumScore(event.target.value)} value={minimumScore}><option value="">Cualquier puntuación</option><option value="5">5 o más</option><option value="6">6 o más</option><option value="7">7 o más</option><option value="8">8 o más</option><option value="9">9 o más</option></select></SelectControl></div><div className="reading-stat-grid"><Stat label="Libros" value={data.activeBooks} /><Stat label="En lectura" value={data.currentlyReading} /><Stat label="Terminados" value={data.completedBooks} /><Stat label="Favoritos" value={data.favoriteBooks} /><Stat label="Puntuación media" value={data.averageScore === null ? "—" : formatScore(data.averageScore)} color={scoreColor(data.averageScore)} /></div><div className="reading-stat-columns"><section><h3>Por estado</h3>{data.byStatus.map((item) => <div className="reading-stat-row" key={item.status}><span>{readingStatusLabel(item.status)}</span><strong>{item.count}</strong></div>)}</section><section><h3>Géneros principales</h3>{data.topGenres.length ? data.topGenres.map((item) => <div className="reading-stat-row" key={item.genre}><span>{item.genre}</span><strong>{item.count}</strong></div>) : <p>Sin datos con estos filtros.</p>}</section></div></div>;
 }
 
 function Stat({ label, value, color }: { label: string; value: string | number; color?: string }) { return <div className="reading-stat"><span>{label}</span><strong style={color ? { color } : undefined}>{value}</strong></div>; }

@@ -56,3 +56,9 @@
 - Estado: Implementada; comprobación visual pendiente
 - Alcance: portadas horizontales completas, filtros de Historial normalizados, favorito con estrella y detalle dividido en Resumen e Historial con métricas compartidas.
 - Verificación: build y prueba manual con película pendiente, un visionado y varios revisionados.
+
+## T-P10 — Añadir estadísticas filtrables y geometría común
+
+- Estado: Implementada; comprobación visual pendiente
+- Alcance: tarjeta horizontal común con Series y Videojuegos, más filtros estadísticos por año y puntuación mínima calculados en Rust.
+- Verificación: build, pruebas Rust y prueba manual con varios años.

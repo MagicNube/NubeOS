@@ -210,6 +210,13 @@ pub struct ReadingGenreCountDto {
     pub count: usize,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReadingStatisticsFilterDto {
+    pub genre: Option<String>,
+    pub minimum_score: Option<f64>,
+}
+
 #[tauri::command]
 pub fn list_reading_books(
     database: State<'_, ProductDatabase>,
@@ -639,14 +646,28 @@ pub fn read_reading_cover(
 #[tauri::command]
 pub fn get_reading_statistics(
     database: State<'_, ProductDatabase>,
+    input: ReadingStatisticsFilterDto,
 ) -> Result<ReadingStatisticsDto, String> {
     let mut connection = database
         .connection
         .lock()
         .map_err(|_| "No se ha podido acceder a la base de datos.".to_owned())?;
-    let books = ReadingRepository::new(&mut connection)
+    let mut books = ReadingRepository::new(&mut connection)
         .list(false)
         .map_err(|error| error.to_string())?;
+    if let Some(genre) = input.genre.filter(|value| !value.trim().is_empty()) {
+        books.retain(|book| {
+            book.genres
+                .iter()
+                .any(|value| value.eq_ignore_ascii_case(&genre))
+        });
+    }
+    if let Some(minimum) = input.minimum_score {
+        if !(0.0..=10.0).contains(&minimum) {
+            return Err("La puntuación mínima debe estar entre 0 y 10.".to_owned());
+        }
+        books.retain(|book| book.score.is_some_and(|score| score >= minimum));
+    }
     let scored = books
         .iter()
         .filter_map(|book| book.score)

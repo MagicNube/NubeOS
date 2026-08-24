@@ -95,9 +95,9 @@ impl<'connection> MediaRepository<'connection> {
               kind, tracking_status, score, opinion, is_favorite, is_archived, watched_units,
               cover_file_name, cover_mime_type, cover_size_bytes, is_anime, started_on,
               finished_on, current_season, current_episode, catalog_number, genres_json,
-              created_at, updated_at)
+              primary_studio, created_at, updated_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14,
-                     ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?23)",
+                     ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?24)",
             params![
                 title.id.as_str(),
                 title.name,
@@ -121,6 +121,7 @@ impl<'connection> MediaRepository<'connection> {
                 title.current_episode,
                 title.catalog_number,
                 genres_json,
+                title.primary_studio,
                 now,
             ],
         )?;
@@ -145,7 +146,7 @@ impl<'connection> MediaRepository<'connection> {
                  watched_units = ?12, cover_file_name = ?13, cover_mime_type = ?14,
                  cover_size_bytes = ?15, is_anime = ?16, started_on = ?17,
                  finished_on = ?18, current_season = ?19, current_episode = ?20,
-                 catalog_number = ?21, genres_json = ?22, updated_at = ?23
+                 catalog_number = ?21, genres_json = ?22, primary_studio = ?23, updated_at = ?24
              WHERE id = ?1",
             params![
                 title.id.as_str(),
@@ -170,6 +171,7 @@ impl<'connection> MediaRepository<'connection> {
                 title.current_episode,
                 title.catalog_number,
                 genres_json,
+                title.primary_studio,
                 now,
             ],
         )?;
@@ -188,7 +190,7 @@ impl<'connection> MediaRepository<'connection> {
                 "SELECT id, name, alternative_title, kind, tracking_status, score, opinion,
                         is_favorite, is_archived, watched_units, cover_file_name,
                         cover_mime_type, cover_size_bytes, is_anime, started_on, finished_on,
-                        current_season, current_episode, catalog_number, genres_json
+                        current_season, current_episode, catalog_number, genres_json, primary_studio
                  FROM media_titles WHERE id = ?1",
                 [id.as_str()],
                 title_from_row,
@@ -203,7 +205,7 @@ impl<'connection> MediaRepository<'connection> {
                 "SELECT id, name, alternative_title, kind, tracking_status, score, opinion,
                         is_favorite, is_archived, watched_units, cover_file_name,
                         cover_mime_type, cover_size_bytes, is_anime, started_on, finished_on,
-                        current_season, current_episode, catalog_number, genres_json
+                        current_season, current_episode, catalog_number, genres_json, primary_studio
                  FROM media_titles ORDER BY updated_at DESC, name COLLATE NOCASE",
             )?;
             let rows = statement
@@ -248,9 +250,13 @@ impl<'connection> MediaRepository<'connection> {
 
     pub fn list_studios(&mut self) -> Result<Vec<String>, MediaRepositoryError> {
         let mut statement = self.connection.prepare(
-            "SELECT DISTINCT trim(studio) FROM media_contents
-             WHERE studio IS NOT NULL AND trim(studio) != ''
-             ORDER BY trim(studio) COLLATE NOCASE",
+            "SELECT studio FROM (
+                 SELECT trim(primary_studio) AS studio FROM media_titles
+                 WHERE primary_studio IS NOT NULL AND trim(primary_studio) != ''
+                 UNION
+                 SELECT trim(studio) AS studio FROM media_contents
+                 WHERE studio IS NOT NULL AND trim(studio) != ''
+             ) ORDER BY studio COLLATE NOCASE",
         )?;
         let studios = statement
             .query_map([], |row| row.get(0))?
@@ -904,6 +910,7 @@ fn title_from_row(row: &Row<'_>) -> rusqlite::Result<MediaTitle> {
         current_episode: row.get(17)?,
         catalog_number: row.get(18)?,
         genres: genres_from_json(&row.get::<_, String>(19)?)?,
+        primary_studio: row.get(20)?,
         cover,
     })
 }
@@ -1091,6 +1098,7 @@ mod tests {
                 name: "Boku no Hero Academia".into(),
                 alternative_title: Some("My Hero Academia".into()),
                 genres: vec!["Acción".into()],
+                primary_studio: Some("Bones".into()),
                 kind: MediaKind::Anime,
                 is_anime: true,
                 status: TrackingStatus::Watching,
@@ -1170,6 +1178,11 @@ mod tests {
             )
             .unwrap();
         let restored = repository.find_aggregate(&title_id).unwrap().unwrap();
+        assert_eq!(restored.title.primary_studio.as_deref(), Some("Bones"));
+        assert!(repository
+            .list_studios()
+            .unwrap()
+            .contains(&"Bones".to_owned()));
         assert_eq!(restored.contents[0].watched_episodes, 1);
         assert_eq!(restored.sessions.len(), 1);
     }
@@ -1184,6 +1197,7 @@ mod tests {
                 name: "Arrival".into(),
                 alternative_title: None,
                 genres: vec![],
+                primary_studio: None,
                 kind: MediaKind::Movie,
                 is_anime: false,
                 status: TrackingStatus::Pending,
@@ -1489,6 +1503,7 @@ mod tests {
                 name: "Severance".into(),
                 alternative_title: None,
                 genres: Vec::new(),
+                primary_studio: None,
                 kind: MediaKind::Series,
                 is_anime: false,
                 status: TrackingStatus::Watching,

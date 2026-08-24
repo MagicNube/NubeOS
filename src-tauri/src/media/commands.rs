@@ -19,9 +19,9 @@ use super::{
     },
     repository::{normalize, MediaHistoryEntry, MediaRepository, MediaRepositoryError},
     service::{
-        build_statistics, can_increment_content, content_score_average, next_content, progress_for,
-        studios_for, suggested_title_status, validate_content_parent, validate_progress_change,
-        MediaAggregate,
+        build_statistics, can_increment_content, content_score_average, effective_title_score,
+        next_content, progress_for, studios_for, suggested_title_status, validate_content_parent,
+        validate_progress_change, MediaAggregate,
     },
 };
 
@@ -95,6 +95,7 @@ pub struct MediaTitleInputDto {
     pub alternative_title: Option<String>,
     #[serde(default)]
     pub genres: Vec<String>,
+    pub primary_studio: Option<String>,
     pub kind: MediaKindDto,
     pub is_anime: bool,
     pub status: TrackingStatusDto,
@@ -214,6 +215,7 @@ pub struct MediaTitleDto {
     pub name: String,
     pub alternative_title: Option<String>,
     pub genres: Vec<String>,
+    pub primary_studio: Option<String>,
     pub kind: MediaKindDto,
     pub is_anime: bool,
     pub status: TrackingStatusDto,
@@ -327,6 +329,15 @@ pub struct MediaStatisticsDto {
     pub top_titles: Vec<TopMediaTitleDto>,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MediaStatisticsFilterDto {
+    pub area: Option<MediaAreaDto>,
+    pub studio: Option<String>,
+    pub minimum_score: Option<f64>,
+    pub completed_year: Option<i32>,
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MediaCommandErrorDto {
@@ -434,12 +445,9 @@ pub fn list_media_titles(
                 .map_or(true, |status| aggregate.title.status == status)
             && (!input.favorites_only || aggregate.title.favorite)
             && studio.as_ref().map_or(true, |needle| {
-                aggregate.contents.iter().any(|content| {
-                    content
-                        .studio
-                        .as_deref()
-                        .is_some_and(|value| normalize(value) == *needle)
-                })
+                studios_for(aggregate)
+                    .iter()
+                    .any(|value| normalize(value) == *needle)
             })
             && search.as_ref().map_or(true, |needle| {
                 normalize(&aggregate.title.name).contains(needle)
@@ -1058,15 +1066,41 @@ pub fn read_media_cover(
 #[tauri::command]
 pub fn get_media_statistics(
     database: State<'_, ProductDatabase>,
-    area: Option<MediaAreaDto>,
+    input: MediaStatisticsFilterDto,
 ) -> Result<MediaStatisticsDto, MediaCommandErrorDto> {
     let mut connection = database.connection.lock().map_err(|_| unavailable())?;
     let mut aggregates = MediaRepository::new(&mut connection)
         .list_aggregates()
         .map_err(repository_error)?;
-    if let Some(area) = area {
+    if let Some(area) = input.area {
         let area = media_area_from_dto(area);
         aggregates.retain(|aggregate| aggregate.title.belongs_to(area));
+    }
+    if let Some(studio) = input.studio.filter(|value| !value.trim().is_empty()) {
+        aggregates.retain(|aggregate| {
+            studios_for(aggregate)
+                .iter()
+                .any(|value| value.eq_ignore_ascii_case(&studio))
+        });
+    }
+    if let Some(minimum) = input.minimum_score {
+        if !(0.0..=10.0).contains(&minimum) {
+            return Err(error(
+                "validation",
+                "La puntuación mínima debe estar entre 0 y 10.",
+            ));
+        }
+        aggregates.retain(|aggregate| {
+            effective_title_score(aggregate).is_some_and(|score| score >= minimum)
+        });
+    }
+    if let Some(year) = input.completed_year {
+        aggregates.retain(|aggregate| {
+            aggregate
+                .title
+                .finished_on
+                .is_some_and(|date| date.year() == year)
+        });
     }
     let statistics = build_statistics(&aggregates);
     Ok(MediaStatisticsDto {
@@ -1174,6 +1208,7 @@ fn title_draft(input: MediaTitleInputDto) -> Result<MediaTitleDraft, MediaComman
         name: input.name,
         alternative_title: input.alternative_title,
         genres: input.genres,
+        primary_studio: input.primary_studio,
         kind: media_kind_from_dto(input.kind),
         is_anime: input.is_anime,
         status: status_from_dto(input.status),
@@ -1226,6 +1261,7 @@ fn title_to_dto(aggregate: &MediaAggregate) -> MediaTitleDto {
         name: aggregate.title.name.clone(),
         alternative_title: aggregate.title.alternative_title.clone(),
         genres: aggregate.title.genres.clone(),
+        primary_studio: aggregate.title.primary_studio.clone(),
         kind: media_kind_to_dto(aggregate.title.kind),
         is_anime: aggregate.title.is_anime,
         status: status_to_dto(aggregate.title.status),

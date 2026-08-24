@@ -80,3 +80,9 @@ Las tareas se realizan de una en una después de aprobar spec y diseño. Cada ta
 - Estado: Implementada; comprobación visual pendiente
 - Alcance: dividir el detalle en Resumen e Historial, aplicar las métricas compartidas y usar una portada horizontal completa también dentro del videojuego.
 - Verificación: build y prueba manual con título sin partidas, partida abierta y varias rejugadas.
+
+## T-G12 — Corregir geometría horizontal de portadas
+
+- Estado: Implementada; comprobación visual pendiente
+- Alcance: usar un marco 16:9 común en tarjeta y detalle y mostrar la imagen completa mediante `object-fit: contain`.
+- Verificación: build y prueba manual con imágenes horizontales, verticales y cuadradas.

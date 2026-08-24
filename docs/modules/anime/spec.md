@@ -116,6 +116,8 @@ Mantener una biblioteca dedicada de anime que permita seguir franquicias complej
 - [x] El historial muestra episodios y películas con texto comprensible, no deltas numéricos.
 - [x] La edición y retirada de historial mantienen sincronizado el progreso persistido.
 - [x] Estado, puntuación, estudios, GIF y controles compartidos cumplen el refinamiento aprobado.
+- [x] El anime admite un estudio principal editable, independiente de los estudios específicos de sus contenidos.
+- [x] Las estadísticas pueden filtrarse por estudio y puntuación mínima antes de calcular la media.
 - [x] El formulario agrupa inicio y final en la misma fila y coloca el estreno en la siguiente.
 - [x] La puntuación es un control visual principal, no un campo ordinario ni un selector con botón de confirmación.
 - [x] La biblioteca separa franquicias y películas anime independientes y muestra `#n` sobre la portada de cada franquicia.

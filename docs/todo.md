@@ -26,6 +26,7 @@ No sustituye al roadmap, las specs, los diseños ni las tareas de cada módulo. 
 - [ ] **TODO-003 — Terminar de revisar Lectura.** Validar formularios, filtros, ordenación, tarjetas, portadas y Archivo; después aprobar sus documentos y cerrar el Hito 8.
 - [ ] **TODO-007 — Implementar revisionados en Series.** Relecturas en Lectura y revisionados en Películas ya están implementados y pendientes de prueba manual; Series conserva su ampliación aprobada sin implementar.
 - [ ] **TODO-008 — Revisar Videojuegos.** Probar la vertical implementada con datos reales y cerrar su comprobación visual.
+- [ ] **TODO-009 — Revisar geometría y estadísticas de trackers.** Validar portadas horizontales de Videojuegos, Películas y Series, portada vertical del detalle de Lectura y filtros estadísticos de Lectura, Películas y Anime.
 
 ### Módulos pendientes
 

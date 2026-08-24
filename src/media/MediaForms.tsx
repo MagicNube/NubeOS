@@ -48,6 +48,7 @@ export function MediaTitleForm({
     title?.alternativeTitle ?? "",
   );
   const [genres, setGenres] = useState(title?.genres.join(", ") ?? "");
+  const [primaryStudio, setPrimaryStudio] = useState(title?.primaryStudio ?? "");
   const [kind, setKind] = useState<MediaKind>(initialKind);
   const [status, setStatus] = useState<TrackingStatus>(
     title?.status ?? "pending",
@@ -65,14 +66,14 @@ export function MediaTitleForm({
   const [coverBusy, setCoverBusy] = useState(false);
   const initialFingerprint = useMemo(() => JSON.stringify({
     name: title?.name ?? "", alternativeTitle: title?.alternativeTitle ?? "",
-    genres: title?.genres.join(", ") ?? "", kind: initialKind,
+    genres: title?.genres.join(", ") ?? "", primaryStudio: title?.primaryStudio ?? "", kind: initialKind,
     status: title?.status ?? "pending", score: title?.score?.toString() ?? "",
     opinion: title?.opinion ?? "", favorite: title?.favorite ?? false,
     isAnime: title?.isAnime ?? area === "anime", startedOn: title?.startedOn ?? "",
     finishedOn: title?.finishedOn ?? "", currentSeason: title?.currentSeason?.toString() ?? "",
     currentEpisode: title?.currentEpisode?.toString() ?? "", removeCover: false,
   }), [area, initialKind, title]);
-  const dirty = JSON.stringify({ name, alternativeTitle, genres, kind, status, score,
+  const dirty = JSON.stringify({ name, alternativeTitle, genres, primaryStudio, kind, status, score,
     opinion, favorite, isAnime, startedOn, finishedOn, currentSeason, currentEpisode,
     removeCover }) !== initialFingerprint || cover !== null;
 
@@ -125,6 +126,7 @@ export function MediaTitleForm({
               .split(",")
               .map((genre) => genre.trim())
               .filter(Boolean),
+            primaryStudio: primaryStudio.trim() || null,
             kind,
             isAnime,
             status,
@@ -174,6 +176,17 @@ export function MediaTitleForm({
                 onChange={(event) => setGenres(event.target.value)}
                 placeholder="Acción, Comedia, Fantasía"
                 value={genres}
+              />
+            </label>
+          )}
+          {area === "anime" && (
+            <label className="media-field media-field-wide">
+              Estudio principal (opcional)
+              <input
+                maxLength={150}
+                onChange={(event) => setPrimaryStudio(event.target.value)}
+                placeholder="Ej. Bones"
+                value={primaryStudio}
               />
             </label>
           )}

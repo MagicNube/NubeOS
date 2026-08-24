@@ -82,6 +82,8 @@ export default function AnimeWorkspace() {
   const [librarySection, setLibrarySection] = useState<LibrarySection>("anime");
   const [studios, setStudios] = useState<string[]>([]);
   const [studio, setStudio] = useState("");
+  const [statisticsStudio, setStatisticsStudio] = useState("");
+  const [statisticsMinimumScore, setStatisticsMinimumScore] = useState("");
   const [history, setHistory] = useState<MediaHistoryEntry[]>([]);
   const [historyOptions, setHistoryOptions] = useState<MediaHistoryEntry[]>([]);
   const [historyYear, setHistoryYear] = useState("");
@@ -102,7 +104,7 @@ export default function AnimeWorkspace() {
       if (showInitial) setInitialLoading(true);
       try {
         if (view === "statistics") {
-          const data = await mediaApi.statistics("anime");
+          const data = await mediaApi.statistics({ area: "anime", studio: statisticsStudio || null, minimumScore: statisticsMinimumScore ? Number(statisticsMinimumScore) : null });
           if (requestId.current === id) setStatistics(data);
         } else if (view === "history") {
           const [data, options] = await Promise.all([
@@ -129,7 +131,7 @@ export default function AnimeWorkspace() {
         if (requestId.current === id) setInitialLoading(false);
       }
     },
-    [archived, favoritesOnly, historyContent, historyMonth, historyOldestFirst, historyTitle, historyYear, librarySection, search, status, studio, view],
+    [archived, favoritesOnly, historyContent, historyMonth, historyOldestFirst, historyTitle, historyYear, librarySection, search, statisticsMinimumScore, statisticsStudio, status, studio, view],
   );
 
   useEffect(() => { void mediaApi.listStudios().then(setStudios).catch(() => undefined); }, []);
@@ -325,7 +327,7 @@ export default function AnimeWorkspace() {
             />
           )}
           {view === "statistics" && statistics && (
-            <StatisticsView statistics={statistics} open={openDetail} />
+            <StatisticsView statistics={statistics} open={openDetail} studios={studios} studio={statisticsStudio} minimumScore={statisticsMinimumScore} setStudio={setStatisticsStudio} setMinimumScore={setStatisticsMinimumScore} />
           )}
           {view === "history" && <HistoryView busy={busy} content={historyContent} entries={history} month={historyMonth} oldestFirst={historyOldestFirst} options={historyOptions} selected={historySelection} setContent={setHistoryContent} setMonth={setHistoryMonth} setOldestFirst={setHistoryOldestFirst} setTitle={setHistoryTitle} setYear={setHistoryYear} title={historyTitle} titles={historyTitles} year={historyYear} updateDate={async (id, date) => { if (await runAction(() => mediaApi.updateHistoryDate(id, date))) await load(false); }} deleteEntry={async (entry) => { if (!window.confirm("¿Eliminar esta visualización y actualizar el progreso?")) return; if (await runAction(() => mediaApi.deleteHistoryEntry(entry.id))) await load(false); }} />}
         </>
@@ -410,6 +412,7 @@ export default function AnimeWorkspace() {
             if (!result) return false;
             if (titleForm === "edit") setDetail(result);
             await load(false);
+            setStudios(await mediaApi.listStudios());
             return true;
           }}
         />
@@ -604,7 +607,7 @@ function LibraryView({
                   <h3>{item.name}</h3>
                   {item.alternativeTitle && <p>{item.alternativeTitle}</p>}
                   {item.genres.length > 0 && <p>{item.genres.join(", ")}</p>}
-                  {item.studios.length > 0 && <p className="library-card-studios" title="El estudio se edita dentro de cada contenido"><Building2 size={13} /><span>{item.studios.join(", ")}</span></p>}
+                  {item.studios.length > 0 && <p className="library-card-studios" title="Estudio principal y estudios específicos de los contenidos"><Building2 size={13} /><span>{item.studios.join(", ")}</span></p>}
                   <div>
                     <strong>{progressLabel(item.progress)}</strong>
                     <b className={`media-score-badge score-${scoreTone(item.score ?? item.averageContentScore)}`} style={{ color: scoreColor(item.score ?? item.averageContentScore) }}>{formatScore(item.score ?? item.averageContentScore)}</b>
@@ -632,11 +635,15 @@ function LibraryView({
   );
 }
 
-function StatisticsView({ statistics, open }: { statistics: MediaStatistics; open: (id: string) => void }) {
+function StatisticsView({ statistics, open, studios, studio, minimumScore, setStudio, setMinimumScore }: { statistics: MediaStatistics; open: (id: string) => void; studios: string[]; studio: string; minimumScore: string; setStudio: (value: string) => void; setMinimumScore: (value: string) => void }) {
   const [topLimit, setTopLimit] = useState<5 | 10 | 25>(5);
   return (
     <section className="media-view">
       <ViewHeading eyebrow="TU HISTORIAL" title="Estadísticas" subtitle="Solo tu actividad de anime y sus películas." />
+      <div className="media-stat-filters">
+        <SelectControl><select aria-label="Filtrar estadísticas por estudio" onChange={(event) => setStudio(event.target.value)} value={studio}><option value="">Todos los estudios</option>{studios.map((item) => <option key={item} value={item}>{item}</option>)}</select></SelectControl>
+        <SelectControl><select aria-label="Filtrar estadísticas por puntuación mínima" onChange={(event) => setMinimumScore(event.target.value)} value={minimumScore}><option value="">Cualquier puntuación</option><option value="5">5 o más</option><option value="6">6 o más</option><option value="7">7 o más</option><option value="8">8 o más</option><option value="9">9 o más</option></select></SelectControl>
+      </div>
       <div className="media-stat-grid">
         <Stat label="Títulos activos" value={statistics.activeTitles} />
         <Stat label="Episodios vistos" value={statistics.watchedEpisodes} />

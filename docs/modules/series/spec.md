@@ -18,6 +18,7 @@ Registrar series convencionales mediante un tracker sencillo que recuerde qué s
 - Buscar y filtrar por estado y favoritos.
 - Archivar, restaurar y eliminar definitivamente desde Archivo.
 - Mostrar de forma compacta `T2 · E5` cuando existe posición.
+- Presentar tarjeta y detalle con la misma geometría horizontal y jerarquía de métricas que Películas y Videojuegos.
 
 ## Reglas
 

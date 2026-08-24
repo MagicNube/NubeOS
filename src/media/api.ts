@@ -34,6 +34,7 @@ export type MediaTitle = {
   name: string;
   alternativeTitle: string | null;
   genres: string[];
+  primaryStudio: string | null;
   kind: MediaKind;
   isAnime: boolean;
   status: TrackingStatus;
@@ -114,6 +115,7 @@ export type MediaTitleInput = {
   name: string;
   alternativeTitle: string | null;
   genres: string[];
+  primaryStudio: string | null;
   kind: MediaKind;
   isAnime: boolean;
   status: TrackingStatus;
@@ -221,8 +223,8 @@ export const mediaApi = {
     invoke<void>("discard_pending_media_cover", { token }),
   readCover: (titleId: string) =>
     invoke<ArrayBuffer>("read_media_cover", { titleId }),
-  statistics: (area?: MediaArea | null) =>
-    invoke<MediaStatistics>("get_media_statistics", { area: area ?? null }),
+  statistics: (input: { area?: MediaArea | null; studio?: string | null; minimumScore?: number | null; completedYear?: number | null }) =>
+    invoke<MediaStatistics>("get_media_statistics", { input }),
   listStudios: () => invoke<string[]>("list_media_studios"),
   movieViewings: (titleId?: string | null) => invoke<MovieViewing[]>("list_movie_viewings", { titleId: titleId ?? null }),
   createMovieViewing: (titleId: string, watchedOn: string) => invoke<MovieViewing[]>("create_movie_viewing", { titleId, watchedOn }),
