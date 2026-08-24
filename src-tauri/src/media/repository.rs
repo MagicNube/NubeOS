@@ -8,7 +8,8 @@ use rusqlite::{params, Connection, OptionalExtension, Row, Transaction};
 use super::{
     model::{
         CanonStatus, ContentKind, ManagedCover, MediaContent, MediaContentId, MediaError,
-        MediaKind, MediaTitle, MediaTitleId, SessionSource, TrackingStatus, WatchSession,
+        MediaKind, MediaTitle, MediaTitleId, MovieViewing, MovieViewingId, SessionSource,
+        TrackingStatus, WatchSession,
     },
     service::MediaAggregate,
 };
@@ -646,6 +647,95 @@ impl<'connection> MediaRepository<'connection> {
         Ok(title.cover)
     }
 
+    pub fn movie_viewings(
+        &mut self,
+        title_id: &MediaTitleId,
+    ) -> Result<Vec<MovieViewing>, MediaRepositoryError> {
+        let mut statement = self.connection.prepare(
+            "SELECT id,title_id,watched_on,created_at,updated_at FROM media_movie_viewings WHERE title_id=?1 ORDER BY watched_on DESC,created_at DESC")?;
+        let viewings = statement
+            .query_map([title_id.as_str()], movie_viewing_from_row)?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(viewings)
+    }
+
+    pub fn all_movie_viewings(&mut self) -> Result<Vec<MovieViewing>, MediaRepositoryError> {
+        let mut statement = self.connection.prepare(
+            "SELECT id,title_id,watched_on,created_at,updated_at FROM media_movie_viewings ORDER BY watched_on DESC,created_at DESC")?;
+        let viewings = statement
+            .query_map([], movie_viewing_from_row)?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(viewings)
+    }
+
+    pub fn create_movie_viewing(
+        &mut self,
+        viewing: &MovieViewing,
+    ) -> Result<(), MediaRepositoryError> {
+        self.connection.execute("INSERT INTO media_movie_viewings(id,title_id,watched_on,created_at,updated_at) VALUES(?1,?2,?3,?4,?5)",
+            params![viewing.id.as_str(), viewing.title_id.as_str(), viewing.watched_on.to_string(), viewing.created_at, viewing.updated_at])?;
+        self.sync_movie_from_viewings(&viewing.title_id)
+    }
+
+    pub fn update_movie_viewing(
+        &mut self,
+        id: &MovieViewingId,
+        watched_on: NaiveDate,
+    ) -> Result<MediaTitleId, MediaRepositoryError> {
+        let title_id = self
+            .connection
+            .query_row(
+                "SELECT title_id FROM media_movie_viewings WHERE id=?1",
+                [id.as_str()],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?
+            .ok_or(MediaRepositoryError::NotFound)?;
+        self.connection.execute(
+            "UPDATE media_movie_viewings SET watched_on=?2,updated_at=?3 WHERE id=?1",
+            params![id.as_str(), watched_on.to_string(), Utc::now().to_rfc3339()],
+        )?;
+        let title_id = MediaTitleId::new(title_id).map_err(MediaRepositoryError::InvalidStored)?;
+        self.sync_movie_from_viewings(&title_id)?;
+        Ok(title_id)
+    }
+
+    pub fn delete_movie_viewing(
+        &mut self,
+        id: &MovieViewingId,
+    ) -> Result<MediaTitleId, MediaRepositoryError> {
+        let title_id = self
+            .connection
+            .query_row(
+                "SELECT title_id FROM media_movie_viewings WHERE id=?1",
+                [id.as_str()],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?
+            .ok_or(MediaRepositoryError::NotFound)?;
+        self.connection.execute(
+            "DELETE FROM media_movie_viewings WHERE id=?1",
+            [id.as_str()],
+        )?;
+        let title_id = MediaTitleId::new(title_id).map_err(MediaRepositoryError::InvalidStored)?;
+        self.sync_movie_from_viewings(&title_id)?;
+        Ok(title_id)
+    }
+
+    fn sync_movie_from_viewings(
+        &mut self,
+        title_id: &MediaTitleId,
+    ) -> Result<(), MediaRepositoryError> {
+        let latest: Option<String> = self.connection.query_row(
+            "SELECT MAX(watched_on) FROM media_movie_viewings WHERE title_id=?1",
+            [title_id.as_str()],
+            |row| row.get(0),
+        )?;
+        self.connection.execute("UPDATE media_titles SET watched_units=?2,tracking_status=?3,finished_on=?4,updated_at=?5 WHERE id=?1",
+            params![title_id.as_str(), u32::from(latest.is_some()), if latest.is_some() { "completed" } else { "pending" }, latest, Utc::now().to_rfc3339()])?;
+        Ok(())
+    }
+
     fn set_archived(
         &mut self,
         id: &MediaTitleId,
@@ -743,6 +833,19 @@ fn insert_session(
         ],
     )?;
     Ok(())
+}
+
+fn movie_viewing_from_row(row: &Row<'_>) -> rusqlite::Result<MovieViewing> {
+    Ok(MovieViewing {
+        id: MovieViewingId::new(row.get::<_, String>(0)?)
+            .map_err(|error| conversion_error(error.to_string()))?,
+        title_id: MediaTitleId::new(row.get::<_, String>(1)?)
+            .map_err(|error| conversion_error(error.to_string()))?,
+        watched_on: NaiveDate::parse_from_str(&row.get::<_, String>(2)?, "%Y-%m-%d")
+            .map_err(|_| conversion_error("Fecha de visionado inválida"))?,
+        created_at: row.get(3)?,
+        updated_at: row.get(4)?,
+    })
 }
 
 fn normalize_positions(
@@ -1069,6 +1172,50 @@ mod tests {
         let restored = repository.find_aggregate(&title_id).unwrap().unwrap();
         assert_eq!(restored.contents[0].watched_episodes, 1);
         assert_eq!(restored.sessions.len(), 1);
+    }
+
+    #[test]
+    fn movie_viewings_keep_each_rewatch_and_sync_the_title() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        apply_migrations(&mut connection).unwrap();
+        let movie = MediaTitle::new(
+            MediaTitleId::generate(),
+            MediaTitleDraft {
+                name: "Arrival".into(),
+                alternative_title: None,
+                genres: vec![],
+                kind: MediaKind::Movie,
+                is_anime: false,
+                status: TrackingStatus::Pending,
+                score: None,
+                opinion: None,
+                favorite: false,
+                started_on: None,
+                finished_on: None,
+                current_season: None,
+                current_episode: None,
+            },
+        )
+        .unwrap();
+        let id = movie.id.clone();
+        let mut repository = MediaRepository::new(&mut connection);
+        repository.create_title(&movie).unwrap();
+        for day in [1, 8] {
+            let now = Utc::now().to_rfc3339();
+            repository
+                .create_movie_viewing(&MovieViewing {
+                    id: MovieViewingId::generate(),
+                    title_id: id.clone(),
+                    watched_on: NaiveDate::from_ymd_opt(2026, 8, day).unwrap(),
+                    created_at: now.clone(),
+                    updated_at: now,
+                })
+                .unwrap();
+        }
+        assert_eq!(repository.movie_viewings(&id).unwrap().len(), 2);
+        let restored = repository.find_title(&id).unwrap().unwrap();
+        assert_eq!(restored.status, TrackingStatus::Completed);
+        assert_eq!(restored.finished_on, NaiveDate::from_ymd_opt(2026, 8, 8));
     }
 
     #[test]

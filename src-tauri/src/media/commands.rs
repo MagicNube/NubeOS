@@ -14,8 +14,8 @@ use super::{
     cover::CoverStore,
     model::{
         CanonStatus, ContentKind, MediaArea, MediaContent, MediaContentDraft, MediaContentId,
-        MediaError, MediaKind, MediaTitle, MediaTitleDraft, MediaTitleId, SessionSource,
-        TrackingStatus,
+        MediaError, MediaKind, MediaTitle, MediaTitleDraft, MediaTitleId, MovieViewing,
+        MovieViewingId, SessionSource, TrackingStatus,
     },
     repository::{normalize, MediaHistoryEntry, MediaRepository, MediaRepositoryError},
     service::{
@@ -177,6 +177,14 @@ pub struct PendingCoverDto {
     pub original_name: String,
     pub mime_type: String,
     pub size_bytes: u64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MovieViewingDto {
+    pub id: String,
+    pub title_id: String,
+    pub watched_on: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -360,6 +368,25 @@ pub async fn select_media_cover(
 }
 
 #[tauri::command]
+pub fn prepare_pasted_media_cover(
+    state: State<'_, MediaCoverState>,
+    bytes: Vec<u8>,
+) -> Result<PendingCoverDto, MediaCommandErrorDto> {
+    let pending = state
+        .store
+        .lock()
+        .map_err(|_| unavailable())?
+        .prepare_jpeg_bytes(&bytes)
+        .map_err(|reason| error("invalidCover", reason.to_string()))?;
+    Ok(PendingCoverDto {
+        token: pending.token,
+        original_name: pending.original_name,
+        mime_type: pending.mime_type,
+        size_bytes: pending.size_bytes,
+    })
+}
+
+#[tauri::command]
 pub fn discard_pending_media_cover(
     state: State<'_, MediaCoverState>,
     token: String,
@@ -424,6 +451,105 @@ pub fn list_media_titles(
             })
     });
     Ok(aggregates.iter().map(title_to_dto).collect())
+}
+
+#[tauri::command]
+pub fn list_movie_viewings(
+    database: State<'_, ProductDatabase>,
+    title_id: Option<String>,
+) -> Result<Vec<MovieViewingDto>, MediaCommandErrorDto> {
+    let selected = title_id
+        .as_deref()
+        .map(MediaTitleId::new)
+        .transpose()
+        .map_err(domain_error)?;
+    let mut connection = database.connection.lock().map_err(|_| unavailable())?;
+    let mut repository = MediaRepository::new(&mut connection);
+    let viewings = if let Some(id) = selected.as_ref() {
+        repository.movie_viewings(id)
+    } else {
+        repository.all_movie_viewings()
+    }
+    .map_err(repository_error)?;
+    Ok(viewings.into_iter().map(movie_viewing_to_dto).collect())
+}
+
+#[tauri::command]
+pub fn create_movie_viewing(
+    database: State<'_, ProductDatabase>,
+    title_id: String,
+    watched_on: String,
+) -> Result<Vec<MovieViewingDto>, MediaCommandErrorDto> {
+    let id = MediaTitleId::new(title_id).map_err(domain_error)?;
+    let date = parse_date(&watched_on)?;
+    let mut connection = database.connection.lock().map_err(|_| unavailable())?;
+    let mut repository = MediaRepository::new(&mut connection);
+    let title = repository
+        .find_title(&id)
+        .map_err(repository_error)?
+        .ok_or_else(|| error("notFound", "No existe la película solicitada."))?;
+    if title.kind != MediaKind::Movie || title.is_anime {
+        return Err(error(
+            "invalidMovie",
+            "Los revisionados solo se registran en Películas.",
+        ));
+    }
+    let now = Utc::now().to_rfc3339();
+    repository
+        .create_movie_viewing(&MovieViewing {
+            id: MovieViewingId::generate(),
+            title_id: id.clone(),
+            watched_on: date,
+            created_at: now.clone(),
+            updated_at: now,
+        })
+        .map_err(repository_error)?;
+    Ok(repository
+        .movie_viewings(&id)
+        .map_err(repository_error)?
+        .into_iter()
+        .map(movie_viewing_to_dto)
+        .collect())
+}
+
+#[tauri::command]
+pub fn update_movie_viewing(
+    database: State<'_, ProductDatabase>,
+    viewing_id: String,
+    watched_on: String,
+) -> Result<Vec<MovieViewingDto>, MediaCommandErrorDto> {
+    let id = MovieViewingId::new(viewing_id).map_err(domain_error)?;
+    let date = parse_date(&watched_on)?;
+    let mut connection = database.connection.lock().map_err(|_| unavailable())?;
+    let mut repository = MediaRepository::new(&mut connection);
+    let title_id = repository
+        .update_movie_viewing(&id, date)
+        .map_err(repository_error)?;
+    Ok(repository
+        .movie_viewings(&title_id)
+        .map_err(repository_error)?
+        .into_iter()
+        .map(movie_viewing_to_dto)
+        .collect())
+}
+
+#[tauri::command]
+pub fn delete_movie_viewing(
+    database: State<'_, ProductDatabase>,
+    viewing_id: String,
+) -> Result<Vec<MovieViewingDto>, MediaCommandErrorDto> {
+    let id = MovieViewingId::new(viewing_id).map_err(domain_error)?;
+    let mut connection = database.connection.lock().map_err(|_| unavailable())?;
+    let mut repository = MediaRepository::new(&mut connection);
+    let title_id = repository
+        .delete_movie_viewing(&id)
+        .map_err(repository_error)?;
+    Ok(repository
+        .movie_viewings(&title_id)
+        .map_err(repository_error)?
+        .into_iter()
+        .map(movie_viewing_to_dto)
+        .collect())
 }
 
 #[tauri::command]
@@ -1175,6 +1301,14 @@ fn detail_to_dto(aggregate: &MediaAggregate) -> MediaDetailDto {
                 ),
             })
             .collect(),
+    }
+}
+
+fn movie_viewing_to_dto(viewing: MovieViewing) -> MovieViewingDto {
+    MovieViewingDto {
+        id: viewing.id.as_str().to_owned(),
+        title_id: viewing.title_id.as_str().to_owned(),
+        watched_on: viewing.watched_on.to_string(),
     }
 }
 

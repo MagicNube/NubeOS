@@ -64,6 +64,9 @@ pub fn apply_migrations(connection: &mut Connection) -> rusqlite_migration::Resu
         M::up(include_str!(
             "../../migrations/0019_remove_reading_researching_status.sql"
         )),
+        M::up(include_str!("../../migrations/0020_create_games.sql")),
+        M::up(include_str!("../../migrations/0021_add_reading_runs.sql")),
+        M::up(include_str!("../../migrations/0022_add_movie_viewings.sql")),
     ])
     .to_latest(connection)
 }

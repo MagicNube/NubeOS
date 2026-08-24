@@ -34,6 +34,22 @@ impl BookId {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReadingRunId(String);
+
+impl ReadingRunId {
+    pub fn generate() -> Self {
+        Self(Uuid::new_v4().to_string())
+    }
+    pub fn parse(value: &str) -> Result<Self, ReadingError> {
+        Uuid::parse_str(value).map_err(|_| ReadingError::InvalidId)?;
+        Ok(Self(value.to_owned()))
+    }
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ReadingStatus {
     Pending,
@@ -175,6 +191,60 @@ impl Book {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct ReadingRun {
+    pub id: ReadingRunId,
+    pub book_id: BookId,
+    pub started_on: Option<NaiveDate>,
+    pub finished_on: Option<NaiveDate>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+impl ReadingRun {
+    pub fn new(
+        book_id: BookId,
+        started_on: Option<NaiveDate>,
+        finished_on: Option<NaiveDate>,
+        now: String,
+    ) -> Result<Self, ReadingError> {
+        validate_run_dates(started_on, finished_on)?;
+        Ok(Self {
+            id: ReadingRunId::generate(),
+            book_id,
+            started_on,
+            finished_on,
+            created_at: now.clone(),
+            updated_at: now,
+        })
+    }
+    pub fn update(
+        &mut self,
+        started_on: Option<NaiveDate>,
+        finished_on: Option<NaiveDate>,
+        now: String,
+    ) -> Result<(), ReadingError> {
+        validate_run_dates(started_on, finished_on)?;
+        self.started_on = started_on;
+        self.finished_on = finished_on;
+        self.updated_at = now;
+        Ok(())
+    }
+}
+
+fn validate_run_dates(
+    start: Option<NaiveDate>,
+    end: Option<NaiveDate>,
+) -> Result<(), ReadingError> {
+    if start.is_none() && end.is_none() {
+        return Err(ReadingError::MissingRunDate);
+    }
+    if start.zip(end).is_some_and(|(start, end)| start > end) {
+        return Err(ReadingError::InvalidDateRange);
+    }
+    Ok(())
+}
+
 fn clean_required(value: String, limit: usize) -> Result<String, ReadingError> {
     let value = value.trim().to_owned();
     if value.is_empty() {
@@ -209,6 +279,7 @@ pub enum ReadingError {
     InvalidScore,
     InvalidDateRange,
     InvalidCover,
+    MissingRunDate,
 }
 
 impl fmt::Display for ReadingError {
@@ -224,6 +295,7 @@ impl fmt::Display for ReadingError {
             }
             Self::InvalidDateRange => "La fecha final no puede ser anterior a la fecha de inicio.",
             Self::InvalidCover => "La portada guardada no es válida.",
+            Self::MissingRunDate => "Indica al menos una fecha para la lectura.",
         })
     }
 }

@@ -30,6 +30,7 @@ macro_rules! uuid_id {
 
 uuid_id!(MediaTitleId);
 uuid_id!(MediaContentId);
+uuid_id!(MovieViewingId);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MediaKind {
@@ -140,6 +141,15 @@ pub struct MediaTitleDraft {
     pub finished_on: Option<NaiveDate>,
     pub current_season: Option<u32>,
     pub current_episode: Option<u32>,
+}
+
+#[derive(Debug, Clone)]
+pub struct MovieViewing {
+    pub id: MovieViewingId,
+    pub title_id: MediaTitleId,
+    pub watched_on: NaiveDate,
+    pub created_at: String,
+    pub updated_at: String,
 }
 
 impl MediaTitle {

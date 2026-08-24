@@ -3,7 +3,9 @@ use std::fmt;
 use chrono::{NaiveDate, Utc};
 use rusqlite::{params, Connection, OptionalExtension, Row};
 
-use super::model::{Book, BookId, ManagedReadingCover, ReadingError, ReadingStatus};
+use super::model::{
+    Book, BookId, ManagedReadingCover, ReadingError, ReadingRun, ReadingRunId, ReadingStatus,
+};
 
 #[derive(Debug)]
 pub enum ReadingRepositoryError {
@@ -12,6 +14,8 @@ pub enum ReadingRepositoryError {
     InvalidStoredValue(&'static str),
     NotFound,
     MustBeArchived,
+    RunNotFound,
+    OpenRunExists,
 }
 
 impl fmt::Display for ReadingRepositoryError {
@@ -26,6 +30,8 @@ impl fmt::Display for ReadingRepositoryError {
             Self::MustBeArchived => {
                 formatter.write_str("El libro debe estar archivado antes de eliminarlo.")
             }
+            Self::RunNotFound => formatter.write_str("No existe la lectura solicitada."),
+            Self::OpenRunExists => formatter.write_str("Este libro ya tiene una lectura en curso."),
         }
     }
 }
@@ -176,6 +182,104 @@ impl<'connection> ReadingRepository<'connection> {
         }
     }
 
+    pub fn runs_for(
+        &mut self,
+        book_id: &BookId,
+    ) -> Result<Vec<ReadingRun>, ReadingRepositoryError> {
+        let mut statement = self.connection.prepare(
+            "SELECT id,book_id,started_on,finished_on,created_at,updated_at FROM reading_runs
+             WHERE book_id=?1 ORDER BY COALESCE(finished_on,started_on) DESC, created_at DESC",
+        )?;
+        let runs = statement
+            .query_map([book_id.as_str()], reading_run_from_row)?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(runs)
+    }
+
+    pub fn all_runs(&mut self) -> Result<Vec<ReadingRun>, ReadingRepositoryError> {
+        let mut statement = self.connection.prepare(
+            "SELECT id,book_id,started_on,finished_on,created_at,updated_at FROM reading_runs
+             ORDER BY COALESCE(finished_on,started_on) DESC, created_at DESC",
+        )?;
+        let runs = statement
+            .query_map([], reading_run_from_row)?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(runs)
+    }
+
+    pub fn find_run(
+        &mut self,
+        id: &ReadingRunId,
+    ) -> Result<Option<ReadingRun>, ReadingRepositoryError> {
+        self.connection.query_row(
+            "SELECT id,book_id,started_on,finished_on,created_at,updated_at FROM reading_runs WHERE id=?1",
+            [id.as_str()], reading_run_from_row).optional().map_err(Into::into)
+    }
+
+    pub fn create_run(&mut self, run: &ReadingRun) -> Result<(), ReadingRepositoryError> {
+        if run.finished_on.is_none() && self.connection.query_row(
+            "SELECT EXISTS(SELECT 1 FROM reading_runs WHERE book_id=?1 AND finished_on IS NULL)",
+            [run.book_id.as_str()], |row| row.get::<_, bool>(0))? {
+            return Err(ReadingRepositoryError::OpenRunExists);
+        }
+        self.connection.execute(
+            "INSERT INTO reading_runs(id,book_id,started_on,finished_on,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,?6)",
+            params![run.id.as_str(), run.book_id.as_str(), run.started_on.map(|d| d.to_string()), run.finished_on.map(|d| d.to_string()), run.created_at, run.updated_at])?;
+        self.synchronize_after_run_change(&run.book_id)
+    }
+
+    pub fn update_run(&mut self, run: &ReadingRun) -> Result<(), ReadingRepositoryError> {
+        let count = self.connection.execute(
+            "UPDATE reading_runs SET started_on=?2,finished_on=?3,updated_at=?4 WHERE id=?1",
+            params![
+                run.id.as_str(),
+                run.started_on.map(|d| d.to_string()),
+                run.finished_on.map(|d| d.to_string()),
+                run.updated_at
+            ],
+        )?;
+        if count == 0 {
+            return Err(ReadingRepositoryError::RunNotFound);
+        }
+        self.synchronize_after_run_change(&run.book_id)
+    }
+
+    pub fn delete_run(&mut self, id: &ReadingRunId) -> Result<BookId, ReadingRepositoryError> {
+        let run = self
+            .find_run(id)?
+            .ok_or(ReadingRepositoryError::RunNotFound)?;
+        self.connection
+            .execute("DELETE FROM reading_runs WHERE id=?1", [id.as_str()])?;
+        self.synchronize_after_run_change(&run.book_id)?;
+        Ok(run.book_id)
+    }
+
+    fn synchronize_after_run_change(
+        &mut self,
+        book_id: &BookId,
+    ) -> Result<(), ReadingRepositoryError> {
+        let runs = self.runs_for(book_id)?;
+        let open = runs.iter().find(|run| run.finished_on.is_none());
+        let latest = open.or_else(|| runs.first());
+        let current = self
+            .find(book_id)?
+            .ok_or(ReadingRepositoryError::NotFound)?
+            .status;
+        let status = if open.is_some() {
+            ReadingStatus::Reading
+        } else if runs.iter().any(|run| run.finished_on.is_some()) {
+            ReadingStatus::Completed
+        } else if matches!(current, ReadingStatus::Reading | ReadingStatus::Completed) {
+            ReadingStatus::Pending
+        } else {
+            current
+        };
+        self.connection.execute(
+            "UPDATE reading_books SET reading_status=?2,started_on=?3,finished_on=?4,updated_at=?5 WHERE id=?1",
+            params![book_id.as_str(), status_to_str(status), latest.and_then(|run| run.started_on).map(|d| d.to_string()), latest.and_then(|run| run.finished_on).map(|d| d.to_string()), Utc::now().to_rfc3339()])?;
+        Ok(())
+    }
+
     fn touching_update<T: rusqlite::ToSql>(
         &mut self,
         sql: &str,
@@ -223,6 +327,19 @@ fn book_from_row(row: &Row<'_>) -> rusqlite::Result<Book> {
             (None, None, None) => None,
             _ => return Err(conversion_error(12, "portada")),
         },
+    })
+}
+
+fn reading_run_from_row(row: &Row<'_>) -> rusqlite::Result<ReadingRun> {
+    Ok(ReadingRun {
+        id: ReadingRunId::parse(&row.get::<_, String>(0)?)
+            .map_err(|_| conversion_error(0, "lectura"))?,
+        book_id: BookId::parse(&row.get::<_, String>(1)?)
+            .map_err(|_| conversion_error(1, "libro"))?,
+        started_on: parse_date(row.get(2)?, 2)?,
+        finished_on: parse_date(row.get(3)?, 3)?,
+        created_at: row.get(4)?,
+        updated_at: row.get(5)?,
     })
 }
 
@@ -290,6 +407,9 @@ mod tests {
             ))
             .unwrap();
         connection
+            .execute_batch(include_str!("../../migrations/0021_add_reading_runs.sql"))
+            .unwrap();
+        connection
     }
 
     fn book() -> Book {
@@ -325,6 +445,40 @@ mod tests {
         repository.archive(&book.id, true).unwrap();
         repository.delete(&book.id).unwrap();
         assert!(repository.find(&book.id).unwrap().is_none());
+    }
+
+    #[test]
+    fn rereads_preserve_previous_periods_and_synchronize_status() {
+        let mut connection = database();
+        let mut repository = ReadingRepository::new(&mut connection);
+        let book = book();
+        repository.create(&book).unwrap();
+        let start = NaiveDate::from_ymd_opt(2026, 8, 1).unwrap();
+        let end = NaiveDate::from_ymd_opt(2026, 8, 5).unwrap();
+        let mut first =
+            ReadingRun::new(book.id.clone(), Some(start), None, Utc::now().to_rfc3339()).unwrap();
+        repository.create_run(&first).unwrap();
+        assert_eq!(
+            repository.find(&book.id).unwrap().unwrap().status,
+            ReadingStatus::Reading
+        );
+        first
+            .update(Some(start), Some(end), Utc::now().to_rfc3339())
+            .unwrap();
+        repository.update_run(&first).unwrap();
+        let second = ReadingRun::new(
+            book.id.clone(),
+            Some(end),
+            Some(end),
+            Utc::now().to_rfc3339(),
+        )
+        .unwrap();
+        repository.create_run(&second).unwrap();
+        assert_eq!(repository.runs_for(&book.id).unwrap().len(), 2);
+        assert_eq!(
+            repository.find(&book.id).unwrap().unwrap().status,
+            ReadingStatus::Completed
+        );
     }
 
     #[test]

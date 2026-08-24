@@ -9,7 +9,7 @@ use crate::meals::commands::ProductDatabase;
 
 use super::{
     cover::ReadingCoverStore,
-    model::{Book, BookDraft, BookId, ReadingStatus},
+    model::{Book, BookDraft, BookId, ReadingRun, ReadingRunId, ReadingStatus},
     repository::{normalize, ReadingRepository},
 };
 
@@ -56,6 +56,20 @@ pub struct ListReadingBooksInputDto {
     pub favorites_only: bool,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReadingRunInputDto {
+    pub started_on: Option<String>,
+    pub finished_on: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReadingHistoryInputDto {
+    pub book_id: Option<String>,
+    pub year: Option<i32>,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ReadingBookDto {
@@ -72,6 +86,31 @@ pub struct ReadingBookDto {
     pub archived: bool,
     pub updated_at: String,
     pub has_cover: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReadingRunDto {
+    pub id: String,
+    pub book_id: String,
+    pub started_on: Option<String>,
+    pub finished_on: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReadingDetailDto {
+    #[serde(flatten)]
+    pub book: ReadingBookDto,
+    pub runs: Vec<ReadingRunDto>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReadingHistoryEntryDto {
+    pub run: ReadingRunDto,
+    pub book_title: String,
+    pub book_author: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -111,6 +150,25 @@ pub async fn select_reading_cover(
         mime_type: pending.mime_type,
         size_bytes: pending.size_bytes,
     }))
+}
+
+#[tauri::command]
+pub fn prepare_pasted_reading_cover(
+    state: State<'_, ReadingCoverState>,
+    bytes: Vec<u8>,
+) -> Result<PendingReadingCoverDto, String> {
+    let pending = state
+        .store
+        .lock()
+        .map_err(|_| "No se pudo acceder al almacenamiento de portadas.".to_owned())?
+        .prepare_jpeg_bytes(&bytes)
+        .map_err(|error| error.to_string())?;
+    Ok(PendingReadingCoverDto {
+        token: pending.token,
+        original_name: pending.original_name,
+        mime_type: pending.mime_type,
+        size_bytes: pending.size_bytes,
+    })
 }
 
 #[tauri::command]
@@ -188,6 +246,203 @@ pub fn list_reading_books(
             && (!input.favorites_only || book.favorite)
     });
     Ok(books.into_iter().map(Into::into).collect())
+}
+
+#[tauri::command]
+pub fn get_reading_book(
+    database: State<'_, ProductDatabase>,
+    book_id: String,
+) -> Result<ReadingDetailDto, String> {
+    let id = BookId::parse(&book_id).map_err(|error| error.to_string())?;
+    reading_detail(database, &id)
+}
+
+#[tauri::command]
+pub fn start_reading_run(
+    database: State<'_, ProductDatabase>,
+    book_id: String,
+    started_on: String,
+) -> Result<ReadingDetailDto, String> {
+    create_reading_run(
+        database,
+        book_id,
+        ReadingRunInputDto {
+            started_on: Some(started_on),
+            finished_on: None,
+        },
+    )
+}
+
+#[tauri::command]
+pub fn create_reading_run(
+    database: State<'_, ProductDatabase>,
+    book_id: String,
+    input: ReadingRunInputDto,
+) -> Result<ReadingDetailDto, String> {
+    let id = BookId::parse(&book_id).map_err(|error| error.to_string())?;
+    let run = ReadingRun::new(
+        id.clone(),
+        parse_date(input.started_on)?,
+        parse_date(input.finished_on)?,
+        Utc::now().to_rfc3339(),
+    )
+    .map_err(|error| error.to_string())?;
+    let mut connection = database
+        .connection
+        .lock()
+        .map_err(|_| "No se ha podido acceder a la base de datos.".to_owned())?;
+    let mut repository = ReadingRepository::new(&mut connection);
+    repository
+        .find(&id)
+        .map_err(|error| error.to_string())?
+        .ok_or_else(|| "No existe el libro solicitado.".to_owned())?;
+    repository
+        .create_run(&run)
+        .map_err(|error| error.to_string())?;
+    reading_detail_from_repository(&mut repository, &id)
+}
+
+#[tauri::command]
+pub fn finish_reading_run(
+    database: State<'_, ProductDatabase>,
+    run_id: String,
+    finished_on: String,
+) -> Result<ReadingDetailDto, String> {
+    let id = ReadingRunId::parse(&run_id).map_err(|error| error.to_string())?;
+    let mut connection = database
+        .connection
+        .lock()
+        .map_err(|_| "No se ha podido acceder a la base de datos.".to_owned())?;
+    let mut repository = ReadingRepository::new(&mut connection);
+    let mut run = repository
+        .find_run(&id)
+        .map_err(|error| error.to_string())?
+        .ok_or_else(|| "No existe la lectura solicitada.".to_owned())?;
+    let book_id = run.book_id.clone();
+    run.update(
+        run.started_on,
+        parse_date(Some(finished_on))?,
+        Utc::now().to_rfc3339(),
+    )
+    .map_err(|error| error.to_string())?;
+    repository
+        .update_run(&run)
+        .map_err(|error| error.to_string())?;
+    reading_detail_from_repository(&mut repository, &book_id)
+}
+
+#[tauri::command]
+pub fn update_reading_run(
+    database: State<'_, ProductDatabase>,
+    run_id: String,
+    input: ReadingRunInputDto,
+) -> Result<ReadingDetailDto, String> {
+    let id = ReadingRunId::parse(&run_id).map_err(|error| error.to_string())?;
+    let mut connection = database
+        .connection
+        .lock()
+        .map_err(|_| "No se ha podido acceder a la base de datos.".to_owned())?;
+    let mut repository = ReadingRepository::new(&mut connection);
+    let mut run = repository
+        .find_run(&id)
+        .map_err(|error| error.to_string())?
+        .ok_or_else(|| "No existe la lectura solicitada.".to_owned())?;
+    let book_id = run.book_id.clone();
+    run.update(
+        parse_date(input.started_on)?,
+        parse_date(input.finished_on)?,
+        Utc::now().to_rfc3339(),
+    )
+    .map_err(|error| error.to_string())?;
+    repository
+        .update_run(&run)
+        .map_err(|error| error.to_string())?;
+    reading_detail_from_repository(&mut repository, &book_id)
+}
+
+#[tauri::command]
+pub fn delete_reading_run(
+    database: State<'_, ProductDatabase>,
+    run_id: String,
+) -> Result<ReadingDetailDto, String> {
+    let id = ReadingRunId::parse(&run_id).map_err(|error| error.to_string())?;
+    let mut connection = database
+        .connection
+        .lock()
+        .map_err(|_| "No se ha podido acceder a la base de datos.".to_owned())?;
+    let mut repository = ReadingRepository::new(&mut connection);
+    let book_id = repository
+        .delete_run(&id)
+        .map_err(|error| error.to_string())?;
+    reading_detail_from_repository(&mut repository, &book_id)
+}
+
+#[tauri::command]
+pub fn list_reading_history(
+    database: State<'_, ProductDatabase>,
+    input: ReadingHistoryInputDto,
+) -> Result<Vec<ReadingHistoryEntryDto>, String> {
+    let selected = input
+        .book_id
+        .as_deref()
+        .map(BookId::parse)
+        .transpose()
+        .map_err(|error| error.to_string())?;
+    let mut connection = database
+        .connection
+        .lock()
+        .map_err(|_| "No se ha podido acceder a la base de datos.".to_owned())?;
+    let mut repository = ReadingRepository::new(&mut connection);
+    let books = repository.list(false).map_err(|error| error.to_string())?;
+    Ok(repository
+        .all_runs()
+        .map_err(|error| error.to_string())?
+        .into_iter()
+        .filter(|run| selected.as_ref().map_or(true, |id| id == &run.book_id))
+        .filter(|run| {
+            input.year.map_or(true, |year| {
+                run.finished_on
+                    .or(run.started_on)
+                    .is_some_and(|date| date.format("%Y").to_string() == year.to_string())
+            })
+        })
+        .filter_map(|run| {
+            books
+                .iter()
+                .find(|book| book.id == run.book_id)
+                .map(|book| ReadingHistoryEntryDto {
+                    run: run.into(),
+                    book_title: book.title.clone(),
+                    book_author: book.author.clone(),
+                })
+        })
+        .collect())
+}
+
+fn reading_detail(
+    database: State<'_, ProductDatabase>,
+    id: &BookId,
+) -> Result<ReadingDetailDto, String> {
+    let mut connection = database
+        .connection
+        .lock()
+        .map_err(|_| "No se ha podido acceder a la base de datos.".to_owned())?;
+    reading_detail_from_repository(&mut ReadingRepository::new(&mut connection), id)
+}
+
+fn reading_detail_from_repository(
+    repository: &mut ReadingRepository<'_>,
+    id: &BookId,
+) -> Result<ReadingDetailDto, String> {
+    let book = repository
+        .find(id)
+        .map_err(|error| error.to_string())?
+        .ok_or_else(|| "No existe el libro solicitado.".to_owned())?;
+    let runs = repository.runs_for(id).map_err(|error| error.to_string())?;
+    Ok(ReadingDetailDto {
+        book: book.into(),
+        runs: runs.into_iter().map(Into::into).collect(),
+    })
 }
 
 #[tauri::command]
@@ -511,6 +766,17 @@ impl From<Book> for ReadingBookDto {
             archived: book.archived,
             updated_at: book.updated_at,
             has_cover: book.cover.is_some(),
+        }
+    }
+}
+
+impl From<ReadingRun> for ReadingRunDto {
+    fn from(run: ReadingRun) -> Self {
+        Self {
+            id: run.id.as_str().into(),
+            book_id: run.book_id.as_str().into(),
+            started_on: run.started_on.map(|date| date.to_string()),
+            finished_on: run.finished_on.map(|date| date.to_string()),
         }
     }
 }

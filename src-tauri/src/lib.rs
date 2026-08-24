@@ -1,4 +1,5 @@
 pub mod documents;
+pub mod games;
 pub mod habits;
 pub mod meals;
 pub mod media;
@@ -18,6 +19,16 @@ use documents::{
     store::PdfStore,
 };
 
+use games::{
+    commands::{
+        archive_game, create_game, create_game_run, delete_game, delete_game_run,
+        discard_pending_game_cover, finish_game_run, get_game, get_game_statistics,
+        list_game_history, list_games, prepare_pasted_game_cover, read_game_cover, restore_game,
+        select_game_cover, set_game_favorite, start_game_run, update_game, update_game_run,
+        GameCoverState,
+    },
+    cover::GameCoverStore,
+};
 use habits::commands::{
     archive_habit, create_habit, delete_habit, get_habit_statistics, get_habits_overview,
     list_habits, pause_habit, reorder_habits, restore_habit, resume_habit, set_habit_log,
@@ -36,20 +47,23 @@ use meals::meal_commands::{
 };
 use media::{
     commands::{
-        archive_media_title, create_media_content, create_media_title, delete_media_content,
-        delete_media_history_entry, delete_media_title, discard_pending_media_cover,
-        get_media_statistics, get_media_title, increment_media_progress, list_media_history,
-        list_media_studios, list_media_titles, read_media_cover, reorder_media_contents,
+        archive_media_title, create_media_content, create_media_title, create_movie_viewing,
+        delete_media_content, delete_media_history_entry, delete_media_title, delete_movie_viewing,
+        discard_pending_media_cover, get_media_statistics, get_media_title,
+        increment_media_progress, list_media_history, list_media_studios, list_media_titles,
+        list_movie_viewings, prepare_pasted_media_cover, read_media_cover, reorder_media_contents,
         restore_media_title, select_media_cover, set_media_progress, set_media_title_favorite,
         set_media_title_score, set_media_title_status, update_media_content,
-        update_media_history_date, update_media_title, MediaCoverState,
+        update_media_history_date, update_media_title, update_movie_viewing, MediaCoverState,
     },
     cover::CoverStore,
 };
 use reading::commands::{
-    archive_reading_book, create_reading_book, delete_reading_book, discard_pending_reading_cover,
-    get_reading_statistics, list_reading_books, read_reading_cover, restore_reading_book,
-    select_reading_cover, set_reading_book_favorite, update_reading_book, ReadingCoverState,
+    archive_reading_book, create_reading_book, create_reading_run, delete_reading_book,
+    delete_reading_run, discard_pending_reading_cover, finish_reading_run, get_reading_book,
+    get_reading_statistics, list_reading_books, list_reading_history, prepare_pasted_reading_cover,
+    read_reading_cover, restore_reading_book, select_reading_cover, set_reading_book_favorite,
+    start_reading_run, update_reading_book, update_reading_run, ReadingCoverState,
 };
 use reading::cover::ReadingCoverStore;
 
@@ -95,6 +109,7 @@ pub fn run() {
             let store = PdfStore::open(data_directory.join("documents"))?;
             let media_cover_store = CoverStore::open(data_directory.join("media"))?;
             let reading_cover_store = ReadingCoverStore::open(data_directory.join("reading"))?;
+            let game_cover_store = GameCoverStore::open(data_directory.join("games"))?;
             {
                 let mut connection = database
                     .connection
@@ -115,6 +130,9 @@ pub fn run() {
             });
             app.manage(ReadingCoverState {
                 store: std::sync::Mutex::new(reading_cover_store),
+            });
+            app.manage(GameCoverState {
+                store: std::sync::Mutex::new(game_cover_store),
             });
             Ok(())
         })
@@ -178,6 +196,7 @@ pub fn run() {
             get_habits_overview,
             get_habit_statistics,
             select_media_cover,
+            prepare_pasted_media_cover,
             discard_pending_media_cover,
             list_media_titles,
             get_media_title,
@@ -188,6 +207,10 @@ pub fn run() {
             list_media_history,
             update_media_history_date,
             delete_media_history_entry,
+            list_movie_viewings,
+            create_movie_viewing,
+            update_movie_viewing,
+            delete_movie_viewing,
             create_media_title,
             update_media_title,
             create_media_content,
@@ -203,6 +226,7 @@ pub fn run() {
             get_media_statistics,
             list_reading_books,
             select_reading_cover,
+            prepare_pasted_reading_cover,
             discard_pending_reading_cover,
             create_reading_book,
             update_reading_book,
@@ -211,7 +235,33 @@ pub fn run() {
             restore_reading_book,
             delete_reading_book,
             get_reading_statistics,
+            get_reading_book,
+            start_reading_run,
+            finish_reading_run,
+            create_reading_run,
+            update_reading_run,
+            delete_reading_run,
+            list_reading_history,
             read_reading_cover,
+            list_games,
+            get_game,
+            create_game,
+            update_game,
+            set_game_favorite,
+            archive_game,
+            restore_game,
+            delete_game,
+            start_game_run,
+            finish_game_run,
+            create_game_run,
+            update_game_run,
+            delete_game_run,
+            list_game_history,
+            get_game_statistics,
+            select_game_cover,
+            prepare_pasted_game_cover,
+            discard_pending_game_cover,
+            read_game_cover,
         ])
         .run(tauri::generate_context!())
         .expect("error while running NubeOS");

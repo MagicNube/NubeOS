@@ -121,3 +121,11 @@ Este documento recoge solo conceptos que se utilicen realmente en NubeOS.
 ## Materializar una consulta antes de devolverla
 
 Los iteradores de `rusqlite::query_map` toman prestada la sentencia SQL. Si la consulta es la última expresión de una función, Rust puede considerar que el temporal vive hasta después de intentar destruir la sentencia y rechazarlo por seguridad. El patrón idiomático es recoger primero las filas en un `Vec`, dejando que termine el préstamo, y devolver después ese vector.
+
+### Índices parciales e historial como hechos
+
+- **Qué son:** un índice parcial de SQLite aplica una restricción únicamente a las filas que cumplen una condición. Videojuegos usa uno sobre `game_runs(game_id)` cuando `finished_on IS NULL`.
+- **Por qué se usan en NubeOS:** cada partida o rejugada se guarda como un hecho independiente, pero un videojuego solo puede tener una partida abierta. La restricción sigue protegiendo el dato aunque un comando o una futura interfaz se equivoquen.
+- **Qué problema evitan:** sobrescribir fechas antiguas al rejugar y crear accidentalmente dos partidas actuales para el mismo título.
+- **¿Es idiomático?:** sí. El dominio valida la intención y SQLite refuerza la invariante en persistencia; iniciar o finalizar combina el historial y el estado general dentro de una transacción.
+- **Ejemplo pequeño:** `CREATE UNIQUE INDEX ... WHERE finished_on IS NULL` permite muchas partidas terminadas, pero rechaza una segunda fila abierta del mismo juego.
