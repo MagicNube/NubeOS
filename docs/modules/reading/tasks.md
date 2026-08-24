@@ -1,7 +1,7 @@
 # Tareas — Lectura
 
-- Estado: T-R01 a T-R11 implementadas; comprobación manual pendiente
-- Última actualización: 2026-08-23
+- Estado: T-R01 a T-R20 implementadas; comprobación manual pendiente
+- Última actualización: 2026-08-24
 
 ## T-R01 — Auditar el modelo de Notion
 
@@ -89,7 +89,52 @@
 
 - Estado: Implementada; comprobación visual pendiente
 - Alcance: sustituir la cabecera horizontal recortada por una portada vertical completa y redistribuir la información en el espacio lateral.
-- Criterios: la imagen mantiene proporción de libro, las fechas ocupan una fila legible y la puntuación conserva su jerarquía sin crear vacíos en la tarjeta.
+- Criterios: todas las cubiertas ocupan un marco `2:3`, conservan su proporción sin bandas vacías, las cuatro esquinas quedan redondeadas y el marco recuerda a un libro.
 - Verificación: build TypeScript y recorrido visual con portada, sin portada, fechas parciales y puntuación vacía.
 
-**Resultado:** las tarjetas adoptan una composición lateral más compacta y muestran la cubierta completa mediante `object-fit: contain`.
+**Resultado:** las tarjetas adoptan una composición lateral más compacta; `object-fit: cover` llena el marco común sin deformar la portada y un lomo con sombra corta refuerza la apariencia de libro.
+
+## T-R15 — Modelar lecturas y relecturas
+
+- Estado: Implementada; comprobación manual pendiente
+- Alcance: entidad `ReadingRun`, invariantes y migración de fechas existentes.
+- Verificación: pruebas de migración, periodo abierto único y rangos válidos.
+
+## T-R16 — Implementar persistencia y casos de uso de relectura
+
+- Estado: Implementada; comprobación manual pendiente
+- Dependencias: T-R15
+- Alcance: iniciar, finalizar, registrar, corregir, listar y retirar periodos.
+- Verificación: pruebas transaccionales y sincronización del estado del libro.
+
+## T-R17 — Exponer comandos e historial en React
+
+- Estado: Implementada; comprobación manual pendiente
+- Dependencias: T-R16
+- Alcance: DTOs, comandos Tauri, API TypeScript, pestaña Historial y filtros.
+- Verificación: build y recorrido con una lectura inicial y dos relecturas.
+
+## T-R18 — Integrar relecturas en detalle y estadísticas
+
+- Estado: Implementada; comprobación manual pendiente
+- Dependencias: T-R17
+- Alcance: acciones rápidas, resumen de lectura actual/última y total de relecturas.
+- Verificación: estados Pendiente, Leyendo, En pausa y Terminado.
+
+## T-R19 — Revisar y cerrar la ampliación
+
+- Estado: Revisión técnica completada; comprobación manual pendiente
+- Dependencias: T-R15 a T-R18
+- Verificación: pruebas Rust, Clippy, formato, build, diff y uso manual.
+
+## T-R20 — Pegar y normalizar portadas
+
+- Estado: Implementada; comprobación manual pendiente
+- Alcance: aceptar imágenes del portapapeles en el formulario, convertirlas a JPEG y reutilizar el almacén provisional privado.
+- Verificación: build, límites de 8 MB y prueba manual con PNG/WebP copiado.
+
+## T-R21 — Unificar el detalle del tracker
+
+- Estado: Implementada; comprobación visual pendiente
+- Alcance: dividir el detalle en Resumen e Historial y aplicar la misma jerarquía de métricas que Videojuegos y Películas.
+- Verificación: build y prueba manual con libro pendiente, lectura abierta y varias relecturas.

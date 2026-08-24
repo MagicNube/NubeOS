@@ -17,5 +17,5 @@ export default function ReadingCoverImage({ bookId, hasCover, alt, className = "
     }).catch(() => alive && setUrl(null));
     return () => { alive = false; if (objectUrl) URL.revokeObjectURL(objectUrl); };
   }, [bookId, hasCover]);
-  return <div className={`reading-cover ${className}`}>{url ? <img alt={alt} src={url} /> : <BookOpen aria-hidden="true" />}</div>;
+  return <div className={`reading-cover ${className}`}>{url ? <img alt={alt} className="reading-cover-image" src={url} /> : <BookOpen aria-hidden="true" />}</div>;
 }
