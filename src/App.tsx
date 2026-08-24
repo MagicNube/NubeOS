@@ -7,6 +7,7 @@ import {
   Clapperboard,
   FileText,
   FolderKanban,
+  Gamepad2,
   LayoutDashboard,
   ShoppingBasket,
   Sparkles,
@@ -21,6 +22,7 @@ const AnimeWorkspace = lazy(() => import("./media/AnimeWorkspace"));
 const SeriesWorkspace = lazy(() => import("./series/SeriesWorkspace"));
 const MoviesWorkspace = lazy(() => import("./movies/MoviesWorkspace"));
 const ReadingWorkspace = lazy(() => import("./reading/ReadingWorkspace"));
+const GamesWorkspace = lazy(() => import("./games/GamesWorkspace"));
 
 type ModuleId =
   | "inicio"
@@ -32,22 +34,29 @@ type ModuleId =
   | "lectura"
   | "anime"
   | "series"
-  | "peliculas";
+  | "peliculas"
+  | "videojuegos";
 
 type NavigationItem = { id: ModuleId; label: string; icon: LucideIcon };
 
-const navigation: NavigationItem[] = [
+const mainNavigation: NavigationItem[] = [
   { id: "inicio", label: "Inicio", icon: LayoutDashboard },
   { id: "comidas", label: "Comidas y compras", icon: ShoppingBasket },
   { id: "finanzas", label: "Finanzas", icon: WalletCards },
   { id: "documentos", label: "Documentos", icon: FileText },
   { id: "proyectos", label: "Proyectos", icon: FolderKanban },
   { id: "habitos", label: "Hábitos", icon: CheckCircle2 },
-  { id: "lectura", label: "Lectura", icon: BookOpen },
-  { id: "anime", label: "Anime", icon: Sparkles },
-  { id: "series", label: "Series", icon: Tv },
-  { id: "peliculas", label: "Películas", icon: Clapperboard },
 ];
+
+const entertainmentNavigation: NavigationItem[] = [
+  { id: "anime", label: "Anime", icon: Sparkles },
+  { id: "lectura", label: "Lectura", icon: BookOpen },
+  { id: "videojuegos", label: "Videojuegos", icon: Gamepad2 },
+  { id: "peliculas", label: "Películas", icon: Clapperboard },
+  { id: "series", label: "Series", icon: Tv },
+];
+
+const navigation = [...mainNavigation, ...entertainmentNavigation];
 
 const moduleCopy: Record<
   ModuleId,
@@ -104,6 +113,11 @@ const moduleCopy: Record<
     title: "Películas",
     description: "Conserva tus pendientes, visionados, puntuaciones y opiniones.",
   },
+  videojuegos: {
+    eyebrow: "VIDEOJUEGOS",
+    title: "Videojuegos",
+    description: "Guarda tus partidas, rejugadas, puntuaciones y opiniones.",
+  },
 };
 
 function Placeholder({
@@ -111,7 +125,7 @@ function Placeholder({
 }: {
   activeModule: Exclude<
     ModuleId,
-    "inicio" | "comidas" | "documentos" | "habitos" | "anime" | "series" | "peliculas"
+    "inicio" | "comidas" | "documentos" | "habitos" | "anime" | "series" | "peliculas" | "lectura" | "videojuegos"
   >;
 }) {
   const Icon = navigation.find((item) => item.id === activeModule)!.icon;
@@ -158,7 +172,8 @@ export default function App() {
           <span>NubeOS</span>
         </div>
         <nav aria-label="Módulos principales">
-          {navigation.map(({ id, label, icon: Icon }) => (
+          <div className="sidebar-navigation-group">
+          {mainNavigation.map(({ id, label, icon: Icon }) => (
             <button
               className={activeModule === id ? "nav-item active" : "nav-item"}
               key={id}
@@ -170,6 +185,16 @@ export default function App() {
               <span>{label}</span>
             </button>
           ))}
+          </div>
+          <div className="sidebar-navigation-group entertainment-group">
+            <span className="sidebar-navigation-label">Entretenimiento</span>
+            {entertainmentNavigation.map(({ id, label, icon: Icon }) => (
+              <button className={activeModule === id ? "nav-item active" : "nav-item"} key={id} onClick={() => setActiveModule(id)} title={collapsed ? label : undefined} type="button">
+                <Icon size={18} strokeWidth={1.8} />
+                <span>{label}</span>
+              </button>
+            ))}
+          </div>
         </nav>
         <div className="sidebar-footer">
           <button
@@ -254,6 +279,11 @@ export default function App() {
             <ReadingWorkspace />
           </Suspense>
         )}
+        {activeModule === "videojuegos" && (
+          <Suspense fallback={<section className="placeholder-card"><p>Cargando Videojuegos…</p></section>}>
+            <GamesWorkspace />
+          </Suspense>
+        )}
         {activeModule !== "inicio" &&
           activeModule !== "comidas" &&
           activeModule !== "documentos" &&
@@ -261,7 +291,8 @@ export default function App() {
           activeModule !== "anime" &&
           activeModule !== "series" &&
           activeModule !== "peliculas" &&
-          activeModule !== "lectura" && (
+          activeModule !== "lectura" &&
+          activeModule !== "videojuegos" && (
             <Placeholder activeModule={activeModule} />
           )}
       </section>
