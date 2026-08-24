@@ -6,6 +6,7 @@ Este directorio es la fuente de verdad del diseño del proyecto.
 - `architecture.md`: arquitectura vigente y límites entre capas.
 - `principles.md`: reglas de diseño y desarrollo.
 - `roadmap.md`: hitos y orden de evolución.
+- `todo.md`: bugs, detalles visuales y pequeños refinamientos pendientes.
 - `decisions/`: ADRs aprobadas.
 - `modules/`: especificación, diseño y tareas por módulo.
 - `learning/`: notas breves sobre Rust y Tauri introducidos en el proyecto.
