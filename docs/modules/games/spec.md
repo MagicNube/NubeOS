@@ -44,7 +44,7 @@ Mantener una biblioteca personal de videojuegos que permita recordar qué se est
 - Corregir fechas recalcula el orden del historial, pero no modifica puntuación ni opinión.
 - Archivar conserva las partidas y la portada.
 - Un videojuego sin portada usa un estado vacío estable, sin depender de una imagen externa.
-- Las portadas se presentan en un marco horizontal estable y completas, sin recorte, tanto en la tarjeta como en el detalle.
+- Las portadas se presentan en un marco horizontal estable y admiten posición y zoom configurables, tanto en la tarjeta como en el detalle.
 
 ## Fuera de alcance
 
@@ -60,6 +60,7 @@ Mantener una biblioteca personal de videojuegos que permita recordar qué se est
 - [x] La aplicación parte con una biblioteca de videojuegos vacía.
 - [x] Se puede crear, editar, archivar, restaurar y eliminar un videojuego.
 - [x] Portada, puntuación y opinión son opcionales y persisten tras reiniciar.
+- [x] El encuadre y el zoom de la portada persisten y se aplican de forma uniforme.
 - [x] Se puede iniciar, finalizar y registrar una partida histórica.
 - [x] Rejugar crea una partida nueva sin alterar las anteriores.
 - [x] El historial permite corregir y eliminar partidas de forma segura.

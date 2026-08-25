@@ -118,6 +118,9 @@ Mantener una biblioteca dedicada de anime que permita seguir franquicias complej
 - [x] Estado, puntuación, estudios, GIF y controles compartidos cumplen el refinamiento aprobado.
 - [x] El anime admite un estudio principal editable, independiente de los estudios específicos de sus contenidos.
 - [x] Las estadísticas pueden filtrarse por estudio y puntuación mínima antes de calcular la media.
+- [x] Cambiar entre Anime y Películas Anime no muestra ni reordena fugazmente los resultados de la sección anterior.
+- [x] Cada contenido separa sus metadatos de la creación de entradas mediante las vistas `Información` e `Historial`.
+- [x] La portada puede recolocarse dentro de su marco y conserva la posición elegida tras reiniciar.
 - [x] El formulario agrupa inicio y final en la misma fila y coloca el estreno en la siguiente.
 - [x] La puntuación es un control visual principal, no un campo ordinario ni un selector con botón de confirmación.
 - [x] La biblioteca separa franquicias y películas anime independientes y muestra `#n` sobre la portada de cada franquicia.

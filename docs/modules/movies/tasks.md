@@ -62,3 +62,19 @@
 - Estado: Implementada; comprobación visual pendiente
 - Alcance: tarjeta horizontal común con Series y Videojuegos, más filtros estadísticos por año y puntuación mínima calculados en Rust.
 - Verificación: build, pruebas Rust y prueba manual con varios años.
+
+## T-P11 — Completar favorito y encuadre de portada
+
+- Estado: Implementada; comprobación visual pendiente
+- Alcance: favorito rápido desde Biblioteca y recolocación persistente de la portada horizontal.
+- Verificación: alternar favorito sin abrir la película y recuperar el encuadre tras reiniciar.
+
+**Resultado:** la estrella rápida está disponible en Biblioteca y detalle sin anidar botones; el mismo editor de encuadre horizontal persiste las coordenadas en `media_titles`. Build TypeScript/Vite, 112 pruebas Rust y Clippy estricto correctos.
+
+## T-P12 — Normalizar filtros y encuadre
+
+- Estado: Implementada; comprobación visual pendiente
+- Alcance: aplicar a Estadísticas los selectores oscuros comunes y robustecer el ajuste persistente de portada mediante arrastre y controles de eje.
+- Verificación: probar años y umbrales de puntuación, foco por teclado, opciones en tema oscuro y encuadre horizontal persistido.
+
+**Resultado:** los dos filtros usan borde, fondo, tipografía, foco, flecha y opciones del tema oscuro; el editor compartido mantiene el arrastre fuera del marco y permite corregir ambos ejes mediante controles explícitos. Build TypeScript/Vite y `git diff --check` correctos; comprobación visual en Tauri pendiente.

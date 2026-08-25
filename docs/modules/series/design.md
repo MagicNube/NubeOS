@@ -26,6 +26,7 @@ No crea `MediaContent`. El núcleo audiovisual compartido aporta portada, estado
 - Historial por serie y año, con corrección de fechas y retirada segura.
 - Acción `Volver a ver` que crea un periodo y reinicia la posición actual.
 - Datos jerárquicos del prototipo se muestran como contenido conservado, sin permitir crear nuevos.
+- La portada horizontal comparte con Anime y Películas un encuadre porcentual editable y persistente.
 
 ## Persistencia
 

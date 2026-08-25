@@ -24,7 +24,7 @@
 .game-card:hover { border-color:#554c59;transform:translateY(-1px); }
 .game-card-open { display:grid;grid-template-rows:auto minmax(116px,1fr);width:100%;height:100%;padding:0;border:0;color:inherit;background:transparent;cursor:pointer;text-align:left; }
 .game-cover { display:grid;place-items:center;width:100%;height:auto;aspect-ratio:16/9;overflow:hidden;color:#716a74;background:radial-gradient(circle at 50% 35%,#2b2730,#171518 72%); }
-.game-cover img { display:block;width:100%;height:100%;max-width:100%;max-height:100%;object-fit:contain;object-position:center; }
+.game-cover img { display:block;width:100%;height:100%;max-width:100%;max-height:100%;object-fit:cover;object-position:center; }
 .game-card-content { display:flex;min-width:0;flex-direction:column;padding:14px; }
 .game-card-content h3 { margin:9px 34px 18px 0;overflow:hidden;font-size:var(--ui-card-title-font-size);text-overflow:ellipsis;white-space:nowrap; }
 .game-status { align-self:flex-start;padding:4px 8px;border:1px solid #4a444c;border-radius:999px;color:#bbb4bd;background:#211f22;font-size:10px;font-weight:750; }
@@ -44,7 +44,8 @@
 .game-icon-action.danger:hover { border-color:#7f3948;color:#fecdd3; }
 .game-detail-modal { width:min(100%,880px);padding:24px; }
 .game-detail-header { align-items:flex-start;padding-bottom:20px;border-bottom:1px solid var(--game-border); }
-.game-detail-header>.game-cover.detail { flex:0 0 280px;width:280px;height:auto;aspect-ratio:16/9;border:1px solid #38343a;border-radius:8px; }
+.game-detail-cover-wrap { flex:0 0 280px;width:280px;aspect-ratio:16/9; }
+.game-detail-cover-wrap>.game-cover.detail { width:100%;height:100%;aspect-ratio:auto;border:1px solid #38343a;border-radius:8px; }
 .game-detail-header>div:nth-child(2) { flex:1;min-width:0; }
 .game-detail-header span { color:#a78bfa;font-size:10px;font-weight:800;letter-spacing:.1em; }
 .game-detail-header h2 { margin:5px 0;font-size:25px; }

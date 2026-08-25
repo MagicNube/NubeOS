@@ -224,6 +224,9 @@ pub struct MediaTitleDto {
     pub favorite: bool,
     pub archived: bool,
     pub has_cover: bool,
+    pub cover_position_x: f64,
+    pub cover_position_y: f64,
+    pub cover_zoom: f64,
     pub watched_units: u32,
     pub started_on: Option<String>,
     pub finished_on: Option<String>,
@@ -659,6 +662,35 @@ pub fn set_media_title_favorite(
 }
 
 #[tauri::command]
+pub fn set_media_cover_position(
+    database: State<'_, ProductDatabase>,
+    title_id: String,
+    x: f64,
+    y: f64,
+    zoom: f64,
+) -> Result<MediaDetailDto, MediaCommandErrorDto> {
+    let id = parse_title_id(&title_id)?;
+    let mut connection = database.connection.lock().map_err(|_| unavailable())?;
+    let mut repository = MediaRepository::new(&mut connection);
+    let mut title = repository
+        .find_title(&id)
+        .map_err(repository_error)?
+        .ok_or_else(not_found)?;
+    if title.cover.is_none() {
+        return Err(error("coverMissing", "Este título no tiene portada."));
+    }
+    title
+        .change_cover_position(x, y, zoom)
+        .map_err(domain_error)?;
+    repository.update_title(&title).map_err(repository_error)?;
+    let aggregate = repository
+        .find_aggregate(&id)
+        .map_err(repository_error)?
+        .ok_or_else(not_found)?;
+    Ok(detail_to_dto(&aggregate))
+}
+
+#[tauri::command]
 pub fn list_media_studios(
     database: State<'_, ProductDatabase>,
 ) -> Result<Vec<String>, MediaCommandErrorDto> {
@@ -815,8 +847,14 @@ pub fn update_media_title(
         .transpose()?;
     if promoted.is_some() {
         title.cover = promoted.clone();
+        title
+            .change_cover_position(50.0, 50.0, 1.0)
+            .map_err(domain_error)?;
     } else if remove_cover {
         title.cover = None;
+        title
+            .change_cover_position(50.0, 50.0, 1.0)
+            .map_err(domain_error)?;
     }
     if let Err(reason) = repository.update_title(&title) {
         if let Some(cover) = promoted.as_ref() {
@@ -1270,6 +1308,9 @@ fn title_to_dto(aggregate: &MediaAggregate) -> MediaTitleDto {
         favorite: aggregate.title.favorite,
         archived: aggregate.title.archived,
         has_cover: aggregate.title.cover.is_some(),
+        cover_position_x: aggregate.title.cover_position_x,
+        cover_position_y: aggregate.title.cover_position_y,
+        cover_zoom: aggregate.title.cover_zoom,
         watched_units: aggregate.title.watched_units,
         started_on: aggregate.title.started_on.map(|date| date.to_string()),
         finished_on: aggregate.title.finished_on.map(|date| date.to_string()),

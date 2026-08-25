@@ -7,6 +7,7 @@ import {
   Film,
   History,
   Library,
+  Move,
   Plus,
   RotateCcw,
   Search,
@@ -31,6 +32,7 @@ import type {
 } from "./api";
 import { mediaApi, mediaErrorMessage } from "./api";
 import CoverImage from "./CoverImage";
+import CoverPositionEditor from "./CoverPositionEditor";
 import { MediaTitleForm } from "./MediaForms";
 import {
   formatDate,
@@ -203,9 +205,8 @@ export default function SimpleMediaWorkspace({ area }: { area: SimpleArea }) {
             <article className="library-card" key={item.id}>
               <button className="library-card-open" onClick={() => void open(item.id)} type="button">
                 <div className="library-cover-wrap">
-                  <CoverImage alt={`Portada de ${item.name}`} hasCover={item.hasCover} titleId={item.id} />
+                  <CoverImage alt={`Portada de ${item.name}`} hasCover={item.hasCover} positionX={item.coverPositionX} positionY={item.coverPositionY} titleId={item.id} zoom={item.coverZoom} />
                   <span className={`media-status status-${item.status}`}>{statusLabel(item.status)}</span>
-                  {item.favorite && <Star className="library-favorite" fill="currentColor" size={17} />}
                 </div>
                 <div className="library-card-copy">
                   <span>{area === "series" ? "Serie" : "Película"}</span>
@@ -217,6 +218,7 @@ export default function SimpleMediaWorkspace({ area }: { area: SimpleArea }) {
                   </div>
                 </div>
               </button>
+              {!archived && <button aria-label={item.favorite ? `Quitar ${item.name} de favoritos` : `Añadir ${item.name} a favoritos`} className={`library-favorite-toggle${item.favorite ? " active" : ""}`} disabled={busy} onClick={() => void (async () => { if (await runAction(() => mediaApi.setTitleFavorite(item.id, !item.favorite))) await load(false); })()} title={item.favorite ? "Quitar de favoritos" : "Añadir a favoritos"} type="button"><Star fill={item.favorite ? "currentColor" : "none"} size={17} /></button>}
               {archived && <ArchiveItemActions busy={busy} itemLabel={item.name}
                 restore={() => void (async () => { if (await runAction(() => mediaApi.restore(item.id))) await load(false); })()}
                 remove={() => void (async () => { if (!window.confirm(`¿Eliminar definitivamente “${item.name}” y todo su historial?`)) return; if (await runAction(() => mediaApi.delete(item.id))) await load(false); })()}
@@ -234,6 +236,8 @@ export default function SimpleMediaWorkspace({ area }: { area: SimpleArea }) {
           detail={detail}
           viewings={viewings}
           edit={() => setForm("edit")}
+          setFavorite={async (favorite) => updateDetail(() => mediaApi.setTitleFavorite(detail.title.id, favorite))}
+          setCoverPosition={async (x, y, zoom) => updateDetail(() => mediaApi.setCoverPosition(detail.title.id, x, y, zoom))}
           archive={async () => {
             if (await runAction(() => mediaApi.archive(detail.title.id))) {
               setDetail(null);
@@ -291,6 +295,8 @@ function SimpleMediaDetail({
   busy,
   close,
   edit,
+  setFavorite,
+  setCoverPosition,
   archive,
   restore,
   remove,
@@ -304,6 +310,8 @@ function SimpleMediaDetail({
   busy: boolean;
   close: () => void;
   edit: () => void;
+  setFavorite: (favorite: boolean) => Promise<boolean>;
+  setCoverPosition: (x: number, y: number, zoom: number) => Promise<boolean>;
   archive: () => Promise<void>;
   restore: () => Promise<void>;
   remove: () => Promise<void>;
@@ -315,11 +323,16 @@ function SimpleMediaDetail({
   const { title } = detail;
   const [watchedOn, setWatchedOn] = useState(title.finishedOn ?? todayMadrid());
   const [detailView, setDetailView] = useState<"summary" | "history">("summary");
+  const [positioningCover, setPositioningCover] = useState(false);
   return (
+    <>
     <Modal className="media-detail-dialog simple-media-detail-dialog" labelledBy="simple-media-detail-title" onClose={close}>
       <article className={`media-detail simple-media-detail simple-${area}-detail`}>
         <header className="media-detail-header">
-          <CoverImage alt={`Portada de ${title.name}`} className="media-detail-cover" hasCover={title.hasCover} titleId={title.id} />
+          <div className="simple-media-detail-cover-wrap ui-cover-adjust-host">
+            <CoverImage alt={`Portada de ${title.name}`} className="media-detail-cover" hasCover={title.hasCover} positionX={title.coverPositionX} positionY={title.coverPositionY} titleId={title.id} zoom={title.coverZoom} />
+            {!title.archived && title.hasCover && <button aria-label="Ajustar encuadre de portada" className="ui-cover-adjust-button" onClick={() => setPositioningCover(true)} type="button"><Move size={14} /> Ajustar</button>}
+          </div>
           <div className="media-detail-heading">
             <div className="media-detail-kickers">
               <span>{area === "series" ? "Serie" : "Película"}</span>
@@ -332,6 +345,7 @@ function SimpleMediaDetail({
           <div className="media-detail-actions">
             {!title.archived ? (
               <>
+                <button aria-label={title.favorite ? "Quitar de favoritos" : "Añadir a favoritos"} className={`media-icon-button media-favorite-button${title.favorite ? " active" : ""}`} disabled={busy} onClick={() => void setFavorite(!title.favorite)} title={title.favorite ? "Quitar de favoritos" : "Añadir a favoritos"} type="button"><Star fill={title.favorite ? "currentColor" : "none"} size={17} /></button>
                 <button className="secondary-button" onClick={edit} type="button"><Edit3 size={16} /> Editar</button>
                 <button className="media-icon-button" disabled={busy} onClick={() => void archive()} title="Archivar" type="button"><Archive size={17} /></button>
               </>
@@ -385,6 +399,8 @@ function SimpleMediaDetail({
         )}
       </article>
     </Modal>
+    {positioningCover && <CoverPositionEditor busy={busy} close={() => setPositioningCover(false)} landscape save={setCoverPosition} title={title} />}
+    </>
   );
 }
 

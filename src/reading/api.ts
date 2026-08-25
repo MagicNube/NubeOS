@@ -21,9 +21,12 @@ export type ReadingBook = {
   archived: boolean;
   updatedAt: string;
   hasCover: boolean;
+  coverPositionX: number;
+  coverPositionY: number;
+  coverZoom: number;
 };
 
-export type ReadingBookInput = Omit<ReadingBook, "id" | "archived" | "updatedAt" | "hasCover"> & {
+export type ReadingBookInput = Omit<ReadingBook, "id" | "archived" | "updatedAt" | "hasCover" | "coverPositionX" | "coverPositionY" | "coverZoom"> & {
   coverToken?: string | null;
   removeCover?: boolean;
 };
@@ -65,6 +68,7 @@ export const readingApi = {
   preparePastedCover: (bytes: number[]) => invoke<PendingReadingCover>("prepare_pasted_reading_cover", { bytes }),
   discardCover: (token: string) => invoke<void>("discard_pending_reading_cover", { token }),
   readCover: (bookId: string) => invoke<ArrayBuffer>("read_reading_cover", { bookId }),
+  setCoverCrop: (bookId: string, x: number, y: number, zoom: number) => invoke<ReadingBook>("set_reading_cover_crop", { bookId, x, y, zoom }),
 };
 
 export function readingErrorMessage(reason: unknown) {

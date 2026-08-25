@@ -70,6 +70,15 @@ pub fn apply_migrations(connection: &mut Connection) -> rusqlite_migration::Resu
         M::up(include_str!(
             "../../migrations/0023_add_media_title_studio.sql"
         )),
+        M::up(include_str!(
+            "../../migrations/0024_add_media_cover_position.sql"
+        )),
+        M::up(include_str!(
+            "../../migrations/0025_add_media_cover_zoom.sql"
+        )),
+        M::up(include_str!(
+            "../../migrations/0026_add_tracker_cover_crop.sql"
+        )),
     ])
     .to_latest(connection)
 }

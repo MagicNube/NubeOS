@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Archive, BarChart3, BookOpen, CalendarDays, Edit3, History, ImagePlus, Library, Plus, RotateCcw, Search,
+  Archive, BarChart3, BookOpen, CalendarDays, Edit3, History, ImagePlus, Library, Move, Plus, RotateCcw, Search,
   Star, Trash2, X,
 } from "lucide-react";
 import ArchiveItemActions from "../ui/ArchiveItemActions";
+import CoverCropEditor from "../ui/CoverCropEditor";
 import FavoriteFilter from "../ui/FavoriteFilter";
 import Modal from "../ui/Modal";
 import SelectControl from "../ui/SelectControl";
@@ -164,6 +165,7 @@ export default function ReadingWorkspace() {
         addRun={() => setRunForm({ bookId: selected.id })}
         editRun={(run) => setRunForm({ bookId: selected.id, run })}
         deleteRun={(run) => { if (window.confirm("¿Eliminar esta lectura del historial?")) void action(async () => setSelected(await readingApi.deleteRun(run.id))); }}
+        setCoverCrop={async (x, y, zoom) => action(async () => { await readingApi.setCoverCrop(selected.id, x, y, zoom); setSelected(await readingApi.get(selected.id)); })}
       />}
       {form && <BookForm
         book={form === "edit" ? selected : null} busy={busy} close={() => setForm(null)}
@@ -187,7 +189,7 @@ function Empty({ text }: { text: string }) { return <div className="reading-empt
 function BookCard({ book, archived, busy, open, favorite, restore, remove }: { book: ReadingBook; archived: boolean; busy: boolean; open: () => void; favorite: () => void; restore: () => void; remove: () => void }) {
   return <article className="reading-card">
     <button className="reading-card-open" onClick={open} type="button">
-      <ReadingCoverImage alt={`Portada de ${book.title}`} bookId={book.id} hasCover={book.hasCover} />
+      <ReadingCoverImage alt={`Portada de ${book.title}`} bookId={book.id} hasCover={book.hasCover} positionX={book.coverPositionX} positionY={book.coverPositionY} zoom={book.coverZoom} />
       <div className="reading-card-content">
         <div className="reading-card-heading"><span className={`reading-status status-${book.status}`}>{readingStatusLabel(book.status)}</span><h3>{book.title}</h3><p>{book.author}</p></div>
         <div className="reading-genres">{book.genres.slice(0, 3).map((genre) => <span key={genre}>{genre}</span>)}</div>
@@ -205,14 +207,15 @@ function BookCard({ book, archived, busy, open, favorite, restore, remove }: { b
   </article>;
 }
 
-function BookDetail({ book, archived, busy, close, edit, archive, restore, start, finish, addRun, editRun, deleteRun }: { book: ReadingDetail; archived: boolean; busy: boolean; close: () => void; edit: () => void; archive: () => void; restore: () => void; start: () => void; finish: (run: ReadingRun) => void; addRun: () => void; editRun: (run: ReadingRun) => void; deleteRun: (run: ReadingRun) => void }) {
+function BookDetail({ book, archived, busy, close, edit, archive, restore, start, finish, addRun, editRun, deleteRun, setCoverCrop }: { book: ReadingDetail; archived: boolean; busy: boolean; close: () => void; edit: () => void; archive: () => void; restore: () => void; start: () => void; finish: (run: ReadingRun) => void; addRun: () => void; editRun: (run: ReadingRun) => void; deleteRun: (run: ReadingRun) => void; setCoverCrop: (x: number, y: number, zoom: number) => Promise<boolean> }) {
   const openRun = book.runs.find((run) => !run.finishedOn);
   const [detailView, setDetailView] = useState<"summary" | "history">("summary");
-  return <Modal className="reading-detail-modal" labelledBy="reading-detail-title" onClose={close}>
-    <div className="reading-detail-header"><ReadingCoverImage alt={`Portada de ${book.title}`} bookId={book.id} className="detail" hasCover={book.hasCover} /><div className="reading-detail-title"><span>LIBRO</span><h2 id="reading-detail-title">{book.title}</h2><p>{book.author}</p></div><div><button aria-label="Editar libro" className="reading-icon-action" onClick={edit} title="Editar" type="button"><Edit3 size={17} /></button><button aria-label={archived ? "Restaurar libro" : "Archivar libro"} className="reading-icon-action" disabled={busy} onClick={archived ? restore : archive} title={archived ? "Restaurar" : "Archivar"} type="button">{archived ? <RotateCcw size={17} /> : <Archive size={17} />}</button><button aria-label="Cerrar" className="reading-icon-action" onClick={close} title="Cerrar" type="button"><X size={18} /></button></div></div>
+  const [positioningCover, setPositioningCover] = useState(false);
+  return <><Modal className="reading-detail-modal" labelledBy="reading-detail-title" onClose={close}>
+    <div className="reading-detail-header"><div className="reading-detail-cover-wrap ui-cover-adjust-host"><ReadingCoverImage alt={`Portada de ${book.title}`} bookId={book.id} className="detail" hasCover={book.hasCover} positionX={book.coverPositionX} positionY={book.coverPositionY} zoom={book.coverZoom} />{!archived && book.hasCover && <button aria-label="Ajustar encuadre de portada" className="ui-cover-adjust-button" onClick={() => setPositioningCover(true)} type="button"><Move size={14} /> Ajustar</button>}</div><div className="reading-detail-title"><span>LIBRO</span><h2 id="reading-detail-title">{book.title}</h2><p>{book.author}</p></div><div><button aria-label="Editar libro" className="reading-icon-action" onClick={edit} title="Editar" type="button"><Edit3 size={17} /></button><button aria-label={archived ? "Restaurar libro" : "Archivar libro"} className="reading-icon-action" disabled={busy} onClick={archived ? restore : archive} title={archived ? "Restaurar" : "Archivar"} type="button">{archived ? <RotateCcw size={17} /> : <Archive size={17} />}</button><button aria-label="Cerrar" className="reading-icon-action" onClick={close} title="Cerrar" type="button"><X size={18} /></button></div></div>
     <TrackerDetailTabs onChange={setDetailView} value={detailView} />
     {detailView === "summary" ? <><TrackerMetricGrid metrics={[{ label: "Puntuación", value: formatScore(book.score), color: scoreColor(book.score) }, { label: "Lecturas", value: book.runs.length }, { label: "Estado", value: readingStatusLabel(book.status) }]} /><section className="reading-detail-section"><h3>Géneros</h3><div className="reading-genres">{book.genres.length ? book.genres.map((genre) => <span key={genre}>{genre}</span>) : <p>Sin géneros</p>}</div></section><section className="reading-detail-section"><h3>Opinión</h3><p>{book.opinion || "Todavía no has escrito una opinión."}</p></section></> : <section className="reading-detail-section reading-runs"><header><div><h3>Historial de lecturas</h3><p>Cada relectura conserva sus propias fechas.</p></div>{!archived && <div>{openRun ? <button className="primary-button" disabled={busy} onClick={() => finish(openRun)} type="button">Terminar hoy</button> : <button className="primary-button" disabled={busy} onClick={start} type="button"><BookOpen size={16} /> Empezar hoy</button>}<button className="secondary-button" onClick={addRun} type="button"><Plus size={16} /> Registrar lectura</button></div>}</header>{book.runs.length === 0 ? <p>No hay lecturas registradas.</p> : <div className="reading-run-list">{book.runs.map((run, index) => <article key={run.id}><div><strong>{run.finishedOn ? `Lectura ${book.runs.length - index}` : "Lectura actual"}</strong><span>{formatReadingDate(run.startedOn)} → {run.finishedOn ? formatReadingDate(run.finishedOn) : "En curso"}</span></div>{!archived && <div><button className="reading-icon-action" onClick={() => editRun(run)} title="Editar" type="button"><Edit3 size={15} /></button><button className="reading-icon-action" onClick={() => deleteRun(run)} title="Eliminar" type="button"><Trash2 size={15} /></button></div>}</article>)}</div>}</section>}
-  </Modal>;
+  </Modal>{positioningCover && <CoverCropEditor busy={busy} close={() => setPositioningCover(false)} initial={{ x: book.coverPositionX, y: book.coverPositionY, zoom: book.coverZoom }} landscape={false} preview={(crop) => <ReadingCoverImage alt={`Portada de ${book.title}`} bookId={book.id} hasCover={book.hasCover} positionX={crop.x} positionY={crop.y} zoom={crop.zoom} />} save={(crop) => setCoverCrop(crop.x, crop.y, crop.zoom)} title={book.title} />}</>;
 }
 
 function BookForm({ book, busy, close, save }: { book: ReadingBook | null; busy: boolean; close: () => void; save: (input: ReadingBookInput) => Promise<boolean> }) {

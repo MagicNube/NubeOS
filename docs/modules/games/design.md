@@ -14,6 +14,9 @@ Game
 ├── opinion: Option<String>
 ├── favorite: bool
 ├── cover: Option<ManagedGameCover>
+├── cover_position_x: f64
+├── cover_position_y: f64
+├── cover_zoom: f64
 ├── archived: bool
 ├── created_at: DateTime
 └── updated_at: DateTime
@@ -92,3 +95,6 @@ Los comandos adaptan DTOs y delegan en dominio y repositorio. React no calcula e
 - DLC y relaciones entre videojuegos.
 - Progreso porcentual, horas y sesiones.
 - Importaciones o integraciones externas.
+## Encuadre de portada
+
+La portada horizontal conserva posición X/Y y zoom entre `1×` y `2×`. Rust valida y guarda esos valores; React utiliza el editor compartido y aplica el mismo encuadre en Biblioteca y detalle. Sustituir o retirar la imagen restablece los valores centrales.

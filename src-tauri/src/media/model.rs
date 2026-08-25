@@ -125,6 +125,9 @@ pub struct MediaTitle {
     pub current_season: Option<u32>,
     pub current_episode: Option<u32>,
     pub cover: Option<ManagedCover>,
+    pub cover_position_x: f64,
+    pub cover_position_y: f64,
+    pub cover_zoom: f64,
 }
 
 #[derive(Debug, Clone)]
@@ -179,6 +182,9 @@ impl MediaTitle {
             current_season: draft.current_season,
             current_episode: draft.current_episode,
             cover: None,
+            cover_position_x: 50.0,
+            cover_position_y: 50.0,
+            cover_zoom: 1.0,
         })
     }
 
@@ -239,6 +245,22 @@ impl MediaTitle {
 
     pub fn change_favorite(&mut self, favorite: bool) {
         self.favorite = favorite;
+    }
+
+    pub fn change_cover_position(&mut self, x: f64, y: f64, zoom: f64) -> Result<(), MediaError> {
+        if !x.is_finite()
+            || !y.is_finite()
+            || !zoom.is_finite()
+            || !(0.0..=100.0).contains(&x)
+            || !(0.0..=100.0).contains(&y)
+            || !(1.0..=2.0).contains(&zoom)
+        {
+            return Err(MediaError::InvalidCoverPosition);
+        }
+        self.cover_position_x = x;
+        self.cover_position_y = y;
+        self.cover_zoom = zoom;
+        Ok(())
     }
 }
 
@@ -470,6 +492,7 @@ pub enum MediaError {
     InvalidSeriesProgress,
     TitleCannotHaveContents,
     InvalidCover,
+    InvalidCoverPosition,
     CannotIncrement,
     FutureSession,
 }
@@ -496,6 +519,7 @@ impl fmt::Display for MediaError {
                 "Solo un anime de tipo serie o franquicia admite contenidos."
             }
             Self::InvalidCover => "La portada administrada no es válida.",
+            Self::InvalidCoverPosition => "La posición de la portada debe estar entre 0 y 100.",
             Self::CannotIncrement => "Este contenido no puede avanzar otro episodio.",
             Self::FutureSession => "No se puede registrar una sesión futura.",
         })
@@ -642,6 +666,51 @@ mod tests {
         assert_eq!(
             title.assign_catalog_number(1).unwrap_err(),
             MediaError::InvalidCatalogNumber
+        );
+    }
+
+    #[test]
+    fn cover_position_is_bounded_and_keeps_decimal_coordinates() {
+        let mut title = MediaTitle::new(
+            MediaTitleId::generate(),
+            MediaTitleDraft {
+                name: "Frieren".into(),
+                alternative_title: None,
+                genres: vec!["Fantasía".into()],
+                primary_studio: Some("Madhouse".into()),
+                kind: MediaKind::Anime,
+                is_anime: true,
+                status: TrackingStatus::Completed,
+                score: Some(9.2),
+                opinion: None,
+                favorite: true,
+                started_on: None,
+                finished_on: None,
+                current_season: None,
+                current_episode: None,
+            },
+        )
+        .unwrap();
+
+        title.change_cover_position(24.5, 71.25, 1.4).unwrap();
+        assert_eq!(
+            (title.cover_position_x, title.cover_position_y),
+            (24.5, 71.25)
+        );
+        assert_eq!(title.cover_zoom, 1.4);
+        assert_eq!(
+            title.change_cover_position(-0.1, 50.0, 1.0).unwrap_err(),
+            MediaError::InvalidCoverPosition
+        );
+        assert_eq!(
+            title
+                .change_cover_position(50.0, f64::NAN, 1.0)
+                .unwrap_err(),
+            MediaError::InvalidCoverPosition
+        );
+        assert_eq!(
+            title.change_cover_position(50.0, 50.0, 2.01).unwrap_err(),
+            MediaError::InvalidCoverPosition
         );
     }
 }

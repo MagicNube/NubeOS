@@ -86,6 +86,9 @@ pub struct ReadingBookDto {
     pub archived: bool,
     pub updated_at: String,
     pub has_cover: bool,
+    pub cover_position_x: f64,
+    pub cover_position_y: f64,
+    pub cover_zoom: f64,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -518,8 +521,12 @@ pub fn update_reading_book(
         .transpose()?;
     if promoted.is_some() {
         book.cover = promoted.clone();
+        book.change_cover_crop(50.0, 50.0, 1.0, Utc::now().to_rfc3339())
+            .map_err(|error| error.to_string())?;
     } else if remove_cover {
         book.cover = None;
+        book.change_cover_crop(50.0, 50.0, 1.0, Utc::now().to_rfc3339())
+            .map_err(|error| error.to_string())?;
     }
     if let Err(error) = repository.update(&book) {
         if let Some(cover) = promoted.as_ref() {
@@ -641,6 +648,35 @@ pub fn read_reading_cover(
         .read(&cover)
         .map_err(|error| error.to_string())?;
     Ok(tauri::ipc::Response::new(bytes))
+}
+
+#[tauri::command]
+pub fn set_reading_cover_crop(
+    database: State<'_, ProductDatabase>,
+    book_id: String,
+    x: f64,
+    y: f64,
+    zoom: f64,
+) -> Result<ReadingBookDto, String> {
+    let id = BookId::parse(&book_id).map_err(|error| error.to_string())?;
+    let mut connection = database
+        .connection
+        .lock()
+        .map_err(|_| "No se ha podido acceder a la base de datos.".to_owned())?;
+    let mut repository = ReadingRepository::new(&mut connection);
+    let mut book = repository
+        .find(&id)
+        .map_err(|error| error.to_string())?
+        .ok_or_else(|| "No existe el libro solicitado.".to_owned())?;
+    if book.cover.is_none() {
+        return Err("Este libro no tiene portada.".to_owned());
+    }
+    book.change_cover_crop(x, y, zoom, Utc::now().to_rfc3339())
+        .map_err(|error| error.to_string())?;
+    repository
+        .update(&book)
+        .map_err(|error| error.to_string())?;
+    Ok(book.into())
 }
 
 #[tauri::command]
@@ -787,6 +823,9 @@ impl From<Book> for ReadingBookDto {
             archived: book.archived,
             updated_at: book.updated_at,
             has_cover: book.cover.is_some(),
+            cover_position_x: book.cover_position_x,
+            cover_position_y: book.cover_position_y,
+            cover_zoom: book.cover_zoom,
         }
     }
 }

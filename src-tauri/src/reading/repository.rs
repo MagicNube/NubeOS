@@ -59,8 +59,9 @@ impl<'connection> ReadingRepository<'connection> {
             "INSERT INTO reading_books
              (id, title, normalized_title, author, normalized_author, genres_json,
               reading_status, score, opinion, is_favorite, started_on, finished_on,
-              is_archived, created_at, updated_at, cover_file_name, cover_mime_type, cover_size_bytes)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, 0, ?13, ?13, ?14, ?15, ?16)",
+              is_archived, created_at, updated_at, cover_file_name, cover_mime_type, cover_size_bytes,
+              cover_position_x, cover_position_y, cover_zoom)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, 0, ?13, ?13, ?14, ?15, ?16, ?17, ?18, ?19)",
             params![
                 book.id.as_str(),
                 book.title,
@@ -78,6 +79,9 @@ impl<'connection> ReadingRepository<'connection> {
                 book.cover.as_ref().map(|cover| &cover.file_name),
                 book.cover.as_ref().map(|cover| &cover.mime_type),
                 book.cover.as_ref().map(|cover| cover.size_bytes),
+                book.cover_position_x,
+                book.cover_position_y,
+                book.cover_zoom,
             ],
         )?;
         Ok(())
@@ -89,7 +93,8 @@ impl<'connection> ReadingRepository<'connection> {
              normalized_author = ?5, genres_json = ?6, reading_status = ?7, score = ?8,
              opinion = ?9, is_favorite = ?10, started_on = ?11, finished_on = ?12,
              updated_at = ?13, cover_file_name = ?14, cover_mime_type = ?15,
-             cover_size_bytes = ?16 WHERE id = ?1",
+             cover_size_bytes = ?16, cover_position_x = ?17, cover_position_y = ?18,
+             cover_zoom = ?19 WHERE id = ?1",
             params![
                 book.id.as_str(),
                 book.title,
@@ -107,6 +112,9 @@ impl<'connection> ReadingRepository<'connection> {
                 book.cover.as_ref().map(|cover| &cover.file_name),
                 book.cover.as_ref().map(|cover| &cover.mime_type),
                 book.cover.as_ref().map(|cover| cover.size_bytes),
+                book.cover_position_x,
+                book.cover_position_y,
+                book.cover_zoom,
             ],
         )?;
         if affected == 0 {
@@ -120,7 +128,7 @@ impl<'connection> ReadingRepository<'connection> {
             .query_row(
                 "SELECT id, title, author, genres_json, reading_status, score, opinion,
              is_favorite, started_on, finished_on, is_archived, updated_at,
-             cover_file_name, cover_mime_type, cover_size_bytes
+             cover_file_name, cover_mime_type, cover_size_bytes, cover_position_x, cover_position_y, cover_zoom
              FROM reading_books WHERE id = ?1",
                 [id.as_str()],
                 book_from_row,
@@ -133,7 +141,7 @@ impl<'connection> ReadingRepository<'connection> {
         let mut statement = self.connection.prepare(
             "SELECT id, title, author, genres_json, reading_status, score, opinion,
              is_favorite, started_on, finished_on, is_archived, updated_at,
-             cover_file_name, cover_mime_type, cover_size_bytes
+             cover_file_name, cover_mime_type, cover_size_bytes, cover_position_x, cover_position_y, cover_zoom
              FROM reading_books WHERE is_archived = ?1 ORDER BY updated_at DESC, title COLLATE NOCASE",
         )?;
         let books = statement
@@ -327,6 +335,9 @@ fn book_from_row(row: &Row<'_>) -> rusqlite::Result<Book> {
             (None, None, None) => None,
             _ => return Err(conversion_error(12, "portada")),
         },
+        cover_position_x: row.get(15)?,
+        cover_position_y: row.get(16)?,
+        cover_zoom: row.get(17)?,
     })
 }
 
@@ -409,6 +420,7 @@ mod tests {
         connection
             .execute_batch(include_str!("../../migrations/0021_add_reading_runs.sql"))
             .unwrap();
+        connection.execute_batch("ALTER TABLE reading_books ADD COLUMN cover_position_x REAL NOT NULL DEFAULT 50.0; ALTER TABLE reading_books ADD COLUMN cover_position_y REAL NOT NULL DEFAULT 50.0; ALTER TABLE reading_books ADD COLUMN cover_zoom REAL NOT NULL DEFAULT 1.0;").unwrap();
         connection
     }
 

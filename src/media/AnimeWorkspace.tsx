@@ -94,6 +94,7 @@ export default function AnimeWorkspace() {
   const [historyTitles, setHistoryTitles] = useState<MediaTitle[]>([]);
   const [historySelection, setHistorySelection] = useState<MediaDetail | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [libraryTransitioning, setLibraryTransitioning] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const requestId = useRef(0);
@@ -226,13 +227,30 @@ export default function AnimeWorkspace() {
     setDetail(null);
   }
 
-  function changeLibrarySection(next: LibrarySection) {
+  async function changeLibrarySection(next: LibrarySection) {
     if (next === librarySection) return;
-    requestId.current += 1;
-    setItems([]);
-    setInitialLoading(true);
-    setLibrarySection(next);
-    setLibrarySort(next === "anime" ? "catalogAsc" : "scoreDesc");
+    const id = ++requestId.current;
+    setLibraryTransitioning(true);
+    try {
+      const data = await mediaApi.list({
+        archived,
+        search: search || null,
+        area: "anime",
+        kind: next === "anime" ? "anime" : "movie",
+        status: status || null,
+        studio: studio || null,
+        favoritesOnly,
+      });
+      if (requestId.current !== id) return;
+      setItems(data);
+      setLibrarySort(next === "anime" ? "catalogAsc" : "scoreDesc");
+      setLibrarySection(next);
+      setError(null);
+    } catch (reason) {
+      if (requestId.current === id) setError(mediaErrorMessage(reason));
+    } finally {
+      if (requestId.current === id) setLibraryTransitioning(false);
+    }
   }
 
   function openHistory(titleId: string, contentId?: string) {
@@ -297,6 +315,7 @@ export default function AnimeWorkspace() {
           {view === "library" && (
             <LibraryView
               archived={archived}
+              transitioning={libraryTransitioning}
               section={librarySection}
               setSection={changeLibrarySection}
               search={search}
@@ -364,9 +383,6 @@ export default function AnimeWorkspace() {
               ),
             );
           }}
-          updateContentStatus={async (content, status) => {
-            await mutateDetail(() => mediaApi.updateContent(content.id, contentInput(content, { status })));
-          }}
           reorder={async (ids) => {
             if (await runAction(() => mediaApi.reorderContents(detail.title.id, ids))) await refreshDetail();
           }}
@@ -392,6 +408,7 @@ export default function AnimeWorkspace() {
           setTitleStatus={async (next) => { await mutateDetail(() => mediaApi.setTitleStatus(detail.title.id, next)); }}
           setTitleScore={async (next) => { await mutateDetail(() => mediaApi.setTitleScore(detail.title.id, next)); }}
           setTitleFavorite={async (next) => { await mutateDetail(() => mediaApi.setTitleFavorite(detail.title.id, next)); }}
+          setCoverPosition={(x, y, zoom) => mutateDetail(() => mediaApi.setCoverPosition(detail.title.id, x, y, zoom))}
           openHistory={openHistory}
         />
       )}
@@ -460,7 +477,7 @@ function WatchingView({
               <article className="watching-card" key={item.id}>
                 <button className="watching-open" onClick={() => open(item.id)} type="button">
                   <div className="watching-cover-wrap">
-                    <CoverImage alt={`Portada de ${item.name}`} hasCover={item.hasCover} titleId={item.id} />
+                    <CoverImage alt={`Portada de ${item.name}`} hasCover={item.hasCover} positionX={item.coverPositionX} positionY={item.coverPositionY} titleId={item.id} zoom={item.coverZoom} />
                     {item.kind === "anime" && item.catalogNumber && <span className="library-catalog-number">#{item.catalogNumber}</span>}
                     {item.favorite && <Star className="library-favorite" fill="currentColor" size={17} />}
                   </div>
@@ -488,6 +505,7 @@ function WatchingView({
 
 function LibraryView({
   archived,
+  transitioning,
   section,
   setSection,
   search,
@@ -509,6 +527,7 @@ function LibraryView({
   remove,
 }: {
   archived: boolean;
+  transitioning: boolean;
   section: LibrarySection;
   setSection: (value: LibrarySection) => void;
   search: string;
@@ -559,8 +578,8 @@ function LibraryView({
         />
       </div>
       <div className="media-library-sections" role="tablist" aria-label="Tipo de biblioteca anime">
-        <button className={section === "anime" ? "active" : ""} onClick={() => setSection("anime")} role="tab" type="button">Anime</button>
-        <button className={section === "movies" ? "active" : ""} onClick={() => setSection("movies")} role="tab" type="button">Películas Anime</button>
+        <button className={section === "anime" ? "active" : ""} disabled={transitioning} onClick={() => setSection("anime")} role="tab" type="button">Anime</button>
+        <button className={section === "movies" ? "active" : ""} disabled={transitioning} onClick={() => setSection("movies")} role="tab" type="button">Películas Anime</button>
       </div>
       <div className="media-filters">
         <label className="media-search">
@@ -593,12 +612,12 @@ function LibraryView({
       {items.length === 0 ? (
         <MediaEmpty text={archived ? "El Archivo está vacío." : section === "anime" ? "No hay anime con estos filtros." : "No hay películas anime con estos filtros."} />
       ) : (
-        <div className="library-grid">
+        <div aria-busy={transitioning} className={`library-grid${transitioning ? " transitioning" : ""}`}>
           {sortedItems.map((item) => (
             <article className="library-card" key={item.id}>
               <button className="library-card-open" onClick={() => open(item.id)} type="button">
                 <div className="library-cover-wrap">
-                  <CoverImage alt={`Portada de ${item.name}`} hasCover={item.hasCover} titleId={item.id} />
+                  <CoverImage alt={`Portada de ${item.name}`} hasCover={item.hasCover} positionX={item.coverPositionX} positionY={item.coverPositionY} titleId={item.id} zoom={item.coverZoom} />
                   {item.kind === "anime" && item.catalogNumber && <span className="library-catalog-number">#{item.catalogNumber}</span>}
                   <span className={`media-status status-${item.status}`}>{statusLabel(item.status)}</span>
                 </div>

@@ -5,6 +5,7 @@ export type Game = {
   id: string; name: string; status: GameStatus; score: number | null; opinion: string | null;
   favorite: boolean; archived: boolean; updatedAt: string; hasCover: boolean;
   completedRuns: number; hasOpenRun: boolean;
+  coverPositionX: number; coverPositionY: number; coverZoom: number;
 };
 export type GameRun = { id: string; gameId: string; startedOn: string | null; finishedOn: string | null };
 export type GameDetail = Game & { runs: GameRun[] };
@@ -38,6 +39,7 @@ export const gamesApi = {
   preparePastedCover: (bytes: number[]) => invoke<PendingGameCover>("prepare_pasted_game_cover", { bytes }),
   discardCover: (token: string) => invoke<void>("discard_pending_game_cover", { token }),
   readCover: (gameId: string) => invoke<ArrayBuffer>("read_game_cover", { gameId }),
+  setCoverCrop: (gameId: string, x: number, y: number, zoom: number) => invoke<Game>("set_game_cover_crop", { gameId, x, y, zoom }),
 };
 
 export function gameErrorMessage(reason: unknown) {

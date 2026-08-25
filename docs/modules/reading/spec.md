@@ -43,6 +43,7 @@ Mantener una biblioteca personal de libros pendientes, en lectura y terminados, 
 - Los géneros disponibles inicialmente son Fantasía, Ciencia ficción, Romance, Misterio y suspense, Terror, Aventura, Novela histórica, Desarrollo personal, Psicología y Otro.
 - La portada es opcional, se copia al almacenamiento privado de NubeOS y admite JPEG, PNG o WebP de hasta 8 MB.
 - La portada también puede pegarse desde el portapapeles; NubeOS la normaliza a JPEG antes de guardarla.
+- La portada puede recolocarse y ampliarse entre `1×` y `2×`; el encuadre se conserva tras reiniciar.
 
 ## Referencia de Notion
 
@@ -70,6 +71,7 @@ Los CSV aportados se usan únicamente para validar el modelo. Contienen 27 libro
 - [x] Biblioteca es la vista inicial y Leyendo no muestra el filtro Favoritos.
 - [x] El formulario ofrece géneros predefinidos sin texto libre.
 - [x] Una portada seleccionada se copia al espacio privado y puede sustituirse o eliminarse.
+- [x] El encuadre y el zoom de la portada se aplican en Biblioteca y detalle.
 - [x] La puntuación usa valor numérico y colores SeriesGraph, no estrellas acumulativas.
 - [x] Archivo permite restaurar y exige confirmación antes del borrado definitivo.
 - [x] Las estadísticas se calculan desde los datos persistidos.

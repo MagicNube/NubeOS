@@ -93,3 +93,20 @@ La carga desde Notion se ejecuta con una herramienta puntual fuera de las migrac
 
 - Comprobar con uso real si una película vinculada necesita portada propia.
 - Modelar revisualizaciones o rutas alternativas solo cuando exista un caso real.
+- El cambio entre Anime y Películas Anime conserva el contenido anterior durante la carga, lo atenúa y lo sustituye de una vez cuando llega la nueva colección; nunca aplica la ordenación nueva sobre datos antiguos.
+- Cada tarjeta de contenido tiene dos vistas locales. `Información` contiene puntuación, tipo, canonicidad, estudio, estreno, opinión, estado y acciones secundarias. `Historial` contiene progreso, fecha, `+1`, guardado manual y acceso al historial global ya filtrado.
+- `Información` presenta puntuación, estado textual y metadatos mediante una rejilla-resumen común. Las acciones secundarias ocupan la esquina superior derecha y no comparten espacio con el resumen.
+- `Historial` distribuye el seguimiento en tres niveles: resumen de progreso, controles etiquetados para corrección/fecha/avance y acciones finales de guardado e historial global. No usa `space-between` para desplazar el bloque al fondo.
+- Las pestañas `Información` e `Historial` permanecen centradas en una barra superior propia. Las acciones ocupan su extremo derecho y el título comienza en una segunda línea independiente.
+- `Información` comienza con el mismo resumen de progreso que `Historial` y coloca debajo la rejilla de datos. El estado deja de ser una acción rápida de tarjeta y se modifica deliberadamente desde Editar.
+- `cover_position_x` y `cover_position_y` guardan porcentajes entre 0 y 100 en `media_titles`. React permite arrastrar la portada dentro de un marco de la misma proporción que la vista actual y Rust valida y persiste la posición.
+- El estado del contenido se muestra como texto dentro del resumen de Información. Su modificación continúa en el formulario para no convertir de nuevo la tarjeta en un panel de controles rápidos.
+- El estado textual ocupa el extremo superior izquierdo de la barra de navegación. El resumen inferior reserva una zona destacada a la puntuación y distribuye Tipo, Canonicidad, Estudio y Estreno en dos filas, evitando una única tira de datos.
+- Historial presenta `Ver historial completo` a la izquierda y la confirmación manual a la derecha; el avance inmediato se denomina `Registrar +1` sin duplicar el signo mediante un icono.
+- El editor de portada captura el puntero durante todo el gesto y ofrece además ejes porcentuales como alternativa precisa y accesible.
+- En los formularios, Opinión precede a Anotaciones siempre que ambos campos conviven.
+- Las fechas manuales de inicio y fin se conservan temporalmente para progreso importado sin sesiones. El historial es la fuente temporal preferida para actividad nueva; retirar u ocultar los campos requiere una tarea de modelo y migración independiente.
+- El formulario de contenido no expone inicio ni fin: conserva silenciosamente valores importados existentes y usa las sesiones como fuente para cualquier estadística temporal nueva. Estreno permanece como metadato de publicación, no de visionado.
+- La portada de Biblioteca continúa abriendo el título. El detalle muestra una acción `Ajustar` sobre la propia portada; esta abre el editor donde sí se arrastra la imagen, separando navegación y encuadre.
+- `cover_zoom` completa el encuadre persistente con un factor entre `1` y `2`. El editor muestra un marco fijo igual a la vista final; ampliar crea excedente real y X/Y eligen qué zona permanece visible. Biblioteca y detalle aplican las tres propiedades.
+- El editor vive en la capa UI compartida para Anime, Series, Películas, Lectura y Videojuegos. `Ajustar` solo aparece al hover o foco de la portada; en dispositivos sin hover permanece visible.

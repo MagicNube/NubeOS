@@ -144,3 +144,9 @@
 - Estado: Implementada; comprobación visual pendiente
 - Alcance: normalizar la portada vertical del detalle y filtrar estadísticas por género y puntuación mínima desde casos de uso Rust.
 - Verificación: pruebas Rust, build y prueba manual con filtros combinados.
+
+## T-R23 — Ajustar encuadre y zoom de portada
+
+- Estado: Implementada; comprobación visual pendiente
+- Alcance: persistir posición X/Y y zoom, reutilizar el editor compartido y mostrar la acción Ajustar únicamente al hover, foco o en dispositivos sin hover.
+- Verificación: pruebas de dominio y repositorio, build y recorrido manual con portada vertical.

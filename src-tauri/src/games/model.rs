@@ -88,6 +88,9 @@ pub struct Game {
     pub opinion: Option<String>,
     pub favorite: bool,
     pub cover: Option<ManagedGameCover>,
+    pub cover_position_x: f64,
+    pub cover_position_y: f64,
+    pub cover_zoom: f64,
     pub archived: bool,
     pub updated_at: String,
 }
@@ -117,6 +120,9 @@ impl Game {
             opinion: draft.opinion,
             favorite: draft.favorite,
             cover: None,
+            cover_position_x: 50.0,
+            cover_position_y: 50.0,
+            cover_zoom: 1.0,
             archived: false,
             updated_at,
         })
@@ -128,6 +134,29 @@ impl Game {
         self.score = draft.score;
         self.opinion = draft.opinion;
         self.favorite = draft.favorite;
+        self.updated_at = updated_at;
+        Ok(())
+    }
+
+    pub fn change_cover_crop(
+        &mut self,
+        x: f64,
+        y: f64,
+        zoom: f64,
+        updated_at: String,
+    ) -> Result<(), GameError> {
+        if !x.is_finite()
+            || !y.is_finite()
+            || !zoom.is_finite()
+            || !(0.0..=100.0).contains(&x)
+            || !(0.0..=100.0).contains(&y)
+            || !(1.0..=2.0).contains(&zoom)
+        {
+            return Err(GameError::InvalidCoverCrop);
+        }
+        self.cover_position_x = x;
+        self.cover_position_y = y;
+        self.cover_zoom = zoom;
         self.updated_at = updated_at;
         Ok(())
     }
@@ -217,6 +246,7 @@ pub enum GameError {
     InvalidDateRange,
     MissingRunDate,
     InvalidCover,
+    InvalidCoverCrop,
 }
 
 impl fmt::Display for GameError {
@@ -231,6 +261,7 @@ impl fmt::Display for GameError {
             Self::InvalidDateRange => "La fecha final no puede ser anterior a la fecha de inicio.",
             Self::MissingRunDate => "Indica al menos una fecha para la partida.",
             Self::InvalidCover => "La portada guardada no es válida.",
+            Self::InvalidCoverCrop => "El encuadre de la portada no es válido.",
         })
     }
 }
@@ -269,6 +300,32 @@ mod tests {
         assert_eq!(
             GameRun::new(game_id, start, end, "now".into()).unwrap_err(),
             GameError::InvalidDateRange
+        );
+    }
+    #[test]
+    fn cover_crop_is_bounded() {
+        let draft = GameDraft {
+            name: "Celeste".into(),
+            status: GameStatus::Playing,
+            score: None,
+            opinion: None,
+            favorite: false,
+        };
+        let mut game = Game::new(GameId::generate(), draft, "now".into()).unwrap();
+        game.change_cover_crop(60.0, 30.0, 1.5, "later".into())
+            .unwrap();
+        assert_eq!(
+            (
+                game.cover_position_x,
+                game.cover_position_y,
+                game.cover_zoom
+            ),
+            (60.0, 30.0, 1.5)
+        );
+        assert_eq!(
+            game.change_cover_crop(50.0, 101.0, 1.0, "later".into())
+                .unwrap_err(),
+            GameError::InvalidCoverCrop
         );
     }
 }

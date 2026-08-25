@@ -7,11 +7,17 @@ export default function CoverImage({
   hasCover,
   alt,
   className = "",
+  positionX = 50,
+  positionY = 50,
+  zoom = 1,
 }: {
   titleId: string;
   hasCover: boolean;
   alt: string;
   className?: string;
+  positionX?: number;
+  positionY?: number;
+  zoom?: number;
 }) {
   const [url, setUrl] = useState<string | null>(null);
 
@@ -42,7 +48,7 @@ export default function CoverImage({
 
   return (
     <div className={`media-cover ${className}`.trim()}>
-      {url ? <img alt={alt} src={url} /> : <Clapperboard aria-hidden="true" />}
+      {url ? <img alt={alt} src={url} style={{ objectPosition: `${positionX}% ${positionY}%`, transform: `scale(${zoom})`, transformOrigin: `${positionX}% ${positionY}%` }} /> : <Clapperboard aria-hidden="true" />}
     </div>
   );
 }

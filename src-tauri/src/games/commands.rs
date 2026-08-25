@@ -78,6 +78,9 @@ pub struct GameDto {
     pub has_cover: bool,
     pub completed_runs: usize,
     pub has_open_run: bool,
+    pub cover_position_x: f64,
+    pub cover_position_y: f64,
+    pub cover_zoom: f64,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -300,8 +303,12 @@ pub fn update_game(
         .transpose()?;
     if promoted.is_some() {
         game.cover = promoted.clone();
+        game.change_cover_crop(50.0, 50.0, 1.0, Utc::now().to_rfc3339())
+            .map_err(|e| e.to_string())?;
     } else if remove {
         game.cover = None;
+        game.change_cover_crop(50.0, 50.0, 1.0, Utc::now().to_rfc3339())
+            .map_err(|e| e.to_string())?;
     }
     if let Err(error) = repository.update(&game) {
         if let Some(cover) = promoted.as_ref() {
@@ -652,6 +659,33 @@ pub fn read_game_cover(
     Ok(tauri::ipc::Response::new(bytes))
 }
 
+#[tauri::command]
+pub fn set_game_cover_crop(
+    database: State<'_, ProductDatabase>,
+    game_id: String,
+    x: f64,
+    y: f64,
+    zoom: f64,
+) -> Result<GameDto, String> {
+    let id = GameId::parse(&game_id).map_err(|e| e.to_string())?;
+    let connection = database
+        .connection
+        .lock()
+        .map_err(|_| database_lock_error())?;
+    let mut repository = GameRepository::new(&connection);
+    let mut game = repository
+        .find(&id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "No existe el videojuego solicitado.".to_owned())?;
+    if game.cover.is_none() {
+        return Err("Este videojuego no tiene portada.".to_owned());
+    }
+    game.change_cover_crop(x, y, zoom, Utc::now().to_rfc3339())
+        .map_err(|e| e.to_string())?;
+    repository.update(&game).map_err(|e| e.to_string())?;
+    game_dto(&mut repository, game)
+}
+
 fn detail(repository: &mut GameRepository<'_>, id: &GameId) -> Result<GameDetailDto, String> {
     let game = repository
         .find(id)
@@ -680,6 +714,9 @@ fn dto_from_parts(game: Game, runs: &[GameRun]) -> GameDto {
         has_cover: game.cover.is_some(),
         completed_runs: runs.iter().filter(|run| run.finished_on.is_some()).count(),
         has_open_run: runs.iter().any(|run| run.finished_on.is_none()),
+        cover_position_x: game.cover_position_x,
+        cover_position_y: game.cover_position_y,
+        cover_zoom: game.cover_zoom,
     }
 }
 fn parse_run_input(

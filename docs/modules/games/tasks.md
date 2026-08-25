@@ -86,3 +86,9 @@ Las tareas se realizan de una en una después de aprobar spec y diseño. Cada ta
 - Estado: Implementada; comprobación visual pendiente
 - Alcance: usar un marco 16:9 común en tarjeta y detalle y mostrar la imagen completa mediante `object-fit: contain`.
 - Verificación: build y prueba manual con imágenes horizontales, verticales y cuadradas.
+
+## T-G13 — Ajustar encuadre y zoom de portada
+
+- Estado: Implementada; comprobación visual pendiente
+- Alcance: persistir posición X/Y y zoom, reutilizar el editor compartido y mostrar Ajustar únicamente al hover, foco o en dispositivos sin hover.
+- Verificación: pruebas de dominio y repositorio, build y recorrido manual con portadas horizontales de proporciones distintas.

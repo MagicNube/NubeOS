@@ -188,3 +188,73 @@
 - Alcance: retirar el rótulo redundante Anime de las tarjetas, presentar el estudio como metadato diferenciado y admitir portadas pegadas convertidas a JPEG.
 - Restricciones: el estudio continúa perteneciendo al contenido y se edita desde su formulario; GIF sigue admitido al elegir un archivo.
 - Verificación: build, formulario de contenido y pegado manual de PNG/WebP.
+
+## T-A24 — Separar información e historial por contenido
+
+- Estado: Implementada; comprobación visual pendiente
+- Alcance: añadir dos vistas locales a cada tarjeta sin duplicar sesiones ni crear otra fuente de verdad.
+- Verificación: cambiar de vista en varias tarjetas, registrar progreso y abrir Historial con anime y contenido preseleccionados.
+
+**Resultado:** cada tarjeta alterna localmente entre `Información` e `Historial`; los metadatos y el selector de estado no compiten con los controles de progreso, y el acceso al historial global conserva el contenido preseleccionado. Build TypeScript/Vite correcto.
+
+## T-A25 — Suavizar la biblioteca y recolocar portadas
+
+- Estado: Implementada; comprobación visual pendiente
+- Alcance: impedir que el cambio Anime/Películas Anime reordene resultados antiguos y persistir la posición porcentual de cada portada Media.
+- Verificación: alternar secciones con filtros activos, arrastrar portadas verticales y horizontales, reiniciar y comprobar su posición.
+
+**Resultado:** la subsección nueva se consulta antes de sustituir atómicamente la colección visible; durante la espera la cuadrícula se atenúa sin vaciarse ni cambiar de orden. La migración 0024 persiste coordenadas porcentuales validadas por Rust y el editor permite arrastrar y centrar la portada. 112 pruebas Rust, Clippy estricto y build TypeScript/Vite correctos.
+
+## T-A26 — Redistribuir las vistas de contenido
+
+- Estado: Implementada; comprobación visual pendiente
+- Alcance: sustituir la geometría heredada de la tarjeta por una rejilla-resumen en Información y un editor de seguimiento jerarquizado en Historial.
+- Restricciones: no cambiar datos, comandos ni reglas de progreso; mantener acciones secundarias en `hover` o foco y conservar visible `Guardar cambios`.
+- Verificación: revisar tarjetas con metadatos opcionales, comprobar que Estado nunca se solapa con acciones y probar historial con progreso conocido, desconocido, completo y pendiente.
+
+**Resultado:** Información usa una rejilla-resumen para puntuación, tipo, canonicidad, estudio y estreno; Estado ocupa una franja independiente y las acciones secundarias un lateral reservado. Historial presenta resumen y barra de progreso, controles etiquetados y una fila final simétrica para guardar o abrir el historial completo. La alternativa estrecha apila los controles y sitúa las acciones en una fila propia. Build TypeScript/Vite correcto; comprobación visual en Tauri pendiente.
+
+## T-A27 — Simplificar la cabecera de Información
+
+- Estado: Implementada; comprobación visual pendiente
+- Alcance: centrar el selector de vista, trasladar las acciones al extremo superior derecho y sustituir el estado rápido por un resumen de progreso seguido de la tabla informativa.
+- Restricciones: Estado continúa editable en el formulario; Historial no cambia y el resumen de progreso se reutiliza sin duplicar cálculos.
+- Verificación: revisar títulos largos, contenidos archivados y tarjetas con diferentes cantidades de metadatos; comprobar que cabecera, progreso y tabla conservan su alineación.
+
+**Resultado:** la cabecera usa tres zonas equilibradas: título a la izquierda, vistas centradas y acciones permanentes a la derecha. Información reutiliza el resumen y la barra de progreso de Historial, elimina el selector rápido de estado y presenta después la tabla de metadatos. Estado continúa disponible en Editar. Build TypeScript/Vite correcto; comprobación visual en Tauri pendiente.
+
+## T-A28 — Desacoplar navegación, identidad y seguimiento
+
+- Estado: Implementada; comprobación visual pendiente
+- Alcance: bajar el título a una línea independiente, mostrar Estado como dato textual, ordenar las acciones finales de Historial, simplificar `Registrar +1`, robustecer el arrastre de portada y ordenar Opinión antes de Anotaciones.
+- Restricciones: no cambiar dominio ni persistencia, conservar Estado editable únicamente en el formulario y mantener el guardado explícito de correcciones.
+- Verificación: probar títulos largos, todos los estados, una corrección con y sin cambios, acceso filtrado al historial y encuadre mediante arrastre y controles de eje.
+
+**Resultado:** las pestañas ocupan una barra propia y el título baja a una segunda línea; Estado aparece como texto cromático en el resumen; Historial alinea acceso y guardado en el orden acordado; `Registrar +1` pierde el icono redundante; el formulario coloca Opinión antes de Anotaciones; y el editor sigue el puntero a nivel de ventana y añade ajuste explícito por ejes. Build TypeScript/Vite y `git diff --check` correctos; comprobación visual en Tauri pendiente.
+
+## T-A29 — Simplificar Información y corregir el gesto de encuadre
+
+- Estado: Implementada; comprobación visual pendiente
+- Alcance: trasladar el estado textual a la esquina superior izquierda, separar la puntuación de los metadatos y sustituir la captura de puntero del editor de portada por seguimiento global del ratón.
+- Restricciones: Estado continúa editable desde el formulario; no eliminar fechas históricas ni cambiar dominio o persistencia en esta tarea.
+- Verificación: probar todos los estados, tarjetas con metadatos opcionales y arrastre horizontal/vertical desde distintos puntos de una portada recortada.
+
+**Resultado:** Estado ocupa el hueco superior izquierdo como texto cromático; la puntuación abarca dos filas y los metadatos se reparten en una rejilla 2 × 2. El editor instala listeners de ratón globales desde su montaje, muestra las coordenadas actuales y conserva los deslizadores como alternativa. Build TypeScript/Vite y `git diff --check` correctos; falta comprobar el gesto con una portada realmente recortada dentro de Tauri.
+
+## T-A30 — Aclarar metadatos temporales y acceso al encuadre
+
+- Estado: Implementada; comprobación visual pendiente
+- Alcance: retirar inicio/fin del formulario de contenido, conservar Estreno, rellenar siempre la rejilla informativa, dar cuerpo al estado, centrar la puntuación y hacer visible el acceso al editor sobre la portada.
+- Restricciones: conservar valores históricos ya importados, no inventar sesiones y mantener Biblioteca como acción de navegación.
+- Verificación: editar contenido con y sin estudio/estreno, comprobar que los valores históricos no se borran, abrir `Ajustar` desde la portada y guardar un encuadre.
+
+**Resultado:** el formulario conserva internamente inicio/fin importados pero solo muestra Estreno; la tabla siempre reserva Estudio y Estreno, Estado tiene cuerpo visual y Puntuación queda centrada. El acceso `Ajustar` aparece sobre la portada de los detalles Anime, Series y Películas y sustituye al icono ambiguo de cabecera. Las estadísticas Anime ya contabilizaban sesiones desde `media_watch_sessions`; ningún agregado dependía de las fechas manuales del contenido. Build TypeScript/Vite y `git diff --check` correctos; comprobación visual en Tauri pendiente.
+
+## T-A31 — Añadir zoom al encuadre de portadas
+
+- Estado: Implementada; comprobación visual pendiente
+- Alcance: persistir un zoom entre 1× y 2×, previsualizar el recorte dentro de un marco fijo y aplicar X, Y y zoom en todas las portadas Media.
+- Restricciones: la migración asigna 1× a portadas existentes; Rust valida los tres valores y React solo mantiene el borrador previo a guardar.
+- Verificación: comprobar 1× sin recorte, ampliar una portada, moverla en ambos ejes, guardar, reiniciar y verificar Biblioteca y detalle.
+
+**Resultado:** la migración 0025 añade zoom 1×–2×; modelo, repositorio y comando validan y persisten X/Y/zoom. El marco morado representa la vista final, el control Zoom crea excedente visible y todas las portadas Media aplican el encuadre guardado. El editor se comparte con Lectura y Videojuegos y el acceso `Ajustar` se revela por hover o foco. Comprobación visual en Tauri pendiente.

@@ -1,7 +1,7 @@
 # Diseño — Lectura
 
 - Estado: Ampliación de relecturas implementada; comprobación manual pendiente
-- Última actualización: 2026-08-23
+- Última actualización: 2026-08-24
 
 ## Modelo
 
@@ -16,6 +16,9 @@ Book
 ├── opinion: Option<String>
 ├── favorite: bool
 ├── cover: Option<ManagedReadingCover>
+├── cover_position_x: f64
+├── cover_position_y: f64
+├── cover_zoom: f64
 └── archived: bool
 
 ReadingRun
@@ -91,3 +94,6 @@ La consulta admite archivo, texto, estado, género y favoritos. La ordenación p
 - Progreso por páginas y sesiones de lectura.
 - Citas y notas estructuradas.
 - Sesiones diarias, páginas y tiempo dedicado.
+## Encuadre de portada
+
+La portada conserva posición horizontal, posición vertical y zoom entre `1×` y `2×`. El dominio Rust valida y persiste el encuadre; React reutiliza el editor compartido de portadas y únicamente presenta la vista previa. Sustituir o retirar la imagen restablece el encuadre centrado.

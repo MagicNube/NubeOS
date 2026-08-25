@@ -53,7 +53,8 @@ impl<'a> GameRepository<'a> {
         self.connection.execute(
             "INSERT INTO games (id, name, normalized_name, game_status, score, opinion,
              is_favorite, is_archived, cover_file_name, cover_mime_type, cover_size_bytes,
-             created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 0, ?8, ?9, ?10, ?11, ?11)",
+             cover_position_x, cover_position_y, cover_zoom, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 0, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?14)",
             params![
                 game.id.as_str(),
                 game.name,
@@ -65,6 +66,9 @@ impl<'a> GameRepository<'a> {
                 game.cover.as_ref().map(|c| &c.file_name),
                 game.cover.as_ref().map(|c| &c.mime_type),
                 game.cover.as_ref().map(|c| c.size_bytes),
+                game.cover_position_x,
+                game.cover_position_y,
+                game.cover_zoom,
                 game.updated_at
             ],
         )?;
@@ -75,7 +79,8 @@ impl<'a> GameRepository<'a> {
         let count = self.connection.execute(
             "UPDATE games SET name=?2, normalized_name=?3, game_status=?4, score=?5,
              opinion=?6, is_favorite=?7, cover_file_name=?8, cover_mime_type=?9,
-             cover_size_bytes=?10, updated_at=?11 WHERE id=?1",
+             cover_size_bytes=?10, cover_position_x=?11, cover_position_y=?12,
+             cover_zoom=?13, updated_at=?14 WHERE id=?1",
             params![
                 game.id.as_str(),
                 game.name,
@@ -87,6 +92,9 @@ impl<'a> GameRepository<'a> {
                 game.cover.as_ref().map(|c| &c.file_name),
                 game.cover.as_ref().map(|c| &c.mime_type),
                 game.cover.as_ref().map(|c| c.size_bytes),
+                game.cover_position_x,
+                game.cover_position_y,
+                game.cover_zoom,
                 game.updated_at
             ],
         )?;
@@ -97,7 +105,7 @@ impl<'a> GameRepository<'a> {
         self.connection
             .query_row(
                 "SELECT id,name,game_status,score,opinion,is_favorite,is_archived,updated_at,
-             cover_file_name,cover_mime_type,cover_size_bytes FROM games WHERE id=?1",
+             cover_file_name,cover_mime_type,cover_size_bytes,cover_position_x,cover_position_y,cover_zoom FROM games WHERE id=?1",
                 [id.as_str()],
                 game_from_row,
             )
@@ -108,7 +116,7 @@ impl<'a> GameRepository<'a> {
     pub fn list(&mut self, archived: bool) -> Result<Vec<Game>, GameRepositoryError> {
         let mut statement = self.connection.prepare(
             "SELECT id,name,game_status,score,opinion,is_favorite,is_archived,updated_at,
-             cover_file_name,cover_mime_type,cover_size_bytes FROM games
+             cover_file_name,cover_mime_type,cover_size_bytes,cover_position_x,cover_position_y,cover_zoom FROM games
              WHERE is_archived=?1 ORDER BY updated_at DESC, name COLLATE NOCASE",
         )?;
         let games = statement
@@ -325,6 +333,9 @@ fn game_from_row(row: &Row<'_>) -> rusqlite::Result<Game> {
             (None, None, None) => None,
             _ => return Err(conversion_error(8, "portada")),
         },
+        cover_position_x: row.get(11)?,
+        cover_position_y: row.get(12)?,
+        cover_zoom: row.get(13)?,
     })
 }
 
@@ -389,6 +400,7 @@ mod tests {
         connection
             .execute_batch(include_str!("../../migrations/0020_create_games.sql"))
             .unwrap();
+        connection.execute_batch("ALTER TABLE games ADD COLUMN cover_position_x REAL NOT NULL DEFAULT 50.0; ALTER TABLE games ADD COLUMN cover_position_y REAL NOT NULL DEFAULT 50.0; ALTER TABLE games ADD COLUMN cover_zoom REAL NOT NULL DEFAULT 1.0;").unwrap();
         connection
     }
     fn game() -> Game {

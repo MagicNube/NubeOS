@@ -95,9 +95,9 @@ impl<'connection> MediaRepository<'connection> {
               kind, tracking_status, score, opinion, is_favorite, is_archived, watched_units,
               cover_file_name, cover_mime_type, cover_size_bytes, is_anime, started_on,
               finished_on, current_season, current_episode, catalog_number, genres_json,
-              primary_studio, created_at, updated_at)
+              primary_studio, cover_position_x, cover_position_y, cover_zoom, created_at, updated_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14,
-                     ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?24)",
+                     ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?27)",
             params![
                 title.id.as_str(),
                 title.name,
@@ -122,6 +122,9 @@ impl<'connection> MediaRepository<'connection> {
                 title.catalog_number,
                 genres_json,
                 title.primary_studio,
+                title.cover_position_x,
+                title.cover_position_y,
+                title.cover_zoom,
                 now,
             ],
         )?;
@@ -146,7 +149,9 @@ impl<'connection> MediaRepository<'connection> {
                  watched_units = ?12, cover_file_name = ?13, cover_mime_type = ?14,
                  cover_size_bytes = ?15, is_anime = ?16, started_on = ?17,
                  finished_on = ?18, current_season = ?19, current_episode = ?20,
-                 catalog_number = ?21, genres_json = ?22, primary_studio = ?23, updated_at = ?24
+                 catalog_number = ?21, genres_json = ?22, primary_studio = ?23,
+                 cover_position_x = ?24, cover_position_y = ?25, cover_zoom = ?26,
+                 updated_at = ?27
              WHERE id = ?1",
             params![
                 title.id.as_str(),
@@ -172,6 +177,9 @@ impl<'connection> MediaRepository<'connection> {
                 title.catalog_number,
                 genres_json,
                 title.primary_studio,
+                title.cover_position_x,
+                title.cover_position_y,
+                title.cover_zoom,
                 now,
             ],
         )?;
@@ -190,7 +198,8 @@ impl<'connection> MediaRepository<'connection> {
                 "SELECT id, name, alternative_title, kind, tracking_status, score, opinion,
                         is_favorite, is_archived, watched_units, cover_file_name,
                         cover_mime_type, cover_size_bytes, is_anime, started_on, finished_on,
-                        current_season, current_episode, catalog_number, genres_json, primary_studio
+                        current_season, current_episode, catalog_number, genres_json, primary_studio,
+                        cover_position_x, cover_position_y, cover_zoom
                  FROM media_titles WHERE id = ?1",
                 [id.as_str()],
                 title_from_row,
@@ -205,7 +214,8 @@ impl<'connection> MediaRepository<'connection> {
                 "SELECT id, name, alternative_title, kind, tracking_status, score, opinion,
                         is_favorite, is_archived, watched_units, cover_file_name,
                         cover_mime_type, cover_size_bytes, is_anime, started_on, finished_on,
-                        current_season, current_episode, catalog_number, genres_json, primary_studio
+                        current_season, current_episode, catalog_number, genres_json, primary_studio,
+                        cover_position_x, cover_position_y, cover_zoom
                  FROM media_titles ORDER BY updated_at DESC, name COLLATE NOCASE",
             )?;
             let rows = statement
@@ -911,6 +921,9 @@ fn title_from_row(row: &Row<'_>) -> rusqlite::Result<MediaTitle> {
         catalog_number: row.get(18)?,
         genres: genres_from_json(&row.get::<_, String>(19)?)?,
         primary_studio: row.get(20)?,
+        cover_position_x: row.get(21)?,
+        cover_position_y: row.get(22)?,
+        cover_zoom: row.get(23)?,
         cover,
     })
 }
@@ -1142,7 +1155,8 @@ mod tests {
     fn hierarchy_and_sessions_survive_sqlite() {
         let mut connection = Connection::open_in_memory().unwrap();
         apply_migrations(&mut connection).unwrap();
-        let title = title();
+        let mut title = title();
+        title.change_cover_position(22.5, 68.0, 1.35).unwrap();
         let title_id = title.id.clone();
         let mut repository = MediaRepository::new(&mut connection);
         repository.create_title(&title).unwrap();
@@ -1179,6 +1193,9 @@ mod tests {
             .unwrap();
         let restored = repository.find_aggregate(&title_id).unwrap().unwrap();
         assert_eq!(restored.title.primary_studio.as_deref(), Some("Bones"));
+        assert_eq!(restored.title.cover_position_x, 22.5);
+        assert_eq!(restored.title.cover_position_y, 68.0);
+        assert_eq!(restored.title.cover_zoom, 1.35);
         assert!(repository
             .list_studios()
             .unwrap()

@@ -50,3 +50,11 @@
 - Estado: Propuesta pendiente de aprobación
 - Dependencias: T-S05 a T-S07
 - Verificación: pruebas Rust, Clippy, formato, build y uso manual.
+
+## T-S09 — Recolocar la portada horizontal
+
+- Estado: Implementada; comprobación visual pendiente
+- Alcance: reutilizar el editor porcentual del núcleo audiovisual y recuperar el encuadre después de reiniciar.
+- Verificación: arrastrar, centrar y guardar una portada de Serie; cerrar y volver a abrir el detalle.
+
+**Resultado:** Series utiliza las mismas coordenadas persistentes, validación Rust y acción de cabecera que Anime y Películas. Build TypeScript/Vite, 112 pruebas Rust y Clippy estricto correctos.

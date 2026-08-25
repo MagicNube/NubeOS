@@ -115,6 +115,9 @@ pub struct Book {
     pub started_on: Option<NaiveDate>,
     pub finished_on: Option<NaiveDate>,
     pub cover: Option<ManagedReadingCover>,
+    pub cover_position_x: f64,
+    pub cover_position_y: f64,
+    pub cover_zoom: f64,
     pub archived: bool,
     pub updated_at: String,
 }
@@ -170,6 +173,9 @@ impl Book {
             started_on: draft.started_on,
             finished_on: draft.finished_on,
             cover: None,
+            cover_position_x: 50.0,
+            cover_position_y: 50.0,
+            cover_zoom: 1.0,
             archived: false,
             updated_at,
         })
@@ -186,6 +192,29 @@ impl Book {
         self.favorite = draft.favorite;
         self.started_on = draft.started_on;
         self.finished_on = draft.finished_on;
+        self.updated_at = updated_at;
+        Ok(())
+    }
+
+    pub fn change_cover_crop(
+        &mut self,
+        x: f64,
+        y: f64,
+        zoom: f64,
+        updated_at: String,
+    ) -> Result<(), ReadingError> {
+        if !x.is_finite()
+            || !y.is_finite()
+            || !zoom.is_finite()
+            || !(0.0..=100.0).contains(&x)
+            || !(0.0..=100.0).contains(&y)
+            || !(1.0..=2.0).contains(&zoom)
+        {
+            return Err(ReadingError::InvalidCoverCrop);
+        }
+        self.cover_position_x = x;
+        self.cover_position_y = y;
+        self.cover_zoom = zoom;
         self.updated_at = updated_at;
         Ok(())
     }
@@ -279,6 +308,7 @@ pub enum ReadingError {
     InvalidScore,
     InvalidDateRange,
     InvalidCover,
+    InvalidCoverCrop,
     MissingRunDate,
 }
 
@@ -295,6 +325,7 @@ impl fmt::Display for ReadingError {
             }
             Self::InvalidDateRange => "La fecha final no puede ser anterior a la fecha de inicio.",
             Self::InvalidCover => "La portada guardada no es válida.",
+            Self::InvalidCoverCrop => "El encuadre de la portada no es válido.",
             Self::MissingRunDate => "Indica al menos una fecha para la lectura.",
         })
     }
@@ -341,6 +372,26 @@ mod tests {
         assert_eq!(
             invalid_dates.validate().unwrap_err(),
             ReadingError::InvalidDateRange
+        );
+    }
+
+    #[test]
+    fn cover_crop_is_bounded() {
+        let mut book = Book::new(BookId::generate(), draft(), "now".into()).unwrap();
+        book.change_cover_crop(24.5, 71.0, 1.35, "later".into())
+            .unwrap();
+        assert_eq!(
+            (
+                book.cover_position_x,
+                book.cover_position_y,
+                book.cover_zoom
+            ),
+            (24.5, 71.0, 1.35)
+        );
+        assert_eq!(
+            book.change_cover_crop(-1.0, 50.0, 1.0, "later".into())
+                .unwrap_err(),
+            ReadingError::InvalidCoverCrop
         );
     }
 }

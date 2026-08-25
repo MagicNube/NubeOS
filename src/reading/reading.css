@@ -27,7 +27,8 @@
 .reading-card-open { display: grid; grid-template-columns: 138px minmax(0, 1fr); gap: 17px; width: 100%; height: 100%; min-height: 238px; padding: 15px; border: 0; color: inherit; background: transparent; cursor: pointer; text-align: left; }
 .reading-cover { display: grid; place-items: center; width: 138px; height: 207px; margin: 0; overflow: hidden; border: 0; border-radius: 8px; color: #716a74; background: transparent; }
 .reading-cover-image { width: 100%; height: 100%; border-radius: 6px; object-fit: contain; }
-.reading-cover.detail { flex: 0 0 120px; width: 120px; height: 180px; margin: 0; border: 1px solid #38343a; border-radius: 8px; background: linear-gradient(145deg, #252126, #191719); }
+.reading-detail-cover-wrap { flex: 0 0 120px; width: 120px; height: 180px; }
+.reading-cover.detail { width: 120px; height: 180px; margin: 0; border: 1px solid #38343a; border-radius: 8px; background: linear-gradient(145deg, #252126, #191719); }
 .reading-cover.detail .reading-cover-image { display: block; object-fit: cover; object-position: center; }
 .reading-card .reading-cover { position: relative; isolation: isolate; border: 1px solid #514957; border-radius: 8px; background: #211e22; box-shadow: 3px 4px 0 rgba(0, 0, 0, .24), 0 8px 18px rgba(0, 0, 0, .18); }
 .reading-card .reading-cover::after { position: absolute; z-index: 2; inset: 0 auto 0 0; width: 7px; border-radius: 7px 0 0 7px; background: linear-gradient(90deg, rgba(0, 0, 0, .42), rgba(255, 255, 255, .1), transparent); content: ""; pointer-events: none; }

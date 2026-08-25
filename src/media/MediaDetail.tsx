@@ -9,6 +9,7 @@ import {
   History,
   Hourglass,
   Lightbulb,
+  Move,
   Eye,
   EyeOff,
   Plus,
@@ -28,6 +29,7 @@ import type {
   TrackingStatus,
 } from "./api";
 import CoverImage from "./CoverImage";
+import CoverPositionEditor from "./CoverPositionEditor";
 import {
   canonLabel,
   contentKindLabel,
@@ -60,8 +62,8 @@ export default function MediaDetailView({
   setTitleStatus,
   setTitleScore,
   setTitleFavorite,
-  updateContentStatus,
   openHistory,
+  setCoverPosition,
 }: {
   detail: MediaDetail;
   busy: boolean;
@@ -85,14 +87,15 @@ export default function MediaDetailView({
   setTitleStatus: (status: TrackingStatus) => Promise<void>;
   setTitleScore: (score: number | null) => Promise<void>;
   setTitleFavorite: (favorite: boolean) => Promise<void>;
-  updateContentStatus: (content: MediaContent, status: TrackingStatus) => Promise<void>;
   openHistory: (titleId: string, contentId?: string) => void;
+  setCoverPosition: (x: number, y: number, zoom: number) => Promise<boolean>;
 }) {
   const { title } = detail;
   const [contentStatus, setContentStatus] = useState<TrackingStatus | "">("");
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [dragPoint, setDragPoint] = useState<{ x: number; y: number } | null>(null);
+  const [positioningCover, setPositioningCover] = useState(false);
   const pointerDrag = useRef<{
     id: string;
     x: number;
@@ -166,17 +169,22 @@ export default function MediaDetailView({
   }
 
   return (
+    <>
     <Modal className="media-detail-dialog" labelledBy="media-detail-title" onClose={close}>
       <article className="media-detail">
         <header className="media-detail-header">
-          <div className="media-detail-cover-wrap">
+          <div className="media-detail-cover-wrap ui-cover-adjust-host">
             <CoverImage
               alt={`Portada de ${title.name}`}
               className="media-detail-cover"
               hasCover={title.hasCover}
+              positionX={title.coverPositionX}
+              positionY={title.coverPositionY}
               titleId={title.id}
+              zoom={title.coverZoom}
             />
             {title.kind === "anime" && title.catalogNumber && <span className="media-detail-catalog-number">#{title.catalogNumber}</span>}
+            {!title.archived && title.hasCover && <button aria-label="Ajustar encuadre de portada" className="ui-cover-adjust-button" onClick={() => setPositioningCover(true)} type="button"><Move size={14} /> Ajustar</button>}
           </div>
           <div className="media-detail-heading">
             <div className="media-detail-kickers">
@@ -335,7 +343,6 @@ export default function MediaDetailView({
                     remove={() => removeContent(content)}
                     omit={() => omitContent(content)}
                     showHistory={() => openHistory(title.id, content.id)}
-                    setStatus={(status) => updateContentStatus(content, status)}
                     setProgress={(watched, date) => setProgress("content", content.id, watched, date)}
                   />
                 ))}
@@ -355,6 +362,8 @@ export default function MediaDetailView({
         )}
       </article>
     </Modal>
+    {positioningCover && <CoverPositionEditor busy={busy} close={() => setPositioningCover(false)} landscape={title.kind === "movie"} save={setCoverPosition} title={title} />}
+    </>
   );
 }
 
@@ -370,7 +379,6 @@ function ContentRow({
   omit,
   showHistory,
   increment,
-  setStatus,
   setProgress,
   onPointerDown,
   onPointerMove,
@@ -388,16 +396,17 @@ function ContentRow({
   omit: () => Promise<void>;
   showHistory: () => void;
   increment: () => Promise<void>;
-  setStatus: (status: TrackingStatus) => Promise<void>;
   setProgress: (watched: number, date: string) => Promise<void>;
   onPointerDown: (event: React.PointerEvent) => void;
   onPointerMove: (event: React.PointerEvent) => void;
   onPointerUp: () => void;
   onPointerCancel: () => void;
 }) {
+  const [panel, setPanel] = useState<"information" | "history">("information");
+
   return (
     <article
-      className={`media-content-row${dragging ? " dragging" : ""}${dropTarget ? " drop-target" : ""}${content.canonStatus === "omitted" ? " omitted" : ""}`}
+      className={`media-content-row panel-${panel}${dragging ? " dragging" : ""}${dropTarget ? " drop-target" : ""}${content.canonStatus === "omitted" ? " omitted" : ""}`}
       data-media-content-id={content.id}
     >
       <button
@@ -412,33 +421,36 @@ function ContentRow({
       >
         <GripVertical aria-hidden="true" size={18} />
       </button>
-      <div className={`media-content-score-column${content.score === null ? " unrated" : ""}`} style={{ color: scoreColor(content.score) }} title={content.score === null ? "Sin puntuar" : `Puntuación ${formatScore(content.score)}`}>
-        <Star aria-hidden="true" fill={content.score === null ? "none" : "currentColor"} size={13} />
-        <strong>{content.score === null ? "—" : formatScore(content.score)}</strong>
-      </div>
       <div className="media-content-copy">
-        <div className="media-content-title-line">
-          <span className="media-content-order">#{content.position + 1}</span>
-          <strong>{conciseContentName(content.name, titleName)}</strong>
+        <div className="media-content-card-toolbar">
+          <span className={`media-content-status-label status-${content.status}`}>{statusLabel(content.status)}</span>
+          <div className="media-content-panel-tabs" role="tablist" aria-label={`Vista de ${content.name}`}>
+            <button aria-selected={panel === "information"} className={panel === "information" ? "active" : ""} onClick={() => setPanel("information")} role="tab" type="button">Información</button>
+            <button aria-selected={panel === "history"} className={panel === "history" ? "active" : ""} onClick={() => setPanel("history")} role="tab" type="button">Historial</button>
+          </div>
+          {editable ? <div className="media-content-actions">
+            <button aria-label={content.canonStatus === "omitted" ? `Volver a incluir ${content.name} como Canon` : `Omitir ${content.name} del progreso`} className="media-icon-button omit" disabled={busy} onClick={() => void omit()} title={content.canonStatus === "omitted" ? "Volver a incluir como Canon" : "Omitir del progreso"} type="button">{content.canonStatus === "omitted" ? <Eye size={16} /> : <EyeOff size={16} />}</button>
+            <button aria-label={`Editar ${content.name}`} className="media-icon-button" onClick={edit} title="Editar" type="button"><Edit3 size={16} /></button>
+            <button aria-label={`Eliminar ${content.name}`} className="media-icon-button danger" onClick={() => void remove()} title="Eliminar" type="button"><Trash2 size={16} /></button>
+          </div> : <span aria-hidden="true" className="media-content-actions-placeholder" />}
         </div>
-        <div className="media-content-metadata">
+        <div className="media-content-identity"><span className="media-content-order">#{content.position + 1}</span><strong>{conciseContentName(content.name, titleName)}</strong></div>
+      </div>
+      {panel === "information" && <div className="media-content-information">
+        <ProgressOverview current={content.watchedEpisodes} total={content.effectiveTotal} />
+        <div className="media-content-summary">
+          <div className="score" style={{ color: scoreColor(content.score) }}><small>Puntuación</small><strong><Star aria-hidden="true" fill={content.score === null ? "none" : "currentColor"} size={13} /> {content.score === null ? "—" : formatScore(content.score)}</strong></div>
           <div><small>Tipo</small><strong>{contentKindLabel(content.kind)}</strong></div>
           <div><small>Canonicidad</small><strong className={`canon-${content.canonStatus}`}>{canonLabel(content.canonStatus)}</strong></div>
-          {content.studio && <div><small>Estudio</small><strong>{content.studio}</strong></div>}
-          {content.releasedOn && <div><small>Estreno</small><strong><CalendarDays size={13} /> {formatDate(content.releasedOn)}</strong></div>}
+          <div><small>Estudio</small><strong aria-label={content.studio || "Sin estudio especificado"}>{content.studio || "\u00a0"}</strong></div>
+          <div><small>Estreno</small><strong aria-label={content.releasedOn ? formatDate(content.releasedOn) : "Sin fecha de estreno"}>{content.releasedOn ? <><CalendarDays size={13} /> {formatDate(content.releasedOn)}</> : "\u00a0"}</strong></div>
         </div>
-        {content.opinion && <p>{content.opinion}</p>}
-        {content.notes && <p className="media-content-notes">{content.notes}</p>}
-      </div>
-      <div className="media-content-state">
-        <StatusIconSelector
-          busy={busy || !editable}
-          name={content.name}
-          setStatus={setStatus}
-          status={content.status}
-        />
-      </div>
-      <div className="media-content-progress">
+        {(content.opinion || content.notes) && <div className="media-content-text">
+          {content.opinion && <p>{content.opinion}</p>}
+          {content.notes && <p className="media-content-notes">{content.notes}</p>}
+        </div>}
+      </div>}
+      {panel === "history" && <div className="media-content-progress">
         <ProgressEditor
           busy={busy}
           canIncrement={content.canIncrement}
@@ -448,23 +460,7 @@ function ContentRow({
           showHistory={showHistory}
           total={content.effectiveTotal}
         />
-      </div>
-      {editable && (
-        <div className="media-content-actions">
-          <button
-            aria-label={content.canonStatus === "omitted" ? `Volver a incluir ${content.name} como Canon` : `Omitir ${content.name} del progreso`}
-            className="media-icon-button omit"
-            disabled={busy}
-            onClick={() => void omit()}
-            title={content.canonStatus === "omitted" ? "Volver a incluir como Canon" : "Omitir del progreso"}
-            type="button"
-          >
-            {content.canonStatus === "omitted" ? <Eye size={16} /> : <EyeOff size={16} />}
-          </button>
-          <button aria-label={`Editar ${content.name}`} className="media-icon-button" onClick={edit} type="button"><Edit3 size={16} /></button>
-          <button aria-label={`Eliminar ${content.name}`} className="media-icon-button danger" onClick={() => void remove()} type="button"><Trash2 size={16} /></button>
-        </div>
-      )}
+      </div>}
     </article>
   );
 }
@@ -555,51 +551,26 @@ function ProgressEditor({
   const hasChanges = value !== "" && Number(value) !== current;
   return (
     <div className={`media-progress-editor${showHistory ? " with-history" : ""}`}>
-      <div className="media-progress-value">
-        <input
-          aria-label="Episodios vistos"
-          disabled={busy}
-          min={0}
-          onChange={(event) => setValue(event.target.value)}
-          step={1}
-          type="number"
-          value={value}
-        />
-        <span>de {total ?? "?"}</span>
+      <ProgressOverview current={current} total={total} />
+      <div className="media-progress-controls">
+        <label><span>Corregir progreso</span><div className="media-progress-value"><input aria-label="Episodios vistos" disabled={busy} min={0} onChange={(event) => setValue(event.target.value)} step={1} type="number" value={value} /><span>de {total ?? "?"}</span></div></label>
+        <label><span>Fecha del registro</span><input aria-label="Fecha del avance" className="media-progress-date" max={todayMadrid()} onChange={(event) => setDate(event.target.value)} type="date" value={date} /></label>
+        <button aria-label="Registrar una unidad vista" className="media-plus-one" disabled={busy || !canIncrement} onClick={() => void increment()} type="button">Registrar +1</button>
       </div>
-      <input
-        aria-label="Fecha del avance"
-        className="media-progress-date"
-        max={todayMadrid()}
-        onChange={(event) => setDate(event.target.value)}
-        type="date"
-        value={date}
-      />
-      <button
-        aria-label="Añadir un episodio"
-        className="media-plus-one"
-        disabled={busy || !canIncrement}
-        onClick={() => void increment()}
-        type="button"
-      >
-        +1
-      </button>
-      <button
-        className="media-save-progress"
-        disabled={busy || !hasChanges}
-        onClick={() => void save(Number(value), date)}
-        type="button"
-      >
-        Guardar cambios
-      </button>
-      {showHistory && (
-        <button className="media-progress-history" onClick={showHistory} type="button">
-          <History aria-hidden="true" size={13} />
-          Ver historial
-        </button>
-      )}
+      <div className="media-progress-actions-row">
+        {showHistory && <button className="media-progress-history" onClick={showHistory} type="button"><History aria-hidden="true" size={13} /> Ver historial completo</button>}
+        <button className="media-save-progress" disabled={busy || !hasChanges} onClick={() => void save(Number(value), date)} type="button">Guardar cambios</button>
+      </div>
     </div>
   );
+}
+
+function ProgressOverview({ current, total }: { current: number; total: number | null }) {
+  const progress = total && total > 0 ? Math.min(100, Math.round((current / total) * 100)) : null;
+  return <div className="media-progress-overview">
+    <div><span>Progreso registrado</span><strong>{current} <small>de {total ?? "?"}</small></strong></div>
+    {progress !== null && <div className="media-progress-track" aria-label={`${progress}% completado`} role="progressbar" aria-valuemax={100} aria-valuemin={0} aria-valuenow={progress}><span style={{ width: `${progress}%` }} /></div>}
+  </div>;
 }
 
 function QuickScore({ score, busy, save }: { score: number | null; busy: boolean; save: (score: number | null) => Promise<void> }) {

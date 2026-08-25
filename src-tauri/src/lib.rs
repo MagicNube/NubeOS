@@ -24,8 +24,8 @@ use games::{
         archive_game, create_game, create_game_run, delete_game, delete_game_run,
         discard_pending_game_cover, finish_game_run, get_game, get_game_statistics,
         list_game_history, list_games, prepare_pasted_game_cover, read_game_cover, restore_game,
-        select_game_cover, set_game_favorite, start_game_run, update_game, update_game_run,
-        GameCoverState,
+        select_game_cover, set_game_cover_crop, set_game_favorite, start_game_run, update_game,
+        update_game_run, GameCoverState,
     },
     cover::GameCoverStore,
 };
@@ -52,9 +52,10 @@ use media::{
         discard_pending_media_cover, get_media_statistics, get_media_title,
         increment_media_progress, list_media_history, list_media_studios, list_media_titles,
         list_movie_viewings, prepare_pasted_media_cover, read_media_cover, reorder_media_contents,
-        restore_media_title, select_media_cover, set_media_progress, set_media_title_favorite,
-        set_media_title_score, set_media_title_status, update_media_content,
-        update_media_history_date, update_media_title, update_movie_viewing, MediaCoverState,
+        restore_media_title, select_media_cover, set_media_cover_position, set_media_progress,
+        set_media_title_favorite, set_media_title_score, set_media_title_status,
+        update_media_content, update_media_history_date, update_media_title, update_movie_viewing,
+        MediaCoverState,
     },
     cover::CoverStore,
 };
@@ -63,7 +64,8 @@ use reading::commands::{
     delete_reading_run, discard_pending_reading_cover, finish_reading_run, get_reading_book,
     get_reading_statistics, list_reading_books, list_reading_history, prepare_pasted_reading_cover,
     read_reading_cover, restore_reading_book, select_reading_cover, set_reading_book_favorite,
-    start_reading_run, update_reading_book, update_reading_run, ReadingCoverState,
+    set_reading_cover_crop, start_reading_run, update_reading_book, update_reading_run,
+    ReadingCoverState,
 };
 use reading::cover::ReadingCoverStore;
 
@@ -203,6 +205,7 @@ pub fn run() {
             set_media_title_status,
             set_media_title_score,
             set_media_title_favorite,
+            set_media_cover_position,
             list_media_studios,
             list_media_history,
             update_media_history_date,
@@ -243,6 +246,7 @@ pub fn run() {
             delete_reading_run,
             list_reading_history,
             read_reading_cover,
+            set_reading_cover_crop,
             list_games,
             get_game,
             create_game,
@@ -262,6 +266,7 @@ pub fn run() {
             prepare_pasted_game_cover,
             discard_pending_game_cover,
             read_game_cover,
+            set_game_cover_crop,
         ])
         .run(tauri::generate_context!())
         .expect("error while running NubeOS");

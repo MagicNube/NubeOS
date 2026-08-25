@@ -43,6 +43,9 @@ export type MediaTitle = {
   favorite: boolean;
   archived: boolean;
   hasCover: boolean;
+  coverPositionX: number;
+  coverPositionY: number;
+  coverZoom: number;
   watchedUnits: number;
   startedOn: string | null;
   finishedOn: string | null;
@@ -186,6 +189,8 @@ export const mediaApi = {
     invoke<MediaDetail>("set_media_title_score", { titleId, score }),
   setTitleFavorite: (titleId: string, favorite: boolean) =>
     invoke<MediaDetail>("set_media_title_favorite", { titleId, favorite }),
+  setCoverPosition: (titleId: string, x: number, y: number, zoom: number) =>
+    invoke<MediaDetail>("set_media_cover_position", { titleId, x, y, zoom }),
   createContent: (titleId: string, input: MediaContentInput) =>
     invoke<MediaDetail>("create_media_content", { titleId, input }),
   updateContent: (contentId: string, input: MediaContentInput) =>

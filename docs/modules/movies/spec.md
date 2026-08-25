@@ -17,7 +17,7 @@ Mantener un tracker independiente y de baja fricción para películas convencion
 - Consultar, corregir y retirar visionados desde Historial.
 - Buscar, filtrar, archivar, restaurar y eliminar definitivamente.
 - Consultar estadísticas filtradas por año de finalización y puntuación mínima.
-- Mostrar portadas horizontales completas en Biblioteca y detalle.
+- Mostrar portadas horizontales con encuadre y zoom configurables en Biblioteca y detalle.
 - Dividir el detalle en `Resumen` e `Historial`: el resumen muestra puntuación, visionados y estado; el historial concentra las fechas y acciones de revisionado.
 - Elegir favorito mediante el patrón común de estrella vacía o rellena, también en el formulario.
 
@@ -46,3 +46,6 @@ Mantener un tracker independiente y de baja fricción para películas convencion
 - [ ] Una película admite varios visionados con fechas independientes.
 - [ ] Historial permite corregir o retirar un visionado sin crear entradas negativas.
 - [ ] Estadísticas recalcula títulos, vistas y media al filtrar por año o puntuación mínima.
+- [x] Favorito puede alternarse directamente desde una tarjeta activa de Biblioteca y desde el detalle.
+- [x] La portada puede recolocarse dentro del marco horizontal y conserva la posición elegida.
+- [x] La portada admite zoom persistente entre `1×` y `2×`.

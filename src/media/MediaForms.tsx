@@ -64,6 +64,7 @@ export function MediaTitleForm({
   const [cover, setCover] = useState<PendingCover | null>(null);
   const [removeCover, setRemoveCover] = useState(false);
   const [coverBusy, setCoverBusy] = useState(false);
+  const [coverError, setCoverError] = useState<string | null>(null);
   const initialFingerprint = useMemo(() => JSON.stringify({
     name: title?.name ?? "", alternativeTitle: title?.alternativeTitle ?? "",
     genres: title?.genres.join(", ") ?? "", primaryStudio: title?.primaryStudio ?? "", kind: initialKind,
@@ -79,6 +80,7 @@ export function MediaTitleForm({
 
   async function selectCover() {
     setCoverBusy(true);
+    setCoverError(null);
     try {
       const selected = await mediaApi.selectCover();
       if (!selected) return;
@@ -92,6 +94,7 @@ export function MediaTitleForm({
 
   async function pasteCover(event: React.ClipboardEvent<HTMLElement>) {
     setCoverBusy(true);
+    setCoverError(null);
     try {
       const bytes = await pastedCoverAsJpeg(event);
       if (!bytes) return;
@@ -99,7 +102,7 @@ export function MediaTitleForm({
       if (cover) await mediaApi.discardCover(cover.token).catch(() => undefined);
       setCover(selected);
       setRemoveCover(false);
-    } catch (reason) { window.alert(mediaErrorMessage(reason)); }
+    } catch (reason) { setCoverError(mediaErrorMessage(reason)); }
     finally { setCoverBusy(false); }
   }
 
@@ -289,6 +292,7 @@ export function MediaTitleForm({
             {coverBusy ? "Seleccionando…" : "Elegir imagen"}
           </button>
           {cover && <span className="cover-file-name">{cover.originalName}</span>}
+          {coverError && <span className="cover-error" role="alert">{coverError}</span>}
           {title?.hasCover && !cover && (
             <label className="media-check-field cover-remove">
               <input
@@ -330,9 +334,9 @@ export function MediaContentForm({
   const [score, setScore] = useState(content?.score?.toString() ?? "");
   const [opinion, setOpinion] = useState(content?.opinion ?? "");
   const [notes, setNotes] = useState(content?.notes ?? "");
-  const [startedOn, setStartedOn] = useState(content?.startedOn ?? "");
+  const startedOn = content?.startedOn ?? "";
   const [releasedOn, setReleasedOn] = useState(content?.releasedOn ?? "");
-  const [finishedOn, setFinishedOn] = useState(content?.finishedOn ?? "");
+  const finishedOn = content?.finishedOn ?? "";
   const [studios, setStudios] = useState<string[]>([]);
   const effectiveHint = useMemo(
     () => kind !== "season" && total === "",
@@ -425,26 +429,19 @@ export function MediaContentForm({
                 <input list="media-studio-options" maxLength={150} onChange={(event) => setStudio(event.target.value)} placeholder="Ej. Bones" value={studio} />
                 <datalist id="media-studio-options">{studios.map((item) => <option key={item} value={item} />)}</datalist>
               </label>
-            </div>
-          </FormSection>
-
-          <FormSection title="Línea temporal">
-            <div className="media-form-grid media-form-grid-three">
-              <label className="media-field">Fecha de inicio (opcional)<input onChange={(event) => setStartedOn(event.target.value)} type="date" value={startedOn} /></label>
-              <label className="media-field">Fecha final (opcional)<input onChange={(event) => setFinishedOn(event.target.value)} type="date" value={finishedOn} /></label>
               <label className="media-field">Fecha de estreno (opcional)<input onChange={(event) => setReleasedOn(event.target.value)} type="date" value={releasedOn} /></label>
             </div>
           </FormSection>
 
-          <FormSection title="Anotaciones">
+          <FormSection title="Opinión y anotaciones">
             <div className="media-form-grid">
-              <label className="media-field">
-                Más información (opcional)
-                <textarea maxLength={4000} onChange={(event) => setNotes(event.target.value)} placeholder="Información objetiva, orden de visionado o contexto…" rows={2} value={notes} />
-              </label>
               <label className="media-field">
                 Opinión (opcional)
                 <textarea maxLength={4000} onChange={(event) => setOpinion(event.target.value)} placeholder="Qué te pareció este contenido…" rows={2} value={opinion} />
+              </label>
+              <label className="media-field">
+                Anotaciones (opcional)
+                <textarea maxLength={4000} onChange={(event) => setNotes(event.target.value)} placeholder="Información objetiva, orden de visionado o contexto…" rows={2} value={notes} />
               </label>
             </div>
           </FormSection>

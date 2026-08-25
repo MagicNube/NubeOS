@@ -23,6 +23,10 @@ Películas reutiliza `MediaTitle` con `kind = movie` e `is_anime = false`. Cada 
 - Acción `Volver a ver`, contador de visionados e Historial filtrable.
 - Formulario sin campos de temporadas o contenidos y con favorito mediante estrella, no checkbox.
 - Estadísticas solicita a Rust un subconjunto por año de finalización y puntuación mínima antes de calcular sus agregados.
+- Los filtros de Estadísticas reutilizan el selector oscuro común: altura, tipografía, flecha, foco y opciones no dependen del estilo nativo claro del sistema.
+- La estrella de favorito es una acción independiente de la apertura de tarjeta y responde sin abrir el detalle.
+- Las coordenadas porcentuales de portada pertenecen a `MediaTitle` y son compartidas con Anime y Series.
+- El editor de encuadre permite arrastrar con captura de puntero y ajustar los ejes horizontal y vertical como alternativa precisa.
 
 ## Persistencia
 

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { BookOpen } from "lucide-react";
 import { readingApi } from "./api";
 
-export default function ReadingCoverImage({ bookId, hasCover, alt, className = "" }: { bookId: string; hasCover: boolean; alt: string; className?: string }) {
+export default function ReadingCoverImage({ bookId, hasCover, alt, className = "", positionX = 50, positionY = 50, zoom = 1 }: { bookId: string; hasCover: boolean; alt: string; className?: string; positionX?: number; positionY?: number; zoom?: number }) {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
     if (!hasCover) { setUrl(null); return; }
@@ -17,5 +17,5 @@ export default function ReadingCoverImage({ bookId, hasCover, alt, className = "
     }).catch(() => alive && setUrl(null));
     return () => { alive = false; if (objectUrl) URL.revokeObjectURL(objectUrl); };
   }, [bookId, hasCover]);
-  return <div className={`reading-cover ${className}`}>{url ? <img alt={alt} className="reading-cover-image" src={url} /> : <BookOpen aria-hidden="true" />}</div>;
+  return <div className={`reading-cover ${className}`}>{url ? <img alt={alt} className="reading-cover-image" src={url} style={{ objectPosition: `${positionX}% ${positionY}%`, transform: `scale(${zoom})`, transformOrigin: `${positionX}% ${positionY}%` }} /> : <BookOpen aria-hidden="true" />}</div>;
 }
