@@ -150,3 +150,35 @@
 - Estado: Implementada; comprobación visual pendiente
 - Alcance: persistir posición X/Y y zoom, reutilizar el editor compartido y mostrar la acción Ajustar únicamente al hover, foco o en dispositivos sin hover.
 - Verificación: pruebas de dominio y repositorio, build y recorrido manual con portada vertical.
+
+## T-R24 — Corregir el formulario de lecturas y relecturas
+
+- Estado: Implementada; comprobación visual pendiente.
+- Alcance: aplicar al formulario de fechas los mismos campos oscuros, espaciados, estados de foco y adaptación responsive que al resto de Lectura.
+- Restricciones: no modificar el historial, las fechas almacenadas ni los casos de uso de lectura.
+- Verificación: abrir Registrar lectura y Editar lectura en ventanas anchas y estrechas, y ejecutar el build TypeScript/Vite.
+
+## T-R25 — Refrescar y retirar portadas de forma coherente
+
+- Estado: Implementada; comprobación visual pendiente.
+- Alcance: mostrar el nombre de una portada recién elegida, retirarla mediante papelera y refrescar Biblioteca y detalle tras sustituirla.
+- Verificación: elegir, pegar, reemplazar y eliminar la portada de un libro ya existente sin reiniciar la aplicación.
+
+## T-R26 — Consolidar formularios, ordenación e historial
+
+- Estado: Implementada; comprobación visual pendiente.
+- Alcance: incorporar favorito al formulario, conservar la ordenación por título, puntuación y fechas, simplificar la cabecera del historial y exigir fecha inicial en todas las lecturas.
+- Restricciones: una relectura no puede comenzar antes de la primera lectura; la fecha final permanece opcional.
+- Verificación: crear, editar y ordenar libros; registrar lecturas válidas e intentar guardar una relectura cronológicamente inválida.
+
+## T-R27 — Corregir contraste de fechas y retirada de portada
+
+- Estado: Implementada; comprobación visual pendiente.
+- Alcance: mantener blancos los segmentos de los selectores de fecha durante su edición y centrar la acción iconográfica de papelera en el formulario de portada.
+- Verificación: escribir y corregir días, meses y años; editar un libro con portada y revisar la alineación de la papelera.
+
+## T-R28 — Conservar los años disponibles al filtrar el historial
+
+- Estado: Implementada; comprobación visual pendiente.
+- Alcance: obtener los años a partir del historial completo del libro seleccionado, independientemente del año actualmente filtrado.
+- Verificación: alternar entre varios años sin que desaparezcan las demás opciones y comprobar el filtro combinado por libro.

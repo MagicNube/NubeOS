@@ -18,7 +18,7 @@ Mantener una biblioteca personal de libros pendientes, en lectura y terminados, 
 - Estados: Pendiente, Leyendo, En pausa, Terminado y Abandonado.
 - Buscar por título o autor y filtrar por estado y género. El filtro de favoritos solo aparece en Biblioteca.
 - Marcar un libro como favorito con una estrella vacía o rellena.
-- Ordenar la Biblioteca por actualización, título, autor o puntuación.
+- Ordenar la Biblioteca por actualización, título, autor, puntuación o fechas inicial y final en ambos sentidos, conservando la opción elegida.
 - Mostrar cada libro con una portada vertical de altura uniforme y distribuir a su lado estado, identidad, géneros, fechas y puntuación.
 - Mostrar puntuaciones de 0 a 10, con un decimal y la escala cromática SeriesGraph usada por los módulos audiovisuales.
 - Archivar, restaurar y eliminar definitivamente con confirmación.
@@ -32,6 +32,8 @@ Mantener una biblioteca personal de libros pendientes, en lectura y terminados, 
 - Un libro puede tener varios géneros sin duplicados.
 - La puntuación es opcional; cuando existe debe estar entre 0 y 10 y tener como máximo un decimal.
 - La fecha final no puede ser anterior a la fecha inicial.
+- Cada lectura requiere fecha inicial; la fecha final es opcional mientras no haya terminado.
+- Una relectura no puede comenzar antes de la primera lectura registrada del libro.
 - Terminar un libro no inventa fechas. Las fechas continúan siendo datos explícitos del usuario.
 - Solo puede existir una lectura sin fecha final por libro.
 - Iniciar una lectura establece el estado Leyendo; finalizarla establece Terminado.
@@ -67,7 +69,7 @@ Los CSV aportados se usan únicamente para validar el modelo. Contienen 27 libro
 - [x] Se puede crear y recuperar un libro con todos los campos aprobados.
 - [x] Las validaciones de título, autor, puntuación y fechas se aplican en Rust.
 - [ ] Búsqueda, estado, género, favorito y ordenación pueden combinarse.
-- [ ] En lectura contiene únicamente libros con estado Leyendo o En pausa.
+- [x] Leyendo contiene únicamente libros con estado Leyendo y conserva filtros independientes de Biblioteca.
 - [x] Biblioteca es la vista inicial y Leyendo no muestra el filtro Favoritos.
 - [x] El formulario ofrece géneros predefinidos sin texto libre.
 - [x] Una portada seleccionada se copia al espacio privado y puede sustituirse o eliminarse.

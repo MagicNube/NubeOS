@@ -390,7 +390,7 @@ pub fn prepare_pasted_media_cover(
         .store
         .lock()
         .map_err(|_| unavailable())?
-        .prepare_jpeg_bytes(&bytes)
+        .prepare_pasted_bytes(&bytes)
         .map_err(|reason| error("invalidCover", reason.to_string()))?;
     Ok(PendingCoverDto {
         token: pending.token,

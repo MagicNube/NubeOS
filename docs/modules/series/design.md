@@ -19,14 +19,17 @@ No crea `MediaContent`. El núcleo audiovisual compartido aporta portada, estado
 
 ## Interfaz
 
-- Una única Biblioteca enfocada, sin pestaña Todos.
+- Navegación compacta mediante `Biblioteca` y `Estadísticas`, sin pestaña Todos ni historial global.
 - Fila superior con búsqueda, estado y favoritos.
 - Tarjetas de tamaño estable con `Tn · En` cuando procede.
 - Detalle simple con posición, fechas, puntuación y opinión.
+- El formulario agrupa identificación, seguimiento, opinión y portada igual que los demás trackers.
+- Estadísticas reutiliza el resumen audiovisual compartido y presenta series totales, terminadas y puntuación media; permite filtrar por puntuación mínima.
 - Historial por serie y año, con corrección de fechas y retirada segura.
 - Acción `Volver a ver` que crea un periodo y reinicia la posición actual.
 - Datos jerárquicos del prototipo se muestran como contenido conservado, sin permitir crear nuevos.
 - La portada horizontal comparte con Anime y Películas un encuadre porcentual editable y persistente.
+- La cabecera reserva a la portada horizontal su anchura real para evitar cualquier solapamiento con título, estado y acciones.
 
 ## Persistencia
 

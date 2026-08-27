@@ -204,7 +204,7 @@ impl GameRun {
 }
 
 fn validate_dates(start: Option<NaiveDate>, end: Option<NaiveDate>) -> Result<(), GameError> {
-    if start.is_none() && end.is_none() {
+    if start.is_none() {
         return Err(GameError::MissingRunDate);
     }
     if start.zip(end).is_some_and(|(start, end)| start > end) {
@@ -259,7 +259,7 @@ impl fmt::Display for GameError {
                 "La puntuación debe estar entre 0 y 10 y tener como máximo un decimal."
             }
             Self::InvalidDateRange => "La fecha final no puede ser anterior a la fecha de inicio.",
-            Self::MissingRunDate => "Indica al menos una fecha para la partida.",
+            Self::MissingRunDate => "La fecha de inicio de la partida es obligatoria.",
             Self::InvalidCover => "La portada guardada no es válida.",
             Self::InvalidCoverCrop => "El encuadre de la portada no es válido.",
         })
@@ -293,6 +293,16 @@ mod tests {
         let game_id = GameId::generate();
         assert_eq!(
             GameRun::new(game_id.clone(), None, None, "now".into()).unwrap_err(),
+            GameError::MissingRunDate
+        );
+        assert_eq!(
+            GameRun::new(
+                game_id.clone(),
+                None,
+                NaiveDate::from_ymd_opt(2026, 8, 2),
+                "now".into(),
+            )
+            .unwrap_err(),
             GameError::MissingRunDate
         );
         let start = NaiveDate::from_ymd_opt(2026, 8, 2);

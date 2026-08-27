@@ -7,7 +7,9 @@
 .reading-text-action { display: inline-flex; align-items: center; gap: 7px; min-height: 38px; padding: 0 10px; border: 1px solid transparent; border-radius: 8px; color: #a78bfa; background: transparent; cursor: pointer; font-size: 13px; font-weight: 700; }
 .reading-text-action:hover { border-color: rgba(139, 92, 246, .45); background: rgba(139, 92, 246, .08); }
 .reading-view-heading { margin-bottom: 20px; }
-.reading-view-heading > span { color: #9f6cff; font-size: 10px; font-weight: 800; letter-spacing: .12em; }
+.reading-view-heading > span { color: #9f6cff; font-size: var(--ui-eyebrow-font-size); font-weight: 800; letter-spacing: .12em; }
+.reading-collection-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+.reading-collection-heading > .reading-view-heading { margin-bottom: 0; }
 .reading-view-heading h2 { margin: 7px 0 5px; font-size: 24px; letter-spacing: -.04em; }
 .reading-view-heading p { margin: 0; color: #8e8791; font-size: 14px; }
 .reading-error { display: flex; justify-content: space-between; gap: 12px; padding: 10px 13px; margin-bottom: 16px; border: 1px solid #713b49; border-radius: 8px; color: #fecdd3; background: rgba(127, 29, 29, .18); font-size: 13px; }
@@ -76,6 +78,7 @@
 .reading-cover-field > div { display: grid; gap: 4px; min-width: 220px; margin-right: auto; color: #ddd7df; font-size: 13px; }
 .reading-cover-field span { color: #817a84; font-size: 11px; }
 .reading-cover-field button { display: inline-flex; align-items: center; gap: 7px; }
+.reading-cover-field .reading-icon-action { display: grid; place-items: center; padding: 0; }
 .reading-cover-field:focus { outline: 1px solid #8b5cf6; outline-offset: 7px; border-radius: 4px; }
 .reading-form-modal input, .reading-form-modal select { min-height: 43px; padding: 0 12px; }
 .reading-form-modal input[type="number"] { appearance: textfield; }
@@ -115,7 +118,18 @@
 .reading-run-list span,.reading-history-list span { color:#8e8791;font-size:11px; }
 .reading-history-list article { grid-template-columns:auto minmax(0,1fr) auto; }.reading-history-list>article>svg { color:#a78bfa; }
 .reading-history-filters { display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-bottom:18px; }.reading-history-filters select { width:100%;min-height:43px;padding:0 40px 0 12px;border:1px solid #39363b;border-radius:8px;color:#f2eff3;background:#151416;font:inherit;font-size:var(--ui-control-font-size); }
-.reading-run-modal { width:min(100%,540px); }.reading-run-modal form { padding:24px; }.reading-run-modal input { min-height:43px;padding:0 12px; }
+.reading-run-modal { width: min(100%, 580px); }
+.reading-run-modal form { padding: 24px; }
+.reading-run-modal .reading-form-grid { margin-top: 22px; }
+.reading-run-modal label { display: grid; min-width: 0; gap: 8px; color: #aaa3ac; font-size: 12px; font-weight: 650; }
+.reading-run-modal input { box-sizing: border-box; width: 100%; min-width: 0; min-height: 43px; padding: 0 12px; border: 1px solid #39363b; border-radius: 8px; outline: 0; color: #f2eff3; background: #151416; font: inherit; font-size: var(--ui-control-font-size); color-scheme: dark; }
+.reading-run-modal input[type="date"]::-webkit-datetime-edit,
+.reading-run-modal input[type="date"]::-webkit-datetime-edit-fields-wrapper,
+.reading-run-modal input[type="date"]::-webkit-datetime-edit-text,
+.reading-run-modal input[type="date"]::-webkit-datetime-edit-day-field,
+.reading-run-modal input[type="date"]::-webkit-datetime-edit-month-field,
+.reading-run-modal input[type="date"]::-webkit-datetime-edit-year-field { color: #f2eff3; -webkit-text-fill-color: #f2eff3; }
+.reading-run-modal input:focus { border-color: #8b5cf6; box-shadow: 0 0 0 2px rgba(139, 92, 246, .14); }
 
 @media (max-width: 1180px) {
   .reading-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -123,7 +137,7 @@
   .reading-stat-grid { grid-template-columns: repeat(3, 1fr); }
 }
 @media (max-width: 760px) {
-  .reading-toolbar, .reading-detail-header { align-items: stretch; flex-direction: column; }
+  .reading-toolbar, .reading-collection-heading, .reading-detail-header { align-items: stretch; flex-direction: column; }
   .reading-filters, .reading-grid, .reading-form-grid, .reading-stat-columns { grid-template-columns: 1fr; }
   .reading-form-grid .wide { grid-column: auto; }
   .reading-detail-grid { grid-template-columns: repeat(2, 1fr); }

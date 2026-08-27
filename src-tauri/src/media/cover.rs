@@ -74,23 +74,24 @@ impl CoverStore {
         self.pending.insert(token, pending.clone());
         Ok(pending)
     }
-    pub fn prepare_jpeg_bytes(&mut self, bytes: &[u8]) -> Result<PendingCover, CoverStoreError> {
-        if bytes.is_empty()
-            || bytes.len() as u64 > MAX_COVER_BYTES
-            || !bytes.starts_with(&[0xFF, 0xD8, 0xFF])
-        {
+    pub fn prepare_pasted_bytes(&mut self, bytes: &[u8]) -> Result<PendingCover, CoverStoreError> {
+        if bytes.is_empty() || bytes.len() as u64 > MAX_COVER_BYTES {
+            return Err(CoverStoreError::InvalidImage);
+        }
+        let (mime_type, extension) = detect_image(bytes).ok_or(CoverStoreError::InvalidImage)?;
+        if !matches!(mime_type, "image/jpeg" | "image/gif") {
             return Err(CoverStoreError::InvalidImage);
         }
         let token = Uuid::new_v4().to_string();
-        let path = self.staging.join(format!("{token}.jpg"));
+        let path = self.staging.join(format!("{token}.{extension}"));
         fs::write(&path, bytes)?;
         let pending = PendingCover {
             token: token.clone(),
-            original_name: "portada-pegada.jpg".into(),
-            mime_type: "image/jpeg".into(),
+            original_name: format!("portada-pegada.{extension}"),
+            mime_type: mime_type.into(),
             size_bytes: bytes.len() as u64,
             path,
-            extension: "jpg",
+            extension,
         };
         self.pending.insert(token, pending.clone());
         Ok(pending)

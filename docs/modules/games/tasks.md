@@ -92,3 +92,22 @@ Las tareas se realizan de una en una después de aprobar spec y diseño. Cada ta
 - Estado: Implementada; comprobación visual pendiente
 - Alcance: persistir posición X/Y y zoom, reutilizar el editor compartido y mostrar Ajustar únicamente al hover, foco o en dispositivos sin hover.
 - Verificación: pruebas de dominio y repositorio, build y recorrido manual con portadas horizontales de proporciones distintas.
+
+## T-G14 — Unificar sustitución y retirada de portada
+
+- Estado: Implementada; comprobación visual pendiente.
+- Alcance: mostrar la nueva imagen seleccionada, sustituir la anterior directamente, retirarla con una papelera y refrescar todas las vistas abiertas.
+- Verificación: reemplazar y eliminar la portada de un videojuego existente, comprobando Biblioteca y detalle sin reiniciar.
+
+## T-G15 — Consolidar formularios, ordenación e historial
+
+- Estado: Implementada; comprobación visual pendiente.
+- Alcance: incorporar favorito al formulario, persistir la ordenación por título, puntuación y fechas y normalizar la cabecera de partidas y rejugadas.
+- Restricciones: toda partida exige fecha inicial y ninguna rejugada puede preceder a la primera partida registrada.
+- Verificación: crear y ordenar videojuegos, registrar partidas válidas y comprobar el rechazo de periodos anteriores al primero.
+
+## T-G16 — Mostrar la última partida y normalizar acciones de portada
+
+- Estado: Implementada; comprobación visual pendiente.
+- Alcance: mostrar inicio y fin de la última partida en cada tarjeta, conservar la paleta común de estados y ocultar Ajustar hasta interactuar con la portada.
+- Verificación: revisar videojuegos sin partidas, partidas en curso y finalizadas; abrir detalles de los cinco trackers y comprobar hover y foco por teclado.

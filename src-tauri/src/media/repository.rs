@@ -23,6 +23,7 @@ pub enum MediaRepositoryError {
     MustBeArchived,
     InvalidOrder,
     SessionCannotBeRemoved,
+    ViewingBeforeFirst,
 }
 
 impl fmt::Display for MediaRepositoryError {
@@ -43,6 +44,9 @@ impl fmt::Display for MediaRepositoryError {
                 .write_str("El nuevo orden no contiene exactamente los contenidos del título."),
             Self::SessionCannotBeRemoved => formatter
                 .write_str("Solo puede retirarse el último episodio registrado de cada contenido."),
+            Self::ViewingBeforeFirst => formatter.write_str(
+                "Un nuevo visionado no puede ser anterior al primer visionado registrado.",
+            ),
         }
     }
 }
@@ -688,6 +692,14 @@ impl<'connection> MediaRepository<'connection> {
         &mut self,
         viewing: &MovieViewing,
     ) -> Result<(), MediaRepositoryError> {
+        let first: Option<String> = self.connection.query_row(
+            "SELECT MIN(watched_on) FROM media_movie_viewings WHERE title_id=?1",
+            [viewing.title_id.as_str()],
+            |row| row.get(0),
+        )?;
+        if first.is_some_and(|date| viewing.watched_on.to_string() < date) {
+            return Err(MediaRepositoryError::ViewingBeforeFirst);
+        }
         self.connection.execute("INSERT INTO media_movie_viewings(id,title_id,watched_on,created_at,updated_at) VALUES(?1,?2,?3,?4,?5)",
             params![viewing.id.as_str(), viewing.title_id.as_str(), viewing.watched_on.to_string(), viewing.created_at, viewing.updated_at])?;
         self.sync_movie_from_viewings(&viewing.title_id)
@@ -707,6 +719,19 @@ impl<'connection> MediaRepository<'connection> {
             )
             .optional()?
             .ok_or(MediaRepositoryError::NotFound)?;
+        let first: Option<(String, String)> = self
+            .connection
+            .query_row(
+                "SELECT id,watched_on FROM media_movie_viewings WHERE title_id=?1 ORDER BY watched_on,created_at LIMIT 1",
+                [&title_id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .optional()?;
+        if first.is_some_and(|(first_id, date)| {
+            first_id != id.as_str() && watched_on.to_string() < date
+        }) {
+            return Err(MediaRepositoryError::ViewingBeforeFirst);
+        }
         self.connection.execute(
             "UPDATE media_movie_viewings SET watched_on=?2,updated_at=?3 WHERE id=?1",
             params![id.as_str(), watched_on.to_string(), Utc::now().to_rfc3339()],
@@ -1247,6 +1272,18 @@ mod tests {
         let restored = repository.find_title(&id).unwrap().unwrap();
         assert_eq!(restored.status, TrackingStatus::Completed);
         assert_eq!(restored.finished_on, NaiveDate::from_ymd_opt(2026, 8, 8));
+        let now = Utc::now().to_rfc3339();
+        let earlier = MovieViewing {
+            id: MovieViewingId::generate(),
+            title_id: id,
+            watched_on: NaiveDate::from_ymd_opt(2026, 7, 31).unwrap(),
+            created_at: now.clone(),
+            updated_at: now,
+        };
+        assert!(matches!(
+            repository.create_movie_viewing(&earlier),
+            Err(MediaRepositoryError::ViewingBeforeFirst)
+        ));
     }
 
     #[test]

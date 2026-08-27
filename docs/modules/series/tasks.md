@@ -58,3 +58,21 @@
 - Verificación: arrastrar, centrar y guardar una portada de Serie; cerrar y volver a abrir el detalle.
 
 **Resultado:** Series utiliza las mismas coordenadas persistentes, validación Rust y acción de cabecera que Anime y Películas. Build TypeScript/Vite, 112 pruebas Rust y Clippy estricto correctos.
+
+## T-S10 — Corregir la geometría de la cabecera
+
+- Estado: Implementada; comprobación visual pendiente.
+- Alcance: reservar el ancho real de la portada horizontal en cada breakpoint y compartir la sustitución inmediata de imagen con Anime y Películas.
+- Verificación: abrir una Serie en ventana ancha y estrecha, comprobar que portada y estado no se solapan y sustituir su imagen sin reiniciar.
+
+## T-S11 — Unificar formulario, tarjeta y ordenación
+
+- Estado: Implementada; comprobación visual pendiente.
+- Alcance: contextualizar los ejemplos del formulario, incorporar favorito, mover el estado fuera de la portada, mostrar fechas de seguimiento y conservar la ordenación por título, puntuación o fechas.
+- Verificación: crear y editar una serie, alternar favoritos y comprobar tarjetas y ordenación después de reiniciar.
+
+## T-S12 — Alinear navegación y añadir estadísticas
+
+- Estado: Implementada; comprobación visual pendiente.
+- Alcance: presentar las vistas `Biblioteca` y `Estadísticas` a la misma altura que los demás trackers, sin añadir historial global a Series.
+- Verificación: alternar ambas pestañas, consultar series totales, terminadas y puntuación media y aplicar el filtro de puntuación mínima.

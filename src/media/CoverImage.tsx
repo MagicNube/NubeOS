@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Clapperboard } from "lucide-react";
+import { useCoverRevision } from "../ui/coverRefresh";
 import { mediaApi } from "./api";
 
 export default function CoverImage({
@@ -20,14 +21,37 @@ export default function CoverImage({
   zoom?: number;
 }) {
   const [url, setUrl] = useState<string | null>(null);
+  const [still, setStill] = useState<string | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const coverRef = useRef<HTMLDivElement>(null);
+  const revision = useCoverRevision(titleId);
+
+  useEffect(() => {
+    const card = coverRef.current?.closest<HTMLElement>(".library-card, .watching-card");
+    if (!card || !still) return;
+    const play = () => setPlaying(true);
+    const pause = () => setPlaying(false);
+    card.addEventListener("mouseenter", play);
+    card.addEventListener("mouseleave", pause);
+    card.addEventListener("focusin", play);
+    card.addEventListener("focusout", pause);
+    return () => {
+      card.removeEventListener("mouseenter", play);
+      card.removeEventListener("mouseleave", pause);
+      card.removeEventListener("focusin", play);
+      card.removeEventListener("focusout", pause);
+    };
+  }, [still]);
 
   useEffect(() => {
     if (!hasCover) {
       setUrl(null);
+      setStill(null);
       return;
     }
     let alive = true;
     let objectUrl: string | null = null;
+    let stillUrl: string | null = null;
     void mediaApi
       .readCover(titleId)
       .then((buffer) => {
@@ -36,19 +60,37 @@ export default function CoverImage({
           buffer instanceof ArrayBuffer
             ? new Uint8Array(buffer)
             : new Uint8Array(buffer as ArrayBuffer);
-        objectUrl = URL.createObjectURL(new Blob([bytes], { type: imageMime(bytes) }));
+        const mime = imageMime(bytes);
+        objectUrl = URL.createObjectURL(new Blob([bytes], { type: mime }));
         setUrl(objectUrl);
+        setStill(null);
+        if (mime === "image/gif") {
+          void createImageBitmap(new Blob([bytes], { type: mime })).then((bitmap) => {
+            if (!alive) { bitmap.close(); return; }
+            const canvas = document.createElement("canvas");
+            canvas.width = bitmap.width;
+            canvas.height = bitmap.height;
+            canvas.getContext("2d")?.drawImage(bitmap, 0, 0);
+            bitmap.close();
+            canvas.toBlob((blob) => {
+              if (!alive || !blob) return;
+              stillUrl = URL.createObjectURL(blob);
+              setStill(stillUrl);
+            });
+          }).catch(() => undefined);
+        }
       })
       .catch(() => alive && setUrl(null));
     return () => {
       alive = false;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
+      if (stillUrl) URL.revokeObjectURL(stillUrl);
     };
-  }, [hasCover, titleId]);
+  }, [hasCover, revision, titleId]);
 
   return (
-    <div className={`media-cover ${className}`.trim()}>
-      {url ? <img alt={alt} src={url} style={{ objectPosition: `${positionX}% ${positionY}%`, transform: `scale(${zoom})`, transformOrigin: `${positionX}% ${positionY}%` }} /> : <Clapperboard aria-hidden="true" />}
+    <div ref={coverRef} className={`media-cover ${className}`.trim()} onBlur={() => setPlaying(false)} onFocus={() => setPlaying(true)} onMouseEnter={() => setPlaying(true)} onMouseLeave={() => setPlaying(false)}>
+      {url ? <img alt={alt} src={still && !playing ? still : url} style={{ objectPosition: `${positionX}% ${positionY}%`, transform: `scale(${zoom})`, transformOrigin: `${positionX}% ${positionY}%` }} /> : <Clapperboard aria-hidden="true" />}
     </div>
   );
 }

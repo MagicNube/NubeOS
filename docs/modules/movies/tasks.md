@@ -78,3 +78,28 @@
 - Verificación: probar años y umbrales de puntuación, foco por teclado, opciones en tema oscuro y encuadre horizontal persistido.
 
 **Resultado:** los dos filtros usan borde, fondo, tipografía, foco, flecha y opciones del tema oscuro; el editor compartido mantiene el arrastre fuera del marco y permite corregir ambos ejes mediante controles explícitos. Build TypeScript/Vite y `git diff --check` correctos; comprobación visual en Tauri pendiente.
+
+## T-P13 — Consolidar historial y sustitución de portadas
+
+- Estado: Implementada; comprobación visual pendiente.
+- Alcance: estructurar el alta de visionados con fecha etiquetada y acción principal; reemplazar portadas directamente, retirarlas con papelera y refrescar Biblioteca y detalle sin reiniciar.
+- Verificación: registrar primer visionado y revisionados, sustituir y quitar portadas, y ejecutar el build TypeScript/Vite.
+
+## T-P14 — Homogeneizar formulario, tarjetas e historial
+
+- Estado: Implementada; comprobación visual pendiente.
+- Alcance: usar ejemplos y favorito consistentes, mostrar estado fuera de la portada y último visionado en la tarjeta, persistir la ordenación y presentar el historial con la cabecera común de trackers.
+- Restricciones: un revisionado no puede ser anterior al primer visionado existente.
+- Verificación: registrar visionados válidos e inválidos, revisar tarjetas, favoritos y ordenación tras reiniciar.
+
+## T-P15 — Normalizar el historial con los trackers simples
+
+- Estado: Implementada; comprobación visual pendiente.
+- Alcance: sustituir la edición flotante por una cabecera con contador, acciones Registrar visionado/Ver hoy, filas compactas y un formulario modal de fecha.
+- Verificación: añadir un visionado de hoy, registrar una fecha anterior válida y editar o eliminar una fila existente.
+
+## T-P16 — Unificar también el historial general
+
+- Estado: Implementada; comprobación visual pendiente.
+- Alcance: presentar el historial general con las mismas filas, icono morado, tipografía, acciones iconográficas y estados hover que Lectura y Videojuegos, reutilizando el formulario modal del detalle.
+- Verificación: filtrar visionados, editar su fecha mediante el formulario y eliminar una entrada sin mostrar campos permanentes.

@@ -2,20 +2,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Archive,
   CalendarDays,
-  Check,
-  Clock3,
   Edit3,
   GripVertical,
   History,
-  Hourglass,
   Lightbulb,
   Move,
   Eye,
   EyeOff,
   Plus,
-  Pause,
   RotateCcw,
-  Play,
   Star,
   Trash2,
   X,
@@ -170,8 +165,8 @@ export default function MediaDetailView({
 
   return (
     <>
-    <Modal className="media-detail-dialog" labelledBy="media-detail-title" onClose={close}>
-      <article className="media-detail">
+    <Modal className="media-detail-dialog" initialFocus="dialog" labelledBy="media-detail-title" onClose={close}>
+      <article className="media-detail anime-media-detail">
         <header className="media-detail-header">
           <div className="media-detail-cover-wrap ui-cover-adjust-host">
             <CoverImage
@@ -193,26 +188,14 @@ export default function MediaDetailView({
             <h2 id="media-detail-title">{title.name}</h2>
             {title.alternativeTitle && <p>{title.alternativeTitle}</p>}
             {title.genres.length > 0 && <p>{title.genres.join(", ")}</p>}
-            {title.studios.length > 0 && <p>{title.studios.join(", ")}</p>}
             <div className="media-detail-scores">
               <QuickScore busy={busy} score={title.score} save={setTitleScore} />
               {title.kind !== "movie" && (
                 <ScoreValue
                   label="Media"
                   score={title.averageContentScore}
-                  secondary
                 />
               )}
-              <div className="media-quick-status">
-                <span>Estado</span>
-                <StatusIconSelector
-                  busy={busy}
-                  className="media-title-status-selector"
-                  name={title.name}
-                  setStatus={setTitleStatus}
-                  status={title.status}
-                />
-              </div>
             </div>
             {title.suggestedStatus && <button className="media-status-suggestion" disabled={busy} onClick={() => void setTitleStatus(title.suggestedStatus!)} type="button"><Lightbulb size={14} /> Sugerencia: marcar como {statusLabel(title.suggestedStatus)}</button>}
           </div>
@@ -267,8 +250,8 @@ export default function MediaDetailView({
             <strong>{title.contentsCount}</strong>
           </div>
           <div>
-            <span>Actividad registrada</span>
-            <strong>{title.firstActivityOn ? title.firstActivityOn === title.lastActivityOn ? formatDate(title.firstActivityOn) : `${formatDate(title.firstActivityOn)} – ${formatDate(title.lastActivityOn!)}` : "Sin registros"}</strong>
+            <span>Estado</span>
+            <strong>{statusLabel(title.status)}</strong>
           </div>
         </section>
 
@@ -362,7 +345,7 @@ export default function MediaDetailView({
         )}
       </article>
     </Modal>
-    {positioningCover && <CoverPositionEditor busy={busy} close={() => setPositioningCover(false)} landscape={title.kind === "movie"} save={setCoverPosition} title={title} />}
+    {positioningCover && <CoverPositionEditor busy={busy} close={() => setPositioningCover(false)} landscape save={setCoverPosition} title={title} />}
     </>
   );
 }
@@ -442,7 +425,7 @@ function ContentRow({
           <div className="score" style={{ color: scoreColor(content.score) }}><small>Puntuación</small><strong><Star aria-hidden="true" fill={content.score === null ? "none" : "currentColor"} size={13} /> {content.score === null ? "—" : formatScore(content.score)}</strong></div>
           <div><small>Tipo</small><strong>{contentKindLabel(content.kind)}</strong></div>
           <div><small>Canonicidad</small><strong className={`canon-${content.canonStatus}`}>{canonLabel(content.canonStatus)}</strong></div>
-          <div><small>Estudio</small><strong aria-label={content.studio || "Sin estudio especificado"}>{content.studio || "\u00a0"}</strong></div>
+          <div><small>Último visionado</small><strong aria-label={content.lastActivityOn ? formatDate(content.lastActivityOn) : "Sin registros"}>{content.lastActivityOn ? formatDate(content.lastActivityOn) : "Sin registros"}</strong></div>
           <div><small>Estreno</small><strong aria-label={content.releasedOn ? formatDate(content.releasedOn) : "Sin fecha de estreno"}>{content.releasedOn ? <><CalendarDays size={13} /> {formatDate(content.releasedOn)}</> : "\u00a0"}</strong></div>
         </div>
         {(content.opinion || content.notes) && <div className="media-content-text">
@@ -462,55 +445,6 @@ function ContentRow({
         />
       </div>}
     </article>
-  );
-}
-
-const statusOptions = [
-  { value: "watching", label: "Viendo", icon: Play },
-  { value: "pending", label: "Pendiente", icon: Clock3 },
-  { value: "paused", label: "En pausa", icon: Pause },
-  { value: "completed", label: "Terminado", icon: Check },
-  { value: "dropped", label: "Abandonado", icon: X },
-  { value: "waitingContent", label: "Esperando contenido", icon: Hourglass },
-] satisfies Array<{ value: TrackingStatus; label: string; icon: typeof Play }>;
-
-function StatusIconSelector({
-  status,
-  name,
-  busy,
-  setStatus,
-  className = "",
-}: {
-  status: TrackingStatus;
-  name: string;
-  busy: boolean;
-  setStatus: (status: TrackingStatus) => Promise<void>;
-  className?: string;
-}) {
-  return (
-    <div aria-label={`Estado de ${name}`} className={`media-status-icon-selector ${className}`.trim()} role="group">
-      {statusOptions.map((option) => {
-        const Icon = option.icon;
-        const active = option.value === status;
-        return (
-          <button
-            aria-label={option.label}
-            aria-pressed={active}
-            className={active ? `active status-${option.value}` : ""}
-            data-tooltip={option.label}
-            disabled={busy}
-            key={option.value}
-            onClick={() => {
-              if (!active) void setStatus(option.value);
-            }}
-            title={option.label}
-            type="button"
-          >
-            <Icon aria-hidden="true" size={16} strokeWidth={active ? 2.5 : 2} />
-          </button>
-        );
-      })}
-    </div>
   );
 }
 
@@ -636,14 +570,12 @@ function QuickScore({ score, busy, save }: { score: number | null; busy: boolean
 function ScoreValue({
   label,
   score,
-  secondary = false,
 }: {
   label: string;
   score: number | null;
-  secondary?: boolean;
 }) {
   return (
-    <div className={`${secondary ? "secondary " : ""}media-score-card score-${scoreTone(score)}`} style={{ borderColor: scoreColor(score) }}>
+    <div className={`media-score-card score-${scoreTone(score)}`} style={{ borderColor: scoreColor(score) }}>
       <span>{label}</span>
       <strong style={{ color: scoreColor(score) }}>{formatScore(score)}</strong>
     </div>

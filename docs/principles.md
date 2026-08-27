@@ -53,9 +53,20 @@ Estos principios guían las decisiones cotidianas del proyecto. Una excepción d
 - En escritorio con puntero, editar, omitir y otras acciones secundarias de una tarjeta aparecen al pasar el cursor o al entrar con foco. En dispositivos sin `hover` permanecen visibles; los estados persistentes, como un favorito activo, no se ocultan.
 - Todas las áreas desplazables reutilizan un scrollbar oscuro con acento morado y contraste suficiente; ningún módulo depende del estilo claro predeterminado del sistema.
 - Los formularios modales avisan antes de cerrar mediante botón, fondo o tecla Escape cuando contienen cambios sin guardar.
-- En una cabecera de colección, la acción secundaria `Archivo` se coloca inmediatamente antes de la acción principal de creación. Los módulos no invierten este orden.
+- En una cabecera de colección, la acción secundaria `Archivo` se coloca inmediatamente antes de la acción principal de creación. En los módulos de entretenimiento ambas aparecen a la derecha de la cabecera de cada vista, junto a los filtros, y no en la barra superior de pestañas.
+- Los antetítulos de colección e historial usan el mismo tamaño tipográfico compartido en todos los módulos de entretenimiento.
+- Los módulos de entretenimiento muestran su título una sola vez, sin una etiqueta superior redundante. Cuando disponen de navegación, el orden es `Biblioteca`, actividad en curso cuando proceda, `Historial` y `Estadísticas`.
 - Los filtros booleanos de favoritos usan el control compacto compartido con estrella vacía o rellena; no usan corazones, casillas ni texto largo.
+- Cada vista conserva sus propios filtros. Una vista con alcance implícito, como `Leyendo` o `Jugando`, muestra ese alcance en el selector y nunca aparenta estar enseñando `Todos los estados`; `Leyendo` contiene exclusivamente libros con ese estado.
+- Todos los formularios de entretenimiento incluyen el mismo selector de favorito con estrella y utilizan ejemplos propios de su módulo; nunca reutilizan referencias de anime para libros, videojuegos, series o películas.
+- Los formularios principales de entretenimiento organizan sus campos mediante las secciones `Identificación`, `Seguimiento`, `Opinión` y `Portada`; cada módulo conserva únicamente los campos que necesita.
+- En las tarjetas de entretenimiento, el estado se presenta fuera de la imagen y la ordenación seleccionada se conserva entre sesiones; las fechas de inicio y finalización pueden ordenarse en ambos sentidos.
+- Los títulos alternativos se conservan para búsqueda y detalle, pero no se muestran en las tarjetas de colección.
+- Los estados equivalentes conservan el mismo color en todos los trackers: completado en verde, actividad en morado, pausa en azul y abandono en rojo; las etiquetas generales no pueden sobrescribir sus colores.
 - Los trackers simples separan el detalle en `Resumen` e `Historial`. El resumen mantiene el orden puntuación, número de registros y estado; el historial concentra recorridos repetibles y sus acciones. Anime puede conservar una composición propia por su jerarquía de contenidos.
+- Los historiales de recorridos comparten cabecera compacta, número de registros y acciones a la derecha; lectura y videojuegos exigen fecha inicial y mantienen la fecha final opcional.
+- La gestión de portadas utiliza siempre una acción iconográfica de papelera para retirarlas. Elegir o pegar otra imagen sustituye la anterior sin pasos intermedios y actualiza inmediatamente todas sus vistas abiertas.
+- Ajustar una portada permanece oculto hasta pasar el cursor por la imagen o alcanzar su botón mediante teclado; nunca recibe automáticamente el foco inicial de un modal.
 - En Archivo, restaurar y eliminar definitivamente usan el componente compartido de dos botones iconográficos: flecha circular y papelera. Las acciones aparecen con hover o foco, y permanecen disponibles mediante teclado y en dispositivos sin hover.
 - La zona compartida contiene únicamente presentación y accesibilidad. Los textos, borradores, validaciones y decisiones de negocio siguen perteneciendo al módulo correspondiente.
 

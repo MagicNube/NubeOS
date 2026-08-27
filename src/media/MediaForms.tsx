@@ -1,8 +1,9 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { ImagePlus, Star, X } from "lucide-react";
+import { ImagePlus, Star, Trash2, X } from "lucide-react";
 import Modal from "../ui/Modal";
 import SelectControl from "../ui/SelectControl";
+import { notifyCoverChanged } from "../ui/coverRefresh";
 import { pastedCoverAsJpeg } from "../ui/pastedCover";
 import type {
   ContentKind,
@@ -48,7 +49,6 @@ export function MediaTitleForm({
     title?.alternativeTitle ?? "",
   );
   const [genres, setGenres] = useState(title?.genres.join(", ") ?? "");
-  const [primaryStudio, setPrimaryStudio] = useState(title?.primaryStudio ?? "");
   const [kind, setKind] = useState<MediaKind>(initialKind);
   const [status, setStatus] = useState<TrackingStatus>(
     title?.status ?? "pending",
@@ -67,14 +67,14 @@ export function MediaTitleForm({
   const [coverError, setCoverError] = useState<string | null>(null);
   const initialFingerprint = useMemo(() => JSON.stringify({
     name: title?.name ?? "", alternativeTitle: title?.alternativeTitle ?? "",
-    genres: title?.genres.join(", ") ?? "", primaryStudio: title?.primaryStudio ?? "", kind: initialKind,
+    genres: title?.genres.join(", ") ?? "", kind: initialKind,
     status: title?.status ?? "pending", score: title?.score?.toString() ?? "",
     opinion: title?.opinion ?? "", favorite: title?.favorite ?? false,
     isAnime: title?.isAnime ?? area === "anime", startedOn: title?.startedOn ?? "",
     finishedOn: title?.finishedOn ?? "", currentSeason: title?.currentSeason?.toString() ?? "",
     currentEpisode: title?.currentEpisode?.toString() ?? "", removeCover: false,
   }), [area, initialKind, title]);
-  const dirty = JSON.stringify({ name, alternativeTitle, genres, primaryStudio, kind, status, score,
+  const dirty = JSON.stringify({ name, alternativeTitle, genres, kind, status, score,
     opinion, favorite, isAnime, startedOn, finishedOn, currentSeason, currentEpisode,
     removeCover }) !== initialFingerprint || cover !== null;
 
@@ -96,7 +96,7 @@ export function MediaTitleForm({
     setCoverBusy(true);
     setCoverError(null);
     try {
-      const bytes = await pastedCoverAsJpeg(event);
+      const bytes = await pastedCoverAsJpeg(event, area === "anime");
       if (!bytes) return;
       const selected = await mediaApi.preparePastedCover(bytes);
       if (cover) await mediaApi.discardCover(cover.token).catch(() => undefined);
@@ -129,7 +129,7 @@ export function MediaTitleForm({
               .split(",")
               .map((genre) => genre.trim())
               .filter(Boolean),
-            primaryStudio: primaryStudio.trim() || null,
+            primaryStudio: null,
             kind,
             isAnime,
             status,
@@ -142,168 +142,78 @@ export function MediaTitleForm({
             currentEpisode: area === "series" && currentEpisode ? Number(currentEpisode) : null,
             coverToken: cover?.token ?? null,
             removeCover,
-          }).then((ok) => ok && close());
+          }).then((ok) => {
+            if (!ok) return;
+            if (title && (cover || removeCover)) notifyCoverChanged(title.id);
+            close();
+          });
         }}
       >
         <FormHeader
-          title={title ? "Editar título" : "Añadir título"}
+          title={title ? `Editar ${area === "anime" ? "anime" : area === "series" ? "serie" : "película"}` : `Añadir ${area === "anime" ? "anime" : area === "series" ? "serie" : "película"}`}
           subtitle={area === "anime" ? "Anime o película de anime" : area === "series" ? "Serie" : "Película"}
           close={() => void cancel()}
         />
-        <div className="media-form-grid">
-          <label className="media-field media-field-wide">
-            Nombre principal
-            <input
-              autoFocus
-              maxLength={150}
-              onChange={(event) => setName(event.target.value)}
-              placeholder="Ej. Boku no Hero Academia"
-              required
-              value={name}
-            />
-          </label>
-          <label className="media-field media-field-wide">
-            Título alternativo (opcional)
-            <input
-              maxLength={150}
-              onChange={(event) => setAlternativeTitle(event.target.value)}
-              placeholder="Ej. My Hero Academia"
-              value={alternativeTitle}
-            />
-          </label>
-          {area === "anime" && (
-            <label className="media-field media-field-wide">
-              Géneros (separados por comas)
-              <input
-                maxLength={500}
-                onChange={(event) => setGenres(event.target.value)}
-                placeholder="Acción, Comedia, Fantasía"
-                value={genres}
-              />
-            </label>
-          )}
-          {area === "anime" && (
-            <label className="media-field media-field-wide">
-              Estudio principal (opcional)
-              <input
-                maxLength={150}
-                onChange={(event) => setPrimaryStudio(event.target.value)}
-                placeholder="Ej. Bones"
-                value={primaryStudio}
-              />
-            </label>
-          )}
-          {area === "anime" && (
-            <label className="media-field">
-              Formato
-              <SelectControl>
-                <select
-                  disabled={Boolean(detail?.contents.length)}
-                  onChange={(event) => setKind(event.target.value as MediaKind)}
-                  value={kind}
-                >
-                  <option value="anime">Serie o franquicia</option>
-                  <option value="movie">Película independiente</option>
-                </select>
-              </SelectControl>
-              {Boolean(detail?.contents.length) && <small>El formato no puede cambiarse mientras existan contenidos asociados.</small>}
-            </label>
-          )}
-          {area !== "movies" && <label className="media-field">
-            Estado
-            <SelectControl>
-              <select
-                onChange={(event) =>
-                  setStatus(event.target.value as TrackingStatus)
-                }
-                value={status}
-              >
-                {trackingStatuses.map((item) => (
-                  <option key={item.value} value={item.value}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
-            </SelectControl>
-          </label>}
-          <ScoreField score={score} setScore={setScore} />
-          {area !== "anime" && <div className="media-field"><span>Favorito</span><button aria-pressed={favorite} className={`media-form-favorite${favorite ? " active" : ""}`} onClick={() => setFavorite(!favorite)} type="button"><Star fill={favorite ? "currentColor" : "none"} size={18} /> {favorite ? "En favoritos" : "Añadir a favoritos"}</button></div>}
-          {area === "series" && (
-            <>
+        <div className="media-form-sections media-title-form-sections">
+          <FormSection title="Identificación">
+            <div className="media-form-grid">
               <label className="media-field">
-                Temporada actual (opcional)
-                <input min={1} onChange={(event) => setCurrentSeason(event.target.value)} placeholder="Ej. 2" step={1} type="number" value={currentSeason} />
+                Nombre principal
+                <input autoFocus maxLength={150} onChange={(event) => setName(event.target.value)} placeholder={area === "anime" ? "Ej. Steins;Gate" : area === "series" ? "Ej. Dark" : "Ej. Interstellar"} required value={name} />
               </label>
               <label className="media-field">
-                Episodio actual (opcional)
-                <input min={1} onChange={(event) => setCurrentEpisode(event.target.value)} placeholder="Ej. 5" step={1} type="number" value={currentEpisode} />
+                Título alternativo (opcional)
+                <input maxLength={150} onChange={(event) => setAlternativeTitle(event.target.value)} placeholder={area === "anime" ? "Título alternativo del anime" : area === "series" ? "Título alternativo de la serie" : "Título alternativo de la película"} value={alternativeTitle} />
               </label>
-              <label className="media-field">
-                Fecha de inicio (opcional)
-                <input max={todayMadrid()} onChange={(event) => setStartedOn(event.target.value)} type="date" value={startedOn} />
-              </label>
-              <label className="media-field">
-                Fecha de finalización (opcional)
-                <input max={todayMadrid()} onChange={(event) => {
-                  setFinishedOn(event.target.value);
-                  if (event.target.value) setStatus("completed");
-                }} type="date" value={finishedOn} />
-              </label>
-            </>
-          )}
-          {area === "anime" && kind === "movie" && (
-            <label className="media-field">
-              Fecha de visionado (opcional)
-              <input max={todayMadrid()} onChange={(event) => {
-                setFinishedOn(event.target.value);
-                if (event.target.value) setStatus("completed");
-              }} type="date" value={finishedOn} />
-            </label>
-          )}
-          {area === "movies" && title && (
-            <label className="media-check-field media-field-wide">
-              <input checked={isAnime} onChange={(event) => setIsAnime(event.target.checked)} type="checkbox" />
-              Mover esta película a Anime
-            </label>
-          )}
-          <label className="media-field media-field-wide">
-            Opinión general (opcional)
-            <textarea
-              maxLength={4000}
-              onChange={(event) => setOpinion(event.target.value)}
-              placeholder="Qué te pareció en conjunto…"
-              rows={4}
-              value={opinion}
-            />
-          </label>
+              {area === "anime" && <label className="media-field media-field-wide">
+                Géneros (separados por comas)
+                <input maxLength={500} onChange={(event) => setGenres(event.target.value)} placeholder="Acción, Comedia, Fantasía" value={genres} />
+              </label>}
+              {area === "anime" && <label className="media-field">
+                Formato
+                <SelectControl><select disabled={Boolean(detail?.contents.length)} onChange={(event) => setKind(event.target.value as MediaKind)} value={kind}><option value="anime">Serie o franquicia</option><option value="movie">Película independiente</option></select></SelectControl>
+                {Boolean(detail?.contents.length) && <small>El formato no puede cambiarse mientras existan contenidos asociados.</small>}
+              </label>}
+            </div>
+          </FormSection>
+
+          <FormSection title="Seguimiento">
+            <div className="media-form-grid">
+              {area !== "movies" && <label className="media-field">
+                Estado
+                <SelectControl><select onChange={(event) => setStatus(event.target.value as TrackingStatus)} value={status}>{trackingStatuses.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></SelectControl>
+              </label>}
+              <ScoreField score={score} setScore={setScore} />
+              <div className="media-field"><span>Favorito</span><button aria-pressed={favorite} className={`media-form-favorite${favorite ? " active" : ""}`} onClick={() => setFavorite(!favorite)} type="button"><Star fill={favorite ? "currentColor" : "none"} size={18} /> {favorite ? "En favoritos" : "Añadir a favoritos"}</button></div>
+              {area === "series" && <>
+                <label className="media-field">Temporada actual (opcional)<input min={1} onChange={(event) => setCurrentSeason(event.target.value)} placeholder="Ej. 2" step={1} type="number" value={currentSeason} /></label>
+                <label className="media-field">Episodio actual (opcional)<input min={1} onChange={(event) => setCurrentEpisode(event.target.value)} placeholder="Ej. 5" step={1} type="number" value={currentEpisode} /></label>
+                <label className="media-field">Fecha de inicio (opcional)<input max={todayMadrid()} onChange={(event) => setStartedOn(event.target.value)} type="date" value={startedOn} /></label>
+                <label className="media-field">Fecha de finalización (opcional)<input max={todayMadrid()} onChange={(event) => { setFinishedOn(event.target.value); if (event.target.value) setStatus("completed"); }} type="date" value={finishedOn} /></label>
+              </>}
+              {area === "anime" && kind === "movie" && <label className="media-field">Fecha de visionado (opcional)<input max={todayMadrid()} onChange={(event) => { setFinishedOn(event.target.value); if (event.target.value) setStatus("completed"); }} type="date" value={finishedOn} /></label>}
+              {area === "movies" && title && <label className="media-check-field media-field-wide"><input checked={isAnime} onChange={(event) => setIsAnime(event.target.checked)} type="checkbox" />Mover esta película a Anime</label>}
+            </div>
+          </FormSection>
+
+          <FormSection title="Opinión">
+            <label className="media-field"><textarea maxLength={4000} onChange={(event) => setOpinion(event.target.value)} placeholder="Qué te pareció en conjunto…" rows={3} value={opinion} /></label>
+          </FormSection>
+
+          <FormSection title="Portada">
+            <section className="cover-picker" onPaste={(event) => void pasteCover(event)} tabIndex={0}>
+              <div>
+                <span className="cover-current-name">{cover ? cover.originalName : title?.hasCover && !removeCover ? "Portada actual guardada" : "Sin portada"}</span>
+                <span>{area === "anime" ? "Elige o pega una imagen. Los GIF conservan su animación." : "Elige una imagen o pégala con Ctrl+V. Se guardará como JPEG."}</span>
+              </div>
+              <div className="cover-picker-actions">
+                <button className="secondary-button" disabled={coverBusy} onClick={() => void selectCover()} type="button"><ImagePlus size={16} />{coverBusy ? "Seleccionando…" : "Elegir imagen"}</button>
+                {(title?.hasCover || cover) && !removeCover && <button aria-label="Quitar portada" className="media-icon-button cover-remove-button" onClick={() => { if (cover) void mediaApi.discardCover(cover.token).catch(() => undefined); setCover(null); setRemoveCover(Boolean(title?.hasCover)); }} title="Quitar portada" type="button"><Trash2 size={16} /></button>}
+              </div>
+              {coverError && <span className="cover-error" role="alert">{coverError}</span>}
+            </section>
+          </FormSection>
         </div>
-        <section className="cover-picker" onPaste={(event) => void pasteCover(event)} tabIndex={0}>
-          <div>
-            <strong>Portada (opcional)</strong>
-            <span>Elige una imagen o pégala con Ctrl+V. Las pegadas se guardan como JPEG.</span>
-          </div>
-          <button
-            className="secondary-button"
-            disabled={coverBusy}
-            onClick={() => void selectCover()}
-            type="button"
-          >
-            <ImagePlus size={16} />
-            {coverBusy ? "Seleccionando…" : "Elegir imagen"}
-          </button>
-          {cover && <span className="cover-file-name">{cover.originalName}</span>}
-          {coverError && <span className="cover-error" role="alert">{coverError}</span>}
-          {title?.hasCover && !cover && (
-            <label className="media-check-field cover-remove">
-              <input
-                checked={removeCover}
-                onChange={(event) => setRemoveCover(event.target.checked)}
-                type="checkbox"
-              />
-              Quitar portada actual
-            </label>
-          )}
-        </section>
         <FormFooter busy={busy} cancel={() => void cancel()} />
       </form>
     </Modal>
@@ -330,28 +240,25 @@ export function MediaContentForm({
     content?.canonStatus ?? "canon",
   );
   const [total, setTotal] = useState(content?.totalEpisodes?.toString() ?? "");
-  const [studio, setStudio] = useState(content?.studio ?? "");
   const [score, setScore] = useState(content?.score?.toString() ?? "");
   const [opinion, setOpinion] = useState(content?.opinion ?? "");
   const [notes, setNotes] = useState(content?.notes ?? "");
   const startedOn = content?.startedOn ?? "";
   const [releasedOn, setReleasedOn] = useState(content?.releasedOn ?? "");
   const finishedOn = content?.finishedOn ?? "";
-  const [studios, setStudios] = useState<string[]>([]);
   const effectiveHint = useMemo(
     () => kind !== "season" && total === "",
     [kind, total],
   );
-  useEffect(() => { void mediaApi.listStudios().then(setStudios).catch(() => undefined); }, []);
   const initialFingerprint = useMemo(() => JSON.stringify({
     name: content?.name ?? "", kind: content?.kind ?? "season",
     status: content?.status ?? "pending", canonStatus: content?.canonStatus ?? "canon",
-    total: content?.totalEpisodes?.toString() ?? "", studio: content?.studio ?? "",
+    total: content?.totalEpisodes?.toString() ?? "",
     score: content?.score?.toString() ?? "", opinion: content?.opinion ?? "",
     notes: content?.notes ?? "", startedOn: content?.startedOn ?? "",
     releasedOn: content?.releasedOn ?? "", finishedOn: content?.finishedOn ?? "",
   }), [content]);
-  const dirty = JSON.stringify({ name, kind, status, canonStatus, total, studio, score,
+  const dirty = JSON.stringify({ name, kind, status, canonStatus, total, score,
     opinion, notes, startedOn, releasedOn, finishedOn }) !== initialFingerprint;
   function requestClose() {
     if (dirty && !window.confirm("Hay cambios sin guardar. ¿Quieres salir igualmente?")) return;
@@ -374,7 +281,7 @@ export function MediaContentForm({
             status,
             canonStatus,
             totalEpisodes: total ? Number(total) : null,
-            studio: studio.trim() || null,
+            studio: null,
             score: parseScore(score),
             opinion: opinion.trim() || null,
             notes: notes.trim() || null,
@@ -423,11 +330,6 @@ export function MediaContentForm({
               <label className="media-field">
                 Canonicidad
                 <SelectControl><select onChange={(event) => setCanonStatus(event.target.value as typeof canonStatus)} value={canonStatus}>{canonStatuses.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></SelectControl>
-              </label>
-              <label className="media-field">
-                Estudio (opcional)
-                <input list="media-studio-options" maxLength={150} onChange={(event) => setStudio(event.target.value)} placeholder="Ej. Bones" value={studio} />
-                <datalist id="media-studio-options">{studios.map((item) => <option key={item} value={item} />)}</datalist>
               </label>
               <label className="media-field">Fecha de estreno (opcional)<input onChange={(event) => setReleasedOn(event.target.value)} type="date" value={releasedOn} /></label>
             </div>

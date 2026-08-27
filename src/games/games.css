@@ -9,7 +9,8 @@
 .games-error { display:flex;justify-content:space-between;gap:12px;padding:10px 13px;margin-bottom:16px;border:1px solid #713b49;border-radius:8px;color:#fecdd3;background:rgba(127,29,29,.18);font-size:13px; }
 .games-error button { display:grid;place-items:center;padding:0;border:0;color:inherit;background:transparent;cursor:pointer; }
 .games-view-heading { margin-bottom:20px; }
-.games-view-heading>span { color:#9f6cff;font-size:10px;font-weight:800;letter-spacing:.12em; }
+.games-view-heading>span { color:#9f6cff;font-size:var(--ui-eyebrow-font-size);font-weight:800;letter-spacing:.12em; }
+.games-collection-heading { display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:20px; }.games-collection-heading>.games-view-heading { margin-bottom:0; }
 .games-view-heading h2 { margin:7px 0 5px;font-size:24px;letter-spacing:-.04em; }
 .games-view-heading p { margin:0;color:#8e8791;font-size:14px; }
 .games-filters { display:grid;grid-template-columns:minmax(240px,1.4fr) repeat(2,minmax(170px,.75fr)) 43px;gap:10px;margin-bottom:22px; }
@@ -33,6 +34,10 @@
 .game-status.status-paused { border-color:#426686;color:#bfdbfe;background:rgba(30,64,175,.25); }
 .game-status.status-abandoned { border-color:#7f3948;color:#fecdd3;background:rgba(127,29,29,.28); }
 .game-card-meta { display:flex;align-items:end;justify-content:space-between;gap:10px;margin-top:auto;color:#8d858f;font-size:11px; }
+.game-card-dates { display:grid;gap:4px;min-width:0; }
+.game-card-dates>div { display:flex;align-items:baseline;gap:5px; }
+.game-card-dates small { color:#77717b;font-size:10px; }
+.game-card-dates span { color:#b5aeb8;font-size:11px;white-space:nowrap; }
 .game-card-meta strong { display:grid;place-items:center;min-width:52px;height:42px;border:1px solid currentColor;border-radius:8px;font-size:17px; }
 .game-favorite { position:absolute;top:12px;right:12px;display:grid;place-items:center;width:34px;height:34px;padding:0;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#938b96;background:rgba(18,17,19,.72);cursor:pointer;backdrop-filter:blur(5px); }
 .game-favorite:hover,.game-favorite.active { color:#c4b5fd;background:rgba(139,92,246,.22); }
@@ -81,4 +86,4 @@
 .game-stat-grid { display:grid;grid-template-columns:repeat(4,1fr);gap:10px; }.game-stat { display:grid;gap:8px;padding:16px;border:1px solid var(--game-border);border-radius:9px;background:var(--game-surface); }.game-stat strong { font-size:22px; }
 .game-status-stats { max-width:520px;padding:18px;margin-top:14px;border:1px solid var(--game-border);border-radius:9px;background:var(--game-surface); }.game-status-stats h3 { margin:0 0 10px;font-size:14px; }.game-status-stats>div { display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #29262b;color:#aaa3ac;font-size:12px; }.game-status-stats>div:last-child { border:0; }
 @media(max-width:1100px){.games-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.game-stat-grid{grid-template-columns:repeat(3,1fr)}}
-@media(max-width:760px){.games-toolbar,.game-detail-header,.game-runs header{align-items:stretch;flex-direction:column}.games-filters,.games-filters.without-favorite,.games-grid,.game-form-grid,.game-history-filters{grid-template-columns:1fr}.games-tabs{max-width:100%;overflow-x:auto}.game-detail-summary{grid-template-columns:1fr}.game-detail-summary>div{border-right:0;border-bottom:1px solid var(--game-border)}.game-stat-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:760px){.games-toolbar,.games-collection-heading,.game-detail-header,.game-runs header{align-items:stretch;flex-direction:column}.games-filters,.games-filters.without-favorite,.games-grid,.game-form-grid,.game-history-filters{grid-template-columns:1fr}.games-tabs{max-width:100%;overflow-x:auto}.game-detail-summary{grid-template-columns:1fr}.game-detail-summary>div{border-right:0;border-bottom:1px solid var(--game-border)}.game-stat-grid{grid-template-columns:repeat(2,1fr)}}

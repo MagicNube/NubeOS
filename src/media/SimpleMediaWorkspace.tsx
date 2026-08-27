@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Archive,
   BarChart3,
@@ -46,6 +46,7 @@ import {
 import "./media.css";
 
 type SimpleArea = Extract<MediaArea, "series" | "movies">;
+type SimpleSort = "updated" | "title" | "score" | "startAsc" | "startDesc" | "finishAsc" | "finishDesc";
 
 export default function SimpleMediaWorkspace({ area }: { area: SimpleArea }) {
   const copy = area === "series"
@@ -74,10 +75,24 @@ export default function SimpleMediaWorkspace({ area }: { area: SimpleArea }) {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<TrackingStatus | "">("");
   const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [sort, setSort] = useState<SimpleSort>(() => (localStorage.getItem(`nubeos.${area}.sort`) as SimpleSort) || "updated");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const requestId = useRef(0);
+
+  useEffect(() => { localStorage.setItem(`nubeos.${area}.sort`, sort); }, [area, sort]);
+
+  const sortedItems = useMemo(() => [...items].sort((left, right) => {
+    if (sort === "updated") return 0;
+    if (sort === "title") return left.name.localeCompare(right.name, "es");
+    if (sort === "score") return (right.score ?? -1) - (left.score ?? -1) || left.name.localeCompare(right.name, "es");
+    const first = sort.startsWith("start") ? left.startedOn : left.finishedOn;
+    const second = sort.startsWith("start") ? right.startedOn : right.finishedOn;
+    if (!first) return second ? 1 : 0;
+    if (!second) return -1;
+    return sort.endsWith("Asc") ? first.localeCompare(second) : second.localeCompare(first);
+  }), [items, sort]);
 
   const load = useCallback(async (showLoading = false) => {
     const id = ++requestId.current;
@@ -154,7 +169,11 @@ export default function SimpleMediaWorkspace({ area }: { area: SimpleArea }) {
   const Icon = copy.icon;
   return (
     <section className="media-workspace simple-media-workspace">
-      {area === "movies" && <nav aria-label="Vistas de Películas" className="media-tabs simple-media-tabs"><button className={view === "library" ? "active" : ""} onClick={() => setView("library")} type="button"><Library size={16} /> Biblioteca</button><button className={view === "history" ? "active" : ""} onClick={() => { setView("history"); setArchived(false); setDetail(null); setSearch(""); setStatus(""); setFavoritesOnly(false); }} type="button"><History size={16} /> Historial</button><button className={view === "statistics" ? "active" : ""} onClick={() => { setView("statistics"); setArchived(false); setDetail(null); }} type="button"><BarChart3 size={16} /> Estadísticas</button></nav>}
+      <nav aria-label={`Vistas de ${area === "movies" ? "Películas" : "Series"}`} className="media-tabs simple-media-tabs">
+        <button className={view === "library" ? "active" : ""} onClick={() => setView("library")} type="button"><Library size={16} /> Biblioteca</button>
+        {area === "movies" && <button className={view === "history" ? "active" : ""} onClick={() => { setView("history"); setArchived(false); setDetail(null); setSearch(""); setStatus(""); setFavoritesOnly(false); }} type="button"><History size={16} /> Historial</button>}
+        <button className={view === "statistics" ? "active" : ""} onClick={() => { setView("statistics"); setArchived(false); setDetail(null); }} type="button"><BarChart3 size={16} /> Estadísticas</button>
+      </nav>
       <div className="library-heading-row simple-media-heading">
         <header className="media-view-heading">
           <span>{view === "history" ? "TU HISTORIAL" : view === "statistics" ? "TU COLECCIÓN" : archived ? "ARCHIVO" : "TU COLECCIÓN"}</span>
@@ -181,7 +200,7 @@ export default function SimpleMediaWorkspace({ area }: { area: SimpleArea }) {
         </div>
       )}
 
-      {view === "statistics" && area === "movies" ? <SimpleMediaStatistics data={statistics} entries={allViewings} minimumScore={statisticsMinimumScore} setMinimumScore={setStatisticsMinimumScore} setYear={setStatisticsYear} year={statisticsYear} /> : view === "history" && area === "movies" ? <MovieHistory entries={allViewings} titles={items} edit={async (id, date) => { const result = await run(() => mediaApi.updateMovieViewing(id, date)); if (result) await load(false); }} remove={async (id) => { if (!window.confirm("¿Eliminar este visionado del historial?")) return; const result = await run(() => mediaApi.deleteMovieViewing(id)); if (result) await load(false); }} /> : <><div className="media-filters">
+      {view === "statistics" ? <SimpleMediaStatistics area={area} data={statistics} entries={allViewings} minimumScore={statisticsMinimumScore} setMinimumScore={setStatisticsMinimumScore} setYear={setStatisticsYear} year={statisticsYear} /> : view === "history" && area === "movies" ? <MovieHistory entries={allViewings} titles={items} edit={async (id, date) => { const result = await run(() => mediaApi.updateMovieViewing(id, date)); if (result) await load(false); }} remove={async (id) => { if (!window.confirm("¿Eliminar este visionado del historial?")) return; const result = await run(() => mediaApi.deleteMovieViewing(id)); if (result) await load(false); }} /> : <><div className="media-filters">
         <label className="media-search">
           <Search size={17} />
           <input onChange={(event) => setSearch(event.target.value)} placeholder={`Buscar ${copy.plural}`} value={search} />
@@ -190,6 +209,17 @@ export default function SimpleMediaWorkspace({ area }: { area: SimpleArea }) {
           <select aria-label="Filtrar por estado" onChange={(event) => setStatus(event.target.value as TrackingStatus | "")} value={status}>
             <option value="">Todos los estados</option>
             {trackingStatuses.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+          </select>
+        </SelectControl>
+        <SelectControl>
+          <select aria-label="Ordenar colección" onChange={(event) => setSort(event.target.value as SimpleSort)} value={sort}>
+            <option value="updated">Actualizados recientemente</option>
+            <option value="title">Título</option>
+            <option value="score">Puntuación</option>
+            <option value="startAsc">Inicio (más antiguos)</option>
+            <option value="startDesc">Inicio (más recientes)</option>
+            <option value="finishAsc">Fin (más antiguos)</option>
+            <option value="finishDesc">Fin (más recientes)</option>
           </select>
         </SelectControl>
         <FavoriteFilter active={favoritesOnly} onChange={setFavoritesOnly} />
@@ -201,19 +231,17 @@ export default function SimpleMediaWorkspace({ area }: { area: SimpleArea }) {
         <div className="media-empty"><Icon size={28} /><strong>{archived ? "El Archivo está vacío." : copy.empty}</strong></div>
       ) : (
         <div className="library-grid">
-          {items.map((item) => (
+          {sortedItems.map((item) => (
             <article className="library-card" key={item.id}>
               <button className="library-card-open" onClick={() => void open(item.id)} type="button">
                 <div className="library-cover-wrap">
                   <CoverImage alt={`Portada de ${item.name}`} hasCover={item.hasCover} positionX={item.coverPositionX} positionY={item.coverPositionY} titleId={item.id} zoom={item.coverZoom} />
-                  <span className={`media-status status-${item.status}`}>{statusLabel(item.status)}</span>
                 </div>
                 <div className="library-card-copy">
-                  <span>{area === "series" ? "Serie" : "Película"}</span>
+                  <span className={`media-status status-${item.status}`}>{statusLabel(item.status)}</span>
                   <h3>{item.name}</h3>
-                  {item.alternativeTitle && <p>{item.alternativeTitle}</p>}
                   <div>
-                    <strong>{simpleProgress(item, area)}</strong>
+                    <strong>{area === "movies" ? item.finishedOn ? formatDate(item.finishedOn) : "Sin visionados" : item.finishedOn ? formatDate(item.finishedOn) : item.startedOn ? `${formatDate(item.startedOn)} → En curso` : simpleProgress(item, area)}</strong>
                     <b className={`media-score-badge score-${scoreTone(item.score)}`} style={{ color: scoreColor(item.score) }}>{item.score === null ? "—" : formatScore(item.score)}</b>
                   </div>
                 </div>
@@ -321,9 +349,10 @@ function SimpleMediaDetail({
   deleteViewing: (id: string) => Promise<void>;
 }) {
   const { title } = detail;
-  const [watchedOn, setWatchedOn] = useState(title.finishedOn ?? todayMadrid());
   const [detailView, setDetailView] = useState<"summary" | "history">("summary");
   const [positioningCover, setPositioningCover] = useState(false);
+  const [viewingForm, setViewingForm] = useState<MovieViewing | "new" | null>(null);
+  const [viewingDate, setViewingDate] = useState(todayMadrid());
   return (
     <>
     <Modal className="media-detail-dialog simple-media-detail-dialog" labelledBy="simple-media-detail-title" onClose={close}>
@@ -372,19 +401,18 @@ function SimpleMediaDetail({
 
         {area === "movies" && detailView === "summary" && <><TrackerMetricGrid metrics={[{ label: "Puntuación", value: formatScore(title.score), color: scoreColor(title.score) }, { label: "Visionados", value: viewings.length }, { label: "Estado", value: title.watchedUnits ? "Vista" : "Pendiente" }]} />{title.opinion && <section className="media-opinion"><span>Opinión</span><p>{title.opinion}</p></section>}</>}
 
-        {area === "movies" && detailView === "history" && !title.archived && (
+        {area === "movies" && detailView === "history" && (
           <section className="media-detail-section simple-watch-control">
-            <div>
-              <CalendarDays size={17} />
-              <input max={todayMadrid()} onChange={(event) => setWatchedOn(event.target.value)} type="date" value={watchedOn} />
-            </div>
-            <button className="primary-button" disabled={busy} onClick={() => void addViewing(watchedOn)} type="button">
-              {viewings.length ? "Registrar revisionado" : "Marcar como vista"}
-            </button>
+            <header className="simple-watch-history-header">
+              <strong className="tracker-history-count"><History size={17} /> {viewings.length} {viewings.length === 1 ? "visionado registrado" : "visionados registrados"}</strong>
+              {!title.archived && <div className="simple-watch-history-actions">
+                <button className="secondary-button" disabled={busy} onClick={() => { setViewingDate(todayMadrid()); setViewingForm("new"); }} type="button"><Plus size={16} /> Registrar visionado</button>
+                <button className="primary-button" disabled={busy} onClick={() => void addViewing(todayMadrid())} type="button"><Film size={16} /> Ver hoy</button>
+              </div>}
+            </header>
+            {viewings.length === 0 ? <p className="simple-watch-empty">No hay visionados registrados.</p> : <div className="simple-movie-history">{viewings.map((viewing, index) => <article key={viewing.id}><div><strong>{index === viewings.length - 1 ? "Primer visionado" : `Visionado ${viewings.length - index}`}</strong><span>{formatDate(viewing.watchedOn)}</span></div>{!title.archived && <div className="simple-movie-history-actions"><button aria-label="Editar visionado" className="media-icon-button" disabled={busy} onClick={() => { setViewingDate(viewing.watchedOn); setViewingForm(viewing); }} title="Editar" type="button"><Edit3 size={15} /></button><button aria-label="Eliminar visionado" className="media-icon-button danger" disabled={busy} onClick={() => { if (window.confirm("¿Eliminar este visionado del historial?")) void deleteViewing(viewing.id); }} title="Eliminar" type="button"><Trash2 size={15} /></button></div>}</article>)}</div>}
           </section>
         )}
-
-        {area === "movies" && detailView === "history" && viewings.length > 0 && <section className="media-detail-section simple-movie-history"><h3><History size={17} /> Historial de visionados</h3>{viewings.map((viewing, index) => <article key={viewing.id}><strong>{index === viewings.length - 1 ? "Primer visionado" : `Revisionado ${viewings.length - index - 1}`}</strong><input max={todayMadrid()} onChange={(event) => void editViewing(viewing.id, event.target.value)} type="date" value={viewing.watchedOn} /><button className="media-icon-button" onClick={() => { if (window.confirm("¿Eliminar este visionado del historial?")) void deleteViewing(viewing.id); }} title="Eliminar" type="button"><Trash2 size={15} /></button></article>)}</section>}
 
         {area === "series" && title.opinion && <section className="media-opinion"><span>Opinión</span><p>{title.opinion}</p></section>}
 
@@ -399,17 +427,18 @@ function SimpleMediaDetail({
         )}
       </article>
     </Modal>
+    {viewingForm && <ViewingDateForm busy={busy} close={() => setViewingForm(null)} initialDate={viewingDate} save={async (date) => { if (viewingForm === "new") return addViewing(date); await editViewing(viewingForm.id, date); return true; }} title={viewingForm === "new" ? "Registrar visionado" : "Editar visionado"} />}
     {positioningCover && <CoverPositionEditor busy={busy} close={() => setPositioningCover(false)} landscape save={setCoverPosition} title={title} />}
     </>
   );
 }
 
-function SimpleMediaStatistics({ data, entries, year, minimumScore, setYear, setMinimumScore }: { data: MediaStatistics | null; entries: MovieViewing[]; year: string; minimumScore: string; setYear: (value: string) => void; setMinimumScore: (value: string) => void }) {
+function SimpleMediaStatistics({ area, data, entries, year, minimumScore, setYear, setMinimumScore }: { area: SimpleArea; data: MediaStatistics | null; entries: MovieViewing[]; year: string; minimumScore: string; setYear: (value: string) => void; setMinimumScore: (value: string) => void }) {
   const years = [...new Set(entries.map((entry) => entry.watchedOn.slice(0, 4)))].sort((left, right) => right.localeCompare(left));
   if (!data) return <div className="media-empty"><strong>Cargando estadísticas…</strong></div>;
   return <section className="simple-media-statistics">
-    <div className="media-stat-filters"><SelectControl><select aria-label="Filtrar estadísticas por año" onChange={(event) => setYear(event.target.value)} value={year}><option value="">Todos los años</option>{years.map((item) => <option key={item} value={item}>{item}</option>)}</select></SelectControl><SelectControl><select aria-label="Filtrar estadísticas por puntuación mínima" onChange={(event) => setMinimumScore(event.target.value)} value={minimumScore}><option value="">Cualquier puntuación</option><option value="5">5 o más</option><option value="6">6 o más</option><option value="7">7 o más</option><option value="8">8 o más</option><option value="9">9 o más</option></select></SelectControl></div>
-    <TrackerMetricGrid metrics={[{ label: "Películas", value: data.activeTitles }, { label: "Vistas", value: data.completedMovies }, { label: "Puntuación media", value: formatScore(data.averageScore), color: scoreColor(data.averageScore) }]} />
+    <div className="media-stat-filters">{area === "movies" && <SelectControl><select aria-label="Filtrar estadísticas por año" onChange={(event) => setYear(event.target.value)} value={year}><option value="">Todos los años</option>{years.map((item) => <option key={item} value={item}>{item}</option>)}</select></SelectControl>}<SelectControl><select aria-label="Filtrar estadísticas por puntuación mínima" onChange={(event) => setMinimumScore(event.target.value)} value={minimumScore}><option value="">Cualquier puntuación</option><option value="5">5 o más</option><option value="6">6 o más</option><option value="7">7 o más</option><option value="8">8 o más</option><option value="9">9 o más</option></select></SelectControl></div>
+    <TrackerMetricGrid metrics={area === "movies" ? [{ label: "Películas", value: data.activeTitles }, { label: "Vistas", value: data.completedMovies }, { label: "Puntuación media", value: formatScore(data.averageScore), color: scoreColor(data.averageScore) }] : [{ label: "Series", value: data.activeTitles }, { label: "Terminadas", value: data.byStatus.find((item) => item.status === "completed")?.count ?? 0 }, { label: "Puntuación media", value: formatScore(data.averageScore), color: scoreColor(data.averageScore) }]} />
   </section>;
 }
 
@@ -426,6 +455,7 @@ function MovieHistory({
 }) {
   const [titleId, setTitleId] = useState("");
   const [year, setYear] = useState("");
+  const [editing, setEditing] = useState<MovieViewing | null>(null);
   const titleNames = new Map(titles.map((title) => [title.id, title.name]));
   const visibleEntries = entries.filter((entry) => titleNames.has(entry.titleId));
   const years = [...new Set(visibleEntries.map((entry) => entry.watchedOn.slice(0, 4)))].sort((left, right) => right.localeCompare(left));
@@ -453,15 +483,30 @@ function MovieHistory({
         <div className="simple-movie-history-list">
           {filtered.map((entry) => (
             <article key={entry.id}>
-              <div><Film size={17} /><span><strong>{titleNames.get(entry.titleId)}</strong><small>{formatDate(entry.watchedOn)}</small></span></div>
-              <input aria-label={`Fecha de visionado de ${titleNames.get(entry.titleId)}`} max={todayMadrid()} onChange={(event) => { if (event.target.value) void edit(entry.id, event.target.value); }} type="date" value={entry.watchedOn} />
-              <button aria-label={`Eliminar visionado de ${titleNames.get(entry.titleId)}`} className="media-icon-button" onClick={() => void remove(entry.id)} title="Eliminar visionado" type="button"><Trash2 size={16} /></button>
+              <CalendarDays size={18} />
+              <div><strong>{titleNames.get(entry.titleId)}</strong><span>{formatDate(entry.watchedOn)}</span></div>
+              <div className="simple-movie-history-actions">
+                <button aria-label={`Editar visionado de ${titleNames.get(entry.titleId)}`} className="media-icon-button" onClick={() => setEditing(entry)} title="Editar visionado" type="button"><Edit3 size={15} /></button>
+                <button aria-label={`Eliminar visionado de ${titleNames.get(entry.titleId)}`} className="media-icon-button danger" onClick={() => void remove(entry.id)} title="Eliminar visionado" type="button"><Trash2 size={15} /></button>
+              </div>
             </article>
           ))}
         </div>
       )}
+      {editing && <ViewingDateForm close={() => setEditing(null)} initialDate={editing.watchedOn} save={async (date) => { await edit(editing.id, date); return true; }} title="Editar visionado" />}
     </section>
   );
+}
+
+function ViewingDateForm({ title, initialDate, busy = false, close, save }: { title: string; initialDate: string; busy?: boolean; close: () => void; save: (date: string) => Promise<boolean> }) {
+  const [date, setDate] = useState(initialDate);
+  return <Modal className="simple-viewing-modal" labelledBy="simple-viewing-title" onClose={close}>
+    <form onSubmit={async (event) => { event.preventDefault(); if (await save(date)) close(); }}>
+      <header><div><h2 id="simple-viewing-title">{title}</h2><p>Indica cuándo viste esta película.</p></div><button aria-label="Cerrar" className="media-icon-button" onClick={close} type="button"><X size={18} /></button></header>
+      <label>Fecha de visionado<input max={todayMadrid()} onChange={(event) => setDate(event.target.value)} required type="date" value={date} /></label>
+      <footer><button className="secondary-button" onClick={close} type="button">Cancelar</button><button className="primary-button" disabled={busy || !date} type="submit">Guardar</button></footer>
+    </form>
+  </Modal>;
 }
 
 function Fact({ label, value }: { label: string; value: string }) {

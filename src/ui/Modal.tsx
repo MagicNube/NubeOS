@@ -14,11 +14,13 @@ const focusableSelector = [
 export default function Modal({
   children,
   className = "",
+  initialFocus = "first",
   labelledBy,
   onClose,
 }: {
   children: ReactNode;
   className?: string;
+  initialFocus?: "first" | "dialog";
   labelledBy: string;
   onClose: () => void;
 }) {
@@ -28,8 +30,10 @@ export default function Modal({
     const previousFocus = document.activeElement as HTMLElement | null;
     const dialog = dialogRef.current;
     const requestedFocus = dialog?.querySelector<HTMLElement>("[autofocus]");
-    const firstFocusable = dialog?.querySelector<HTMLElement>(focusableSelector);
-    (requestedFocus ?? firstFocusable ?? dialog)?.focus();
+    const firstFocusable = Array.from(
+      dialog?.querySelectorAll<HTMLElement>(focusableSelector) ?? [],
+    ).find((element) => !element.classList.contains("ui-cover-adjust-button"));
+    (initialFocus === "dialog" ? dialog : requestedFocus ?? firstFocusable ?? dialog)?.focus();
     return () => previousFocus?.focus();
   }, []);
 

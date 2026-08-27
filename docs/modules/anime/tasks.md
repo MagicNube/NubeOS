@@ -258,3 +258,36 @@
 - Verificación: comprobar 1× sin recorte, ampliar una portada, moverla en ambos ejes, guardar, reiniciar y verificar Biblioteca y detalle.
 
 **Resultado:** la migración 0025 añade zoom 1×–2×; modelo, repositorio y comando validan y persisten X/Y/zoom. El marco morado representa la vista final, el control Zoom crea excedente visible y todas las portadas Media aplican el encuadre guardado. El editor se comparte con Lectura y Videojuegos y el acceso `Ajustar` se revela por hover o foco. Comprobación visual en Tauri pendiente.
+
+## T-A32 — Simplificar Anime y normalizar portadas horizontales
+
+- Estado: Implementada; comprobación visual pendiente.
+- Alcance: retirar estudios de formularios, tarjetas, filtros y estadísticas; mostrar el último visionado real en cada contenido; utilizar marcos horizontales en todas las vistas de Anime.
+- Restricciones: conservar las columnas audiovisuales heredadas por compatibilidad, mantener puntuaciones y opiniones, y obtener la actividad únicamente del historial real.
+- Verificación: revisar Biblioteca, En curso, detalle, formularios, estadísticas y editor de encuadre; ejecutar build TypeScript/Vite y pruebas Rust.
+
+## T-A33 — Reiniciar y auditar el catálogo importado
+
+- Estado: Implementada; revisión de discrepancias pendiente.
+- Alcance: reiniciar exclusivamente los estados, episodios e historial de Anime y contrastar orden recomendado, contenidos ausentes y estrenos verificables en España.
+- Restricciones: preservar los otros módulos, títulos, opiniones, puntuaciones y números de catálogo; no inventar fechas españolas ni agregar contenidos no aprobados.
+- Verificación: contar franquicias y contenidos antes/después, comprobar progreso cero e historial Anime vacío, e informar sobre discrepancias y títulos sin distribución española verificable.
+
+## T-A34 — Completar y simplificar franquicias aprobadas
+
+- Estado: Implementada; revisión manual pendiente.
+- Alcance: incorporar los contenidos de Steins;Gate y Fairy Tail en orden recomendado, conservar las rutas alternativas existentes de otras franquicias, reclasificar el promocional de Dungeon Meshi y dejar únicamente la primera temporada de Danganronpa.
+- Restricciones: proteger la base con una copia previa, no crear historiales ficticios y no inventar fechas de estreno españolas.
+- Verificación: comprobar títulos, posiciones, cantidades de episodios y progreso inicial; conservar inalterados los demás módulos.
+
+## T-A35 — Unificar formulario, colección y portadas animadas
+
+- Estado: Implementada; comprobación visual pendiente.
+- Alcance: ofrecer favorito en el formulario, utilizar ejemplos específicos de Anime, renombrar la sección Películas, mostrar el estado fuera de la portada, conservar la ordenación y permitir GIF pegados que solo se animan al pasar el cursor por la tarjeta.
+- Verificación: pegar GIF y formatos estáticos, revisar tarjetas y favoritos, reiniciar la aplicación y comprobar la ordenación elegida.
+
+## T-A36 — Simplificar la cabecera y el resumen de Anime
+
+- Estado: Implementada; comprobación visual pendiente.
+- Alcance: retirar el selector iconográfico superior, igualar y centrar las dos puntuaciones, abrir el detalle sin enfocar automáticamente la nota y mostrar el estado textual en el resumen junto a Progreso y Contenidos.
+- Verificación: revisar franquicias y películas independientes, comprobar ambos valores y modificar el estado desde el formulario de edición.

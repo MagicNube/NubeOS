@@ -16,6 +16,7 @@ pub enum ReadingRepositoryError {
     MustBeArchived,
     RunNotFound,
     OpenRunExists,
+    RunBeforeFirst,
 }
 
 impl fmt::Display for ReadingRepositoryError {
@@ -32,6 +33,9 @@ impl fmt::Display for ReadingRepositoryError {
             }
             Self::RunNotFound => formatter.write_str("No existe la lectura solicitada."),
             Self::OpenRunExists => formatter.write_str("Este libro ya tiene una lectura en curso."),
+            Self::RunBeforeFirst => {
+                formatter.write_str("Una relectura no puede comenzar antes de la primera lectura.")
+            }
         }
     }
 }
@@ -225,6 +229,19 @@ impl<'connection> ReadingRepository<'connection> {
     }
 
     pub fn create_run(&mut self, run: &ReadingRun) -> Result<(), ReadingRepositoryError> {
+        if let Some(start) = run.started_on {
+            let first: Option<String> = self.connection.query_row(
+                "SELECT MIN(started_on) FROM reading_runs WHERE book_id=?1",
+                [run.book_id.as_str()],
+                |row| row.get(0),
+            )?;
+            if first
+                .as_deref()
+                .is_some_and(|date| start.to_string().as_str() < date)
+            {
+                return Err(ReadingRepositoryError::RunBeforeFirst);
+            }
+        }
         if run.finished_on.is_none() && self.connection.query_row(
             "SELECT EXISTS(SELECT 1 FROM reading_runs WHERE book_id=?1 AND finished_on IS NULL)",
             [run.book_id.as_str()], |row| row.get::<_, bool>(0))? {
@@ -237,6 +254,19 @@ impl<'connection> ReadingRepository<'connection> {
     }
 
     pub fn update_run(&mut self, run: &ReadingRun) -> Result<(), ReadingRepositoryError> {
+        if let Some(start) = run.started_on {
+            let first: Option<(String, String)> = self
+                .connection
+                .query_row(
+                    "SELECT id,started_on FROM reading_runs WHERE book_id=?1 AND started_on IS NOT NULL ORDER BY started_on,created_at LIMIT 1",
+                    [run.book_id.as_str()],
+                    |row| Ok((row.get(0)?, row.get(1)?)),
+                )
+                .optional()?;
+            if first.is_some_and(|(id, date)| id != run.id.as_str() && start.to_string() < date) {
+                return Err(ReadingRepositoryError::RunBeforeFirst);
+            }
+        }
         let count = self.connection.execute(
             "UPDATE reading_runs SET started_on=?2,finished_on=?3,updated_at=?4 WHERE id=?1",
             params![
@@ -524,5 +554,32 @@ mod tests {
             })
             .unwrap();
         assert_eq!(status, "pending");
+    }
+
+    #[test]
+    fn a_reread_cannot_precede_the_first_reading() {
+        let mut connection = database();
+        let mut repository = ReadingRepository::new(&mut connection);
+        let book = book();
+        repository.create(&book).unwrap();
+        let first = ReadingRun::new(
+            book.id.clone(),
+            NaiveDate::from_ymd_opt(2026, 8, 10),
+            NaiveDate::from_ymd_opt(2026, 8, 12),
+            Utc::now().to_rfc3339(),
+        )
+        .unwrap();
+        repository.create_run(&first).unwrap();
+        let earlier = ReadingRun::new(
+            book.id.clone(),
+            NaiveDate::from_ymd_opt(2026, 8, 5),
+            NaiveDate::from_ymd_opt(2026, 8, 6),
+            Utc::now().to_rfc3339(),
+        )
+        .unwrap();
+        assert!(matches!(
+            repository.create_run(&earlier),
+            Err(ReadingRepositoryError::RunBeforeFirst)
+        ));
     }
 }

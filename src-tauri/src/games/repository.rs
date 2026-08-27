@@ -14,6 +14,7 @@ pub enum GameRepositoryError {
     RunNotFound,
     MustBeArchived,
     OpenRunExists,
+    RunBeforeFirst,
 }
 
 impl fmt::Display for GameRepositoryError {
@@ -30,6 +31,9 @@ impl fmt::Display for GameRepositoryError {
                 f.write_str("El videojuego debe estar archivado antes de eliminarlo.")
             }
             Self::OpenRunExists => f.write_str("Este videojuego ya tiene una partida en curso."),
+            Self::RunBeforeFirst => {
+                f.write_str("Una nueva partida no puede empezar antes de la primera partida.")
+            }
         }
     }
 }
@@ -203,6 +207,19 @@ impl<'a> GameRepository<'a> {
     }
 
     pub fn create_run(&mut self, run: &GameRun) -> Result<(), GameRepositoryError> {
+        if let Some(start) = run.started_on {
+            let first: Option<String> = self.connection.query_row(
+                "SELECT MIN(started_on) FROM game_runs WHERE game_id=?1",
+                [run.game_id.as_str()],
+                |row| row.get(0),
+            )?;
+            if first
+                .as_deref()
+                .is_some_and(|date| start.to_string().as_str() < date)
+            {
+                return Err(GameRepositoryError::RunBeforeFirst);
+            }
+        }
         if run.finished_on.is_none()
             && self.connection.query_row(
                 "SELECT EXISTS(SELECT 1 FROM game_runs WHERE game_id=?1 AND finished_on IS NULL)",
@@ -234,6 +251,19 @@ impl<'a> GameRepository<'a> {
     }
 
     pub fn update_run(&mut self, run: &GameRun) -> Result<(), GameRepositoryError> {
+        if let Some(start) = run.started_on {
+            let first: Option<(String, String)> = self
+                .connection
+                .query_row(
+                    "SELECT id,started_on FROM game_runs WHERE game_id=?1 AND started_on IS NOT NULL ORDER BY started_on,created_at LIMIT 1",
+                    [run.game_id.as_str()],
+                    |row| Ok((row.get(0)?, row.get(1)?)),
+                )
+                .optional()?;
+            if first.is_some_and(|(id, date)| id != run.id.as_str() && start.to_string() < date) {
+                return Err(GameRepositoryError::RunBeforeFirst);
+            }
+        }
         let count = self.connection.execute(
             "UPDATE game_runs SET started_on=?2,finished_on=?3,updated_at=?4 WHERE id=?1",
             params![
@@ -480,5 +510,32 @@ mod tests {
         repository.archive(&game.id, true).unwrap();
         repository.delete(&game.id).unwrap();
         assert!(repository.find_run(&run.id).unwrap().is_none());
+    }
+
+    #[test]
+    fn a_replay_cannot_precede_the_first_playthrough() {
+        let connection = database();
+        let mut repository = GameRepository::new(&connection);
+        let game = game();
+        repository.create(&game).unwrap();
+        let first = GameRun::new(
+            game.id.clone(),
+            NaiveDate::from_ymd_opt(2026, 8, 10),
+            NaiveDate::from_ymd_opt(2026, 8, 12),
+            Utc::now().to_rfc3339(),
+        )
+        .unwrap();
+        repository.create_run(&first).unwrap();
+        let earlier = GameRun::new(
+            game.id.clone(),
+            NaiveDate::from_ymd_opt(2026, 8, 5),
+            NaiveDate::from_ymd_opt(2026, 8, 6),
+            Utc::now().to_rfc3339(),
+        )
+        .unwrap();
+        assert!(matches!(
+            repository.create_run(&earlier),
+            Err(GameRepositoryError::RunBeforeFirst)
+        ));
     }
 }

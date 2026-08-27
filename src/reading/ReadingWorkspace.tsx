@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import {
   Archive, BarChart3, BookOpen, CalendarDays, Edit3, History, ImagePlus, Library, Move, Plus, RotateCcw, Search,
   Star, Trash2, X,
@@ -9,6 +10,7 @@ import FavoriteFilter from "../ui/FavoriteFilter";
 import Modal from "../ui/Modal";
 import SelectControl from "../ui/SelectControl";
 import { TrackerDetailTabs, TrackerMetricGrid } from "../ui/TrackerDetail";
+import { notifyCoverChanged } from "../ui/coverRefresh";
 import { pastedCoverAsJpeg } from "../ui/pastedCover";
 import { formatScore, scoreColor } from "../ui/score";
 import type { PendingReadingCover, ReadingBook, ReadingBookInput, ReadingDetail, ReadingHistoryEntry, ReadingRun, ReadingRunInput, ReadingStatistics, ReadingStatus } from "./api";
@@ -18,7 +20,7 @@ import "./reading.css";
 import ReadingCoverImage from "./ReadingCoverImage";
 
 type View = "current" | "library" | "history" | "statistics";
-type Sort = "updated" | "title" | "author" | "score";
+type Sort = "updated" | "title" | "author" | "score" | "startAsc" | "startDesc" | "finishAsc" | "finishDesc";
 
 const emptyInput: ReadingBookInput = {
   title: "", author: "", genres: [], status: "pending", score: null,
@@ -34,14 +36,18 @@ export default function ReadingWorkspace() {
   const [statisticsGenre, setStatisticsGenre] = useState("");
   const [statisticsMinimumScore, setStatisticsMinimumScore] = useState("");
   const [history, setHistory] = useState<ReadingHistoryEntry[]>([]);
+  const [historyYears, setHistoryYears] = useState<string[]>([]);
   const [historyBook, setHistoryBook] = useState("");
   const [historyYear, setHistoryYear] = useState("");
   const [archived, setArchived] = useState(false);
-  const [search, setSearch] = useState("");
-  const [status, setStatus] = useState<ReadingStatus | "">("");
-  const [genre, setGenre] = useState("");
+  const [librarySearch, setLibrarySearch] = useState("");
+  const [currentSearch, setCurrentSearch] = useState("");
+  const [libraryStatus, setLibraryStatus] = useState<ReadingStatus | "">("");
+  const [libraryGenre, setLibraryGenre] = useState("");
+  const [currentGenre, setCurrentGenre] = useState("");
   const [favoritesOnly, setFavoritesOnly] = useState(false);
-  const [sort, setSort] = useState<Sort>("updated");
+  const [sort, setSort] = useState<Sort>(() => (localStorage.getItem("nubeos.reading.sort") as Sort) || "updated");
+  useEffect(() => { localStorage.setItem("nubeos.reading.sort", sort); }, [sort]);
   const [selected, setSelected] = useState<ReadingDetail | null>(null);
   const [form, setForm] = useState<"new" | "edit" | null>(null);
   const [runForm, setRunForm] = useState<{ bookId: string; run?: ReadingRun } | null>(null);
@@ -49,20 +55,28 @@ export default function ReadingWorkspace() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const requestId = useRef(0);
+  const currentFilters = view === "current";
+  const search = currentFilters ? currentSearch : librarySearch;
+  const status = currentFilters ? "reading" : libraryStatus;
+  const genre = currentFilters ? currentGenre : libraryGenre;
+  const setSearch = currentFilters ? setCurrentSearch : setLibrarySearch;
+  const setGenre = currentFilters ? setCurrentGenre : setLibraryGenre;
 
   const load = useCallback(async (showLoading = false) => {
     const id = ++requestId.current;
     if (showLoading) setLoading(true);
     try {
-      const [items, stats, entries] = await Promise.all([
+      const [items, stats, entries, entriesForYears] = await Promise.all([
         readingApi.list({ archived }),
         readingApi.statistics({ genre: statisticsGenre || null, minimumScore: statisticsMinimumScore ? Number(statisticsMinimumScore) : null }),
         readingApi.history({ bookId: historyBook || null, year: historyYear ? Number(historyYear) : null }),
+        readingApi.history({ bookId: historyBook || null }),
       ]);
       if (id === requestId.current) {
         setBooks(items);
         setStatistics(stats);
         setHistory(entries);
+        setHistoryYears([...new Set(entriesForYears.flatMap((entry) => [entry.run.finishedOn, entry.run.startedOn]).filter(Boolean).map((date) => date!.slice(0, 4)))].sort().reverse());
         setError(null);
       }
     } catch (reason) {
@@ -77,7 +91,7 @@ export default function ReadingWorkspace() {
   const visible = useMemo(() => {
     const query = search.trim().toLocaleLowerCase("es");
     const filtered = books.filter((book) =>
-      (view !== "current" || book.status === "reading" || book.status === "paused")
+      (view !== "current" || book.status === "reading")
       && (!query || book.title.toLocaleLowerCase("es").includes(query) || book.author.toLocaleLowerCase("es").includes(query))
       && (!status || book.status === status)
       && (!genre || book.genres.includes(genre))
@@ -86,6 +100,13 @@ export default function ReadingWorkspace() {
       if (sort === "title") return left.title.localeCompare(right.title, "es");
       if (sort === "author") return left.author.localeCompare(right.author, "es");
       if (sort === "score") return (right.score ?? -1) - (left.score ?? -1) || left.title.localeCompare(right.title, "es");
+      if (sort.startsWith("start") || sort.startsWith("finish")) {
+        const first = sort.startsWith("start") ? left.startedOn : left.finishedOn;
+        const second = sort.startsWith("start") ? right.startedOn : right.finishedOn;
+        if (!first) return second ? 1 : 0;
+        if (!second) return -1;
+        return sort.endsWith("Asc") ? first.localeCompare(second) : second.localeCompare(first);
+      }
       return right.updatedAt.localeCompare(left.updatedAt);
     });
   }, [books, favoritesOnly, genre, search, sort, status, view]);
@@ -100,46 +121,45 @@ export default function ReadingWorkspace() {
   function showArchive() {
     setArchived((value) => !value);
     setSelected(null);
-    setSearch(""); setStatus(""); setGenre(""); setFavoritesOnly(false);
+    setLibrarySearch(""); setLibraryStatus(""); setLibraryGenre(""); setFavoritesOnly(false);
   }
 
   async function openBook(id: string) { setBusy(true); try { setSelected(await readingApi.get(id)); } catch (reason) { setError(readingErrorMessage(reason)); } finally { setBusy(false); } }
+
+  const collectionActions = <div className="reading-header-actions">
+    <button className="reading-text-action" onClick={showArchive} type="button">{archived ? <RotateCcw size={16} /> : <Archive size={16} />}{archived ? "Volver" : "Archivo"}</button>
+    {!archived && <button className="primary-button" onClick={() => setForm("new")} type="button"><Plus size={17} /> Añadir libro</button>}
+  </div>;
 
   return (
     <section className="reading-workspace">
       <div className="reading-toolbar">
         <nav aria-label="Vistas de Lectura" className="reading-tabs">
           <button className={view === "library" ? "active" : ""} onClick={() => { setView("library"); setArchived(false); }} type="button"><Library size={16} /> Biblioteca</button>
-          <button className={view === "current" ? "active" : ""} onClick={() => { setView("current"); setArchived(false); setFavoritesOnly(false); }} type="button"><BookOpen size={16} /> Leyendo</button>
+          <button className={view === "current" ? "active" : ""} onClick={() => { setView("current"); setArchived(false); }} type="button"><BookOpen size={16} /> Leyendo</button>
           <button className={view === "history" ? "active" : ""} onClick={() => { setView("history"); setArchived(false); }} type="button"><History size={16} /> Historial</button>
           <button className={view === "statistics" ? "active" : ""} onClick={() => { setView("statistics"); setArchived(false); }} type="button"><BarChart3 size={16} /> Estadísticas</button>
         </nav>
-        <div className="reading-header-actions">
-          <button className="reading-text-action" onClick={showArchive} type="button">
-            {archived ? <RotateCcw size={16} /> : <Archive size={16} />}{archived ? "Volver" : "Archivo"}
-          </button>
-          {!archived && <button className="primary-button" onClick={() => setForm("new")} type="button"><Plus size={17} /> Añadir libro</button>}
-        </div>
       </div>
 
       {error && <div className="reading-error" role="alert"><span>{error}</span><button aria-label="Cerrar error" onClick={() => setError(null)} type="button"><X size={15} /></button></div>}
 
       {view === "statistics" && !archived ? (
-        <Statistics data={statistics} genre={statisticsGenre} minimumScore={statisticsMinimumScore} setGenre={setStatisticsGenre} setMinimumScore={setStatisticsMinimumScore} />
+        <Statistics actions={collectionActions} data={statistics} genre={statisticsGenre} minimumScore={statisticsMinimumScore} setGenre={setStatisticsGenre} setMinimumScore={setStatisticsMinimumScore} />
       ) : view === "history" && !archived ? (
-        <ReadingHistory entries={history} books={books} bookId={historyBook} year={historyYear} setBookId={setHistoryBook} setYear={setHistoryYear} edit={(entry) => setRunForm({ bookId: entry.run.bookId, run: entry.run })} remove={(entry) => { if (window.confirm(`¿Eliminar esta lectura de “${entry.bookTitle}”?`)) void action(() => readingApi.deleteRun(entry.run.id)); }} />
+        <ReadingHistory actions={collectionActions} entries={history} books={books} bookId={historyBook} year={historyYear} years={historyYears} setBookId={setHistoryBook} setYear={setHistoryYear} edit={(entry) => setRunForm({ bookId: entry.run.bookId, run: entry.run })} remove={(entry) => { if (window.confirm(`¿Eliminar esta lectura de “${entry.bookTitle}”?`)) void action(() => readingApi.deleteRun(entry.run.id)); }} />
       ) : (
         <>
-          <header className="reading-view-heading">
+          <div className="reading-collection-heading"><header className="reading-view-heading">
             <span>{archived ? "ARCHIVO" : view === "current" ? "AHORA" : "TU COLECCIÓN"}</span>
             <h2>{archived ? "Libros archivados" : view === "current" ? "Leyendo" : "Biblioteca"}</h2>
-            <p>{archived ? "Restaura o elimina definitivamente." : view === "current" ? "Lo que estás leyendo o has dejado temporalmente en pausa." : "Pendientes, terminados y todo lo que quieres conservar."}</p>
-          </header>
+            <p>{archived ? "Restaura o elimina definitivamente." : view === "current" ? "Los libros que estás leyendo ahora mismo." : "Pendientes, terminados y todo lo que quieres conservar."}</p>
+          </header>{collectionActions}</div>
           <div className={`reading-filters${view !== "library" || archived ? " without-favorite" : ""}`}>
             <label className="reading-search"><Search size={17} /><input onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por título o autor" value={search} /></label>
-            <SelectControl><select aria-label="Filtrar por estado" onChange={(event) => setStatus(event.target.value as ReadingStatus | "")} value={status}><option value="">Todos los estados</option>{readingStatuses.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></SelectControl>
+            {view === "current" ? <SelectControl><select aria-label="Estado de la vista" disabled value="reading"><option value="reading">Leyendo</option></select></SelectControl> : <SelectControl><select aria-label="Filtrar por estado" onChange={(event) => setLibraryStatus(event.target.value as ReadingStatus | "")} value={libraryStatus}><option value="">Todos los estados</option>{readingStatuses.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></SelectControl>}
             <SelectControl><select aria-label="Filtrar por género" onChange={(event) => setGenre(event.target.value)} value={genre}><option value="">Todos los géneros</option>{readingGenres.map((item) => <option key={item} value={item}>{item}</option>)}</select></SelectControl>
-            <SelectControl><select aria-label="Ordenar libros" onChange={(event) => setSort(event.target.value as Sort)} value={sort}><option value="updated">Actualizados recientemente</option><option value="title">Título (A–Z)</option><option value="author">Autor (A–Z)</option><option value="score">Mejor puntuación</option></select></SelectControl>
+            <SelectControl><select aria-label="Ordenar libros" onChange={(event) => setSort(event.target.value as Sort)} value={sort}><option value="updated">Actualizados recientemente</option><option value="title">Título (A–Z)</option><option value="author">Autor (A–Z)</option><option value="score">Mejor puntuación</option><option value="startDesc">Inicio (más reciente)</option><option value="startAsc">Inicio (más antiguo)</option><option value="finishDesc">Finalización (más reciente)</option><option value="finishAsc">Finalización (más antigua)</option></select></SelectControl>
             {view === "library" && !archived && <FavoriteFilter active={favoritesOnly} onChange={setFavoritesOnly} />}
           </div>
           {loading ? <Empty text="Cargando libros…" /> : visible.length === 0 ? <Empty text={archived ? "El Archivo está vacío." : view === "current" ? "No tienes ningún libro en lectura." : "Todavía no has añadido ningún libro."} /> : (
@@ -214,7 +234,7 @@ function BookDetail({ book, archived, busy, close, edit, archive, restore, start
   return <><Modal className="reading-detail-modal" labelledBy="reading-detail-title" onClose={close}>
     <div className="reading-detail-header"><div className="reading-detail-cover-wrap ui-cover-adjust-host"><ReadingCoverImage alt={`Portada de ${book.title}`} bookId={book.id} className="detail" hasCover={book.hasCover} positionX={book.coverPositionX} positionY={book.coverPositionY} zoom={book.coverZoom} />{!archived && book.hasCover && <button aria-label="Ajustar encuadre de portada" className="ui-cover-adjust-button" onClick={() => setPositioningCover(true)} type="button"><Move size={14} /> Ajustar</button>}</div><div className="reading-detail-title"><span>LIBRO</span><h2 id="reading-detail-title">{book.title}</h2><p>{book.author}</p></div><div><button aria-label="Editar libro" className="reading-icon-action" onClick={edit} title="Editar" type="button"><Edit3 size={17} /></button><button aria-label={archived ? "Restaurar libro" : "Archivar libro"} className="reading-icon-action" disabled={busy} onClick={archived ? restore : archive} title={archived ? "Restaurar" : "Archivar"} type="button">{archived ? <RotateCcw size={17} /> : <Archive size={17} />}</button><button aria-label="Cerrar" className="reading-icon-action" onClick={close} title="Cerrar" type="button"><X size={18} /></button></div></div>
     <TrackerDetailTabs onChange={setDetailView} value={detailView} />
-    {detailView === "summary" ? <><TrackerMetricGrid metrics={[{ label: "Puntuación", value: formatScore(book.score), color: scoreColor(book.score) }, { label: "Lecturas", value: book.runs.length }, { label: "Estado", value: readingStatusLabel(book.status) }]} /><section className="reading-detail-section"><h3>Géneros</h3><div className="reading-genres">{book.genres.length ? book.genres.map((genre) => <span key={genre}>{genre}</span>) : <p>Sin géneros</p>}</div></section><section className="reading-detail-section"><h3>Opinión</h3><p>{book.opinion || "Todavía no has escrito una opinión."}</p></section></> : <section className="reading-detail-section reading-runs"><header><div><h3>Historial de lecturas</h3><p>Cada relectura conserva sus propias fechas.</p></div>{!archived && <div>{openRun ? <button className="primary-button" disabled={busy} onClick={() => finish(openRun)} type="button">Terminar hoy</button> : <button className="primary-button" disabled={busy} onClick={start} type="button"><BookOpen size={16} /> Empezar hoy</button>}<button className="secondary-button" onClick={addRun} type="button"><Plus size={16} /> Registrar lectura</button></div>}</header>{book.runs.length === 0 ? <p>No hay lecturas registradas.</p> : <div className="reading-run-list">{book.runs.map((run, index) => <article key={run.id}><div><strong>{run.finishedOn ? `Lectura ${book.runs.length - index}` : "Lectura actual"}</strong><span>{formatReadingDate(run.startedOn)} → {run.finishedOn ? formatReadingDate(run.finishedOn) : "En curso"}</span></div>{!archived && <div><button className="reading-icon-action" onClick={() => editRun(run)} title="Editar" type="button"><Edit3 size={15} /></button><button className="reading-icon-action" onClick={() => deleteRun(run)} title="Eliminar" type="button"><Trash2 size={15} /></button></div>}</article>)}</div>}</section>}
+    {detailView === "summary" ? <><TrackerMetricGrid metrics={[{ label: "Puntuación", value: formatScore(book.score), color: scoreColor(book.score) }, { label: "Lecturas", value: book.runs.length }, { label: "Estado", value: readingStatusLabel(book.status) }]} /><section className="reading-detail-section"><h3>Géneros</h3><div className="reading-genres">{book.genres.length ? book.genres.map((genre) => <span key={genre}>{genre}</span>) : <p>Sin géneros</p>}</div></section><section className="reading-detail-section"><h3>Opinión</h3><p>{book.opinion || "Todavía no has escrito una opinión."}</p></section></> : <section className="reading-detail-section reading-runs"><header><strong className="tracker-history-count"><History size={17} /> {book.runs.length} {book.runs.length === 1 ? "lectura registrada" : "lecturas registradas"}</strong>{!archived && <div><button className="secondary-button" onClick={addRun} type="button"><Plus size={16} /> Registrar lectura</button>{openRun ? <button className="primary-button" disabled={busy} onClick={() => finish(openRun)} type="button">Terminar hoy</button> : <button className="primary-button" disabled={busy} onClick={start} type="button"><BookOpen size={16} /> Empezar hoy</button>}</div>}</header>{book.runs.length === 0 ? <p>No hay lecturas registradas.</p> : <div className="reading-run-list">{book.runs.map((run, index) => <article key={run.id}><div><strong>{run.finishedOn ? `Lectura ${book.runs.length - index}` : "Lectura actual"}</strong><span>{formatReadingDate(run.startedOn)} → {run.finishedOn ? formatReadingDate(run.finishedOn) : "En curso"}</span></div>{!archived && <div><button className="reading-icon-action" onClick={() => editRun(run)} title="Editar" type="button"><Edit3 size={15} /></button><button className="reading-icon-action" onClick={() => deleteRun(run)} title="Eliminar" type="button"><Trash2 size={15} /></button></div>}</article>)}</div>}</section>}
   </Modal>{positioningCover && <CoverCropEditor busy={busy} close={() => setPositioningCover(false)} initial={{ x: book.coverPositionX, y: book.coverPositionY, zoom: book.coverZoom }} landscape={false} preview={(crop) => <ReadingCoverImage alt={`Portada de ${book.title}`} bookId={book.id} hasCover={book.hasCover} positionX={crop.x} positionY={crop.y} zoom={crop.zoom} />} save={(crop) => setCoverCrop(crop.x, crop.y, crop.zoom)} title={book.title} />}</>;
 }
 
@@ -230,12 +250,12 @@ function BookForm({ book, busy, close, save }: { book: ReadingBook | null; busy:
   async function pasteCover(event: React.ClipboardEvent<HTMLElement>) { setCoverBusy(true); try { const bytes = await pastedCoverAsJpeg(event); if (!bytes) return; const selected = await readingApi.preparePastedCover(bytes); await discardPending(); setCover(selected); setDraft({ ...draft, coverToken: selected.token, removeCover: false }); } catch (reason) { window.alert(readingErrorMessage(reason)); } finally { setCoverBusy(false); } }
   function toggleGenre(value: string) { setDraft({ ...draft, genres: draft.genres.includes(value) ? draft.genres.filter((item) => item !== value) : [...draft.genres, value] }); }
   return <Modal className="reading-form-modal" labelledBy="reading-form-title" onClose={requestClose}>
-    <form onSubmit={async (event) => { event.preventDefault(); const ok = await save(draft); if (ok) { setCover(null); close(); } }}>
+    <form onSubmit={async (event) => { event.preventDefault(); const ok = await save(draft); if (ok) { if (book && (cover || draft.removeCover)) notifyCoverChanged(book.id); setCover(null); close(); } }}>
       <div className="reading-form-header"><div><h2 id="reading-form-title">{book ? "Editar libro" : "Añadir libro"}</h2><p>Biblioteca personal</p></div><button aria-label="Cerrar" className="reading-icon-action" onClick={requestClose} type="button"><X size={18} /></button></div>
       <fieldset><legend>Identificación</legend><div className="reading-form-grid"><label>Título<input autoFocus onChange={(event) => setDraft({ ...draft, title: event.target.value })} placeholder="Título del libro" required value={draft.title} /></label><label>Autor<input onChange={(event) => setDraft({ ...draft, author: event.target.value })} placeholder="Nombre del autor" required value={draft.author} /></label><div className="reading-genre-field wide"><span>Géneros</span><div>{readingGenres.map((item) => <button className={draft.genres.includes(item) ? "active" : ""} key={item} onClick={() => toggleGenre(item)} type="button">{item}</button>)}</div></div></div></fieldset>
-      <fieldset><legend>Seguimiento</legend><div className="reading-form-grid"><label>Estado<SelectControl><select onChange={(event) => setDraft({ ...draft, status: event.target.value as ReadingStatus })} value={draft.status}>{readingStatuses.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></SelectControl></label><label>Puntuación (opcional)<div className="reading-score-input" style={{ color: scoreColor(draft.score) }}><input inputMode="decimal" max={10} min={0} onChange={(event) => setDraft({ ...draft, score: event.target.value === "" ? null : event.target.valueAsNumber })} placeholder="8,5" step={0.1} type="number" value={draft.score ?? ""} /><span>/ 10</span></div></label></div><p className="reading-form-hint">Las fechas se gestionan como lecturas independientes desde el detalle del libro.</p></fieldset>
+      <fieldset><legend>Seguimiento</legend><div className="reading-form-grid"><label>Estado<SelectControl><select onChange={(event) => setDraft({ ...draft, status: event.target.value as ReadingStatus })} value={draft.status}>{readingStatuses.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></SelectControl></label><label>Puntuación (opcional)<div className="reading-score-input" style={{ color: scoreColor(draft.score) }}><input inputMode="decimal" max={10} min={0} onChange={(event) => setDraft({ ...draft, score: event.target.value === "" ? null : event.target.valueAsNumber })} placeholder="8,5" step={0.1} type="number" value={draft.score ?? ""} /><span>/ 10</span></div></label><label>Favorito<button aria-pressed={draft.favorite} className={`media-form-favorite${draft.favorite ? " active" : ""}`} onClick={() => setDraft({ ...draft, favorite: !draft.favorite })} type="button"><Star fill={draft.favorite ? "currentColor" : "none"} size={18} />{draft.favorite ? "En favoritos" : "Añadir a favoritos"}</button></label></div><p className="reading-form-hint">Las fechas se gestionan como lecturas independientes desde el detalle del libro.</p></fieldset>
       <fieldset><legend>Opinión</legend><label><textarea onChange={(event) => setDraft({ ...draft, opinion: event.target.value || null })} placeholder="Qué te pareció..." rows={3} value={draft.opinion ?? ""} /></label></fieldset>
-      <fieldset><legend>Portada</legend><div className="reading-cover-field" onPaste={(event) => void pasteCover(event)} tabIndex={0}><div>{book?.hasCover && !draft.removeCover ? "Portada actual guardada" : cover ? cover.originalName : "Sin portada"}<span>Elige una imagen o pégala aquí con Ctrl+V. Se guardará como JPEG.</span></div><button className="secondary-button" disabled={coverBusy} onClick={() => void selectCover()} type="button"><ImagePlus size={16} /> {coverBusy ? "Preparando…" : "Elegir imagen"}</button>{(book?.hasCover || cover) && <button className="secondary-button" onClick={() => { if (cover) void readingApi.discardCover(cover.token).catch(() => undefined); setCover(null); setDraft({ ...draft, coverToken: null, removeCover: true }); }} type="button"><Trash2 size={16} /> Quitar</button>}</div></fieldset>
+      <fieldset><legend>Portada</legend><div className="reading-cover-field" onPaste={(event) => void pasteCover(event)} tabIndex={0}><div>{cover ? cover.originalName : book?.hasCover && !draft.removeCover ? "Portada actual guardada" : "Sin portada"}<span>Elige una imagen o pégala aquí con Ctrl+V. Se guardará como JPEG.</span></div><button className="secondary-button" disabled={coverBusy} onClick={() => void selectCover()} type="button"><ImagePlus size={16} /> {coverBusy ? "Preparando…" : "Elegir imagen"}</button>{(book?.hasCover || cover) && !draft.removeCover && <button aria-label="Quitar portada" className="reading-icon-action" onClick={() => { if (cover) void readingApi.discardCover(cover.token).catch(() => undefined); setCover(null); setDraft({ ...draft, coverToken: null, removeCover: Boolean(book?.hasCover) }); }} title="Quitar portada" type="button"><Trash2 size={16} /></button>}</div></fieldset>
       <div className="reading-form-footer"><button className="secondary-button" onClick={requestClose} type="button">Cancelar</button><button className="primary-button" disabled={busy} type="submit">{busy ? "Guardando…" : "Guardar"}</button></div>
     </form>
   </Modal>;
@@ -244,17 +264,16 @@ function BookForm({ book, busy, close, save }: { book: ReadingBook | null; busy:
 function ReadingRunForm({ run, busy, close, save }: { run: ReadingRun | null; busy: boolean; close: () => void; save: (input: ReadingRunInput) => Promise<boolean> }) {
   const initial = useMemo<ReadingRunInput>(() => ({ startedOn: run?.startedOn ?? null, finishedOn: run?.finishedOn ?? null }), [run]);
   const [draft, setDraft] = useState(initial);
-  return <Modal className="reading-run-modal" labelledBy="reading-run-title" onClose={close}><form onSubmit={async (event) => { event.preventDefault(); if (await save(draft)) close(); }}><div className="reading-form-header"><div><h2 id="reading-run-title">{run ? "Editar lectura" : "Registrar lectura"}</h2><p>Indica al menos una fecha.</p></div><button className="reading-icon-action" onClick={close} type="button"><X size={18} /></button></div><div className="reading-form-grid"><label>Fecha de inicio (opcional)<input onChange={(event) => setDraft({ ...draft, startedOn: event.target.value || null })} type="date" value={draft.startedOn ?? ""} /></label><label>Fecha final (opcional)<input onChange={(event) => setDraft({ ...draft, finishedOn: event.target.value || null })} type="date" value={draft.finishedOn ?? ""} /></label></div><div className="reading-form-footer"><button className="secondary-button" onClick={close} type="button">Cancelar</button><button className="primary-button" disabled={busy || (!draft.startedOn && !draft.finishedOn)} type="submit">Guardar</button></div></form></Modal>;
+  return <Modal className="reading-run-modal" labelledBy="reading-run-title" onClose={close}><form onSubmit={async (event) => { event.preventDefault(); if (await save(draft)) close(); }}><div className="reading-form-header"><div><h2 id="reading-run-title">{run ? "Editar lectura" : "Registrar lectura"}</h2><p>Indica cuándo empezaste este libro.</p></div><button className="reading-icon-action" onClick={close} type="button"><X size={18} /></button></div><div className="reading-form-grid"><label>Fecha de inicio<input max={readingToday()} onChange={(event) => setDraft({ ...draft, startedOn: event.target.value || null })} required type="date" value={draft.startedOn ?? ""} /></label><label>Fecha final (opcional)<input max={readingToday()} min={draft.startedOn ?? undefined} onChange={(event) => setDraft({ ...draft, finishedOn: event.target.value || null })} type="date" value={draft.finishedOn ?? ""} /></label></div><div className="reading-form-footer"><button className="secondary-button" onClick={close} type="button">Cancelar</button><button className="primary-button" disabled={busy || !draft.startedOn} type="submit">Guardar</button></div></form></Modal>;
 }
 
-function ReadingHistory({ entries, books, bookId, year, setBookId, setYear, edit, remove }: { entries: ReadingHistoryEntry[]; books: ReadingBook[]; bookId: string; year: string; setBookId: (value: string) => void; setYear: (value: string) => void; edit: (entry: ReadingHistoryEntry) => void; remove: (entry: ReadingHistoryEntry) => void }) {
-  const years = [...new Set(entries.flatMap((entry) => [entry.run.finishedOn, entry.run.startedOn]).filter(Boolean).map((date) => date!.slice(0, 4)))].sort().reverse();
-  return <div><header className="reading-view-heading"><span>TU HISTORIAL</span><h2>Lecturas y relecturas</h2><p>Cada vuelta a un libro permanece separada.</p></header><div className="reading-history-filters"><SelectControl><select onChange={(event) => setBookId(event.target.value)} value={bookId}><option value="">Todos los libros</option>{books.map((book) => <option key={book.id} value={book.id}>{book.title}</option>)}</select></SelectControl><SelectControl><select onChange={(event) => setYear(event.target.value)} value={year}><option value="">Todos los años</option>{years.map((item) => <option key={item}>{item}</option>)}</select></SelectControl></div>{entries.length === 0 ? <Empty text="Todavía no hay lecturas en el historial." /> : <div className="reading-history-list">{entries.map((entry) => <article key={entry.run.id}><CalendarDays size={18} /><div><strong>{entry.bookTitle}</strong><span>{entry.bookAuthor} · {formatReadingDate(entry.run.startedOn)} → {entry.run.finishedOn ? formatReadingDate(entry.run.finishedOn) : "En curso"}</span></div><div><button className="reading-icon-action" onClick={() => edit(entry)} title="Editar" type="button"><Edit3 size={15} /></button><button className="reading-icon-action" onClick={() => remove(entry)} title="Eliminar" type="button"><Trash2 size={15} /></button></div></article>)}</div>}</div>;
+function ReadingHistory({ actions, entries, books, bookId, year, years, setBookId, setYear, edit, remove }: { actions: ReactNode; entries: ReadingHistoryEntry[]; books: ReadingBook[]; bookId: string; year: string; years: string[]; setBookId: (value: string) => void; setYear: (value: string) => void; edit: (entry: ReadingHistoryEntry) => void; remove: (entry: ReadingHistoryEntry) => void }) {
+  return <div><div className="reading-collection-heading"><header className="reading-view-heading"><span>TU HISTORIAL</span><h2>Lecturas y relecturas</h2><p>Cada vuelta a un libro permanece separada.</p></header>{actions}</div><div className="reading-history-filters"><SelectControl><select onChange={(event) => setBookId(event.target.value)} value={bookId}><option value="">Todos los libros</option>{books.map((book) => <option key={book.id} value={book.id}>{book.title}</option>)}</select></SelectControl><SelectControl><select onChange={(event) => setYear(event.target.value)} value={year}><option value="">Todos los años</option>{years.map((item) => <option key={item}>{item}</option>)}</select></SelectControl></div>{entries.length === 0 ? <Empty text="Todavía no hay lecturas en el historial." /> : <div className="reading-history-list">{entries.map((entry) => <article key={entry.run.id}><CalendarDays size={18} /><div><strong>{entry.bookTitle}</strong><span>{entry.bookAuthor} · {formatReadingDate(entry.run.startedOn)} → {entry.run.finishedOn ? formatReadingDate(entry.run.finishedOn) : "En curso"}</span></div><div><button className="reading-icon-action" onClick={() => edit(entry)} title="Editar" type="button"><Edit3 size={15} /></button><button className="reading-icon-action" onClick={() => remove(entry)} title="Eliminar" type="button"><Trash2 size={15} /></button></div></article>)}</div>}</div>;
 }
 
-function Statistics({ data, genre, minimumScore, setGenre, setMinimumScore }: { data: ReadingStatistics | null; genre: string; minimumScore: string; setGenre: (value: string) => void; setMinimumScore: (value: string) => void }) {
+function Statistics({ actions, data, genre, minimumScore, setGenre, setMinimumScore }: { actions: ReactNode; data: ReadingStatistics | null; genre: string; minimumScore: string; setGenre: (value: string) => void; setMinimumScore: (value: string) => void }) {
   if (!data) return <Empty text="Cargando estadísticas…" />;
-  return <div className="reading-statistics"><header className="reading-view-heading"><span>TU BIBLIOTECA</span><h2>Estadísticas</h2><p>Una vista sencilla de lo que lees y terminas.</p></header><div className="reading-stat-filters"><SelectControl><select aria-label="Filtrar estadísticas por género" onChange={(event) => setGenre(event.target.value)} value={genre}><option value="">Todos los géneros</option>{readingGenres.map((item) => <option key={item} value={item}>{item}</option>)}</select></SelectControl><SelectControl><select aria-label="Filtrar estadísticas por puntuación mínima" onChange={(event) => setMinimumScore(event.target.value)} value={minimumScore}><option value="">Cualquier puntuación</option><option value="5">5 o más</option><option value="6">6 o más</option><option value="7">7 o más</option><option value="8">8 o más</option><option value="9">9 o más</option></select></SelectControl></div><div className="reading-stat-grid"><Stat label="Libros" value={data.activeBooks} /><Stat label="En lectura" value={data.currentlyReading} /><Stat label="Terminados" value={data.completedBooks} /><Stat label="Favoritos" value={data.favoriteBooks} /><Stat label="Puntuación media" value={data.averageScore === null ? "—" : formatScore(data.averageScore)} color={scoreColor(data.averageScore)} /></div><div className="reading-stat-columns"><section><h3>Por estado</h3>{data.byStatus.map((item) => <div className="reading-stat-row" key={item.status}><span>{readingStatusLabel(item.status)}</span><strong>{item.count}</strong></div>)}</section><section><h3>Géneros principales</h3>{data.topGenres.length ? data.topGenres.map((item) => <div className="reading-stat-row" key={item.genre}><span>{item.genre}</span><strong>{item.count}</strong></div>) : <p>Sin datos con estos filtros.</p>}</section></div></div>;
+  return <div className="reading-statistics"><div className="reading-collection-heading"><header className="reading-view-heading"><span>TU BIBLIOTECA</span><h2>Estadísticas</h2><p>Una vista sencilla de lo que lees y terminas.</p></header>{actions}</div><div className="reading-stat-filters"><SelectControl><select aria-label="Filtrar estadísticas por género" onChange={(event) => setGenre(event.target.value)} value={genre}><option value="">Todos los géneros</option>{readingGenres.map((item) => <option key={item} value={item}>{item}</option>)}</select></SelectControl><SelectControl><select aria-label="Filtrar estadísticas por puntuación mínima" onChange={(event) => setMinimumScore(event.target.value)} value={minimumScore}><option value="">Cualquier puntuación</option><option value="5">5 o más</option><option value="6">6 o más</option><option value="7">7 o más</option><option value="8">8 o más</option><option value="9">9 o más</option></select></SelectControl></div><div className="reading-stat-grid"><Stat label="Libros" value={data.activeBooks} /><Stat label="En lectura" value={data.currentlyReading} /><Stat label="Terminados" value={data.completedBooks} /><Stat label="Favoritos" value={data.favoriteBooks} /><Stat label="Puntuación media" value={data.averageScore === null ? "—" : formatScore(data.averageScore)} color={scoreColor(data.averageScore)} /></div><div className="reading-stat-columns"><section><h3>Por estado</h3>{data.byStatus.map((item) => <div className="reading-stat-row" key={item.status}><span>{readingStatusLabel(item.status)}</span><strong>{item.count}</strong></div>)}</section><section><h3>Géneros principales</h3>{data.topGenres.length ? data.topGenres.map((item) => <div className="reading-stat-row" key={item.genre}><span>{item.genre}</span><strong>{item.count}</strong></div>) : <p>Sin datos con estos filtros.</p>}</section></div></div>;
 }
 
 function Stat({ label, value, color }: { label: string; value: string | number; color?: string }) { return <div className="reading-stat"><span>{label}</span><strong style={color ? { color } : undefined}>{value}</strong></div>; }

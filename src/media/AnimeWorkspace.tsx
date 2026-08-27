@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import {
   Archive,
   BarChart3,
-  Building2,
   Film,
   History as HistoryIcon,
   Library,
@@ -46,7 +46,7 @@ import {
 import "./media.css";
 
 type View = "watching" | "library" | "statistics" | "history";
-type LibrarySort = "catalogAsc" | "catalogDesc" | "scoreDesc" | "scoreAsc" | "titleAsc";
+type LibrarySort = "updated" | "catalogAsc" | "catalogDesc" | "scoreDesc" | "scoreAsc" | "titleAsc" | "startAsc" | "startDesc" | "finishAsc" | "finishDesc";
 type LibrarySection = "anime" | "movies";
 
 function contentInput(content: MediaContent, overrides: Partial<MediaContentInput> = {}): MediaContentInput {
@@ -56,7 +56,7 @@ function contentInput(content: MediaContent, overrides: Partial<MediaContentInpu
     status: content.status,
     canonStatus: content.canonStatus,
     totalEpisodes: content.totalEpisodes,
-    studio: content.studio,
+    studio: null,
     score: content.score,
     opinion: content.opinion,
     notes: content.notes,
@@ -78,11 +78,9 @@ export default function AnimeWorkspace() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<TrackingStatus | "">("");
   const [favoritesOnly, setFavoritesOnly] = useState(false);
-  const [librarySort, setLibrarySort] = useState<LibrarySort>("catalogAsc");
+  const [librarySort, setLibrarySort] = useState<LibrarySort>(() => (localStorage.getItem("nubeos.anime.sort.anime") as LibrarySort) || (localStorage.getItem("nubeos.anime.sort") as LibrarySort) || "catalogAsc");
   const [librarySection, setLibrarySection] = useState<LibrarySection>("anime");
-  const [studios, setStudios] = useState<string[]>([]);
-  const [studio, setStudio] = useState("");
-  const [statisticsStudio, setStatisticsStudio] = useState("");
+  useEffect(() => { localStorage.setItem(`nubeos.anime.sort.${librarySection}`, librarySort); }, [librarySection, librarySort]);
   const [statisticsMinimumScore, setStatisticsMinimumScore] = useState("");
   const [history, setHistory] = useState<MediaHistoryEntry[]>([]);
   const [historyOptions, setHistoryOptions] = useState<MediaHistoryEntry[]>([]);
@@ -105,7 +103,7 @@ export default function AnimeWorkspace() {
       if (showInitial) setInitialLoading(true);
       try {
         if (view === "statistics") {
-          const data = await mediaApi.statistics({ area: "anime", studio: statisticsStudio || null, minimumScore: statisticsMinimumScore ? Number(statisticsMinimumScore) : null });
+          const data = await mediaApi.statistics({ area: "anime", minimumScore: statisticsMinimumScore ? Number(statisticsMinimumScore) : null });
           if (requestId.current === id) setStatistics(data);
         } else if (view === "history") {
           const [data, options] = await Promise.all([
@@ -120,7 +118,6 @@ export default function AnimeWorkspace() {
             area: "anime",
             kind: view === "library" ? (librarySection === "anime" ? "anime" : "movie") : null,
             status: view === "watching" ? "watching" : status || null,
-            studio: view === "library" ? studio || null : null,
             favoritesOnly: view === "library" && favoritesOnly,
           });
           if (requestId.current === id) setItems(data);
@@ -132,10 +129,8 @@ export default function AnimeWorkspace() {
         if (requestId.current === id) setInitialLoading(false);
       }
     },
-    [archived, favoritesOnly, historyContent, historyMonth, historyOldestFirst, historyTitle, historyYear, librarySection, search, statisticsMinimumScore, statisticsStudio, status, studio, view],
+    [archived, favoritesOnly, historyContent, historyMonth, historyOldestFirst, historyTitle, historyYear, librarySection, search, statisticsMinimumScore, status, view],
   );
-
-  useEffect(() => { void mediaApi.listStudios().then(setStudios).catch(() => undefined); }, []);
 
   useEffect(() => {
     if (view !== "history") return;
@@ -238,12 +233,11 @@ export default function AnimeWorkspace() {
         area: "anime",
         kind: next === "anime" ? "anime" : "movie",
         status: status || null,
-        studio: studio || null,
         favoritesOnly,
       });
       if (requestId.current !== id) return;
       setItems(data);
-      setLibrarySort(next === "anime" ? "catalogAsc" : "scoreDesc");
+      setLibrarySort((localStorage.getItem(`nubeos.anime.sort.${next}`) as LibrarySort) || (next === "anime" ? "catalogAsc" : "scoreDesc"));
       setLibrarySection(next);
       setError(null);
     } catch (reason) {
@@ -262,25 +256,24 @@ export default function AnimeWorkspace() {
     setDetail(null);
   }
 
+  const collectionActions = (
+    <div className="media-toolbar-actions">
+      <button className="ui-archive-toggle" onClick={() => { if (view !== "library") changeView("library"); setArchived(view !== "library" || !archived); }} type="button">
+        {archived ? <RotateCcw size={16} /> : <Archive size={16} />}
+        {archived ? "Volver" : "Archivo"}
+      </button>
+      <button className="primary-button" onClick={() => setTitleForm("new")} type="button"><Plus size={17} /> Añadir anime</button>
+    </div>
+  );
+
   return (
-    <section className="media-workspace">
+    <section className="media-workspace anime-workspace">
       <div className="media-primary-toolbar">
         <div className="media-tabs" role="tablist">
           <Tab active={view === "library"} icon={Library} label="Biblioteca" onClick={() => changeView("library")} />
           <Tab active={view === "watching"} icon={Film} label="En curso" onClick={() => changeView("watching")} />
-          <Tab active={view === "statistics"} icon={BarChart3} label="Estadísticas" onClick={() => changeView("statistics")} />
           <Tab active={view === "history"} icon={HistoryIcon} label="Historial" onClick={() => changeView("history")} />
-        </div>
-        <div className="media-toolbar-actions">
-          {view === "library" && (
-            <button className="ui-archive-toggle" onClick={() => setArchived(!archived)} type="button">
-              {archived ? <RotateCcw size={16} /> : <Archive size={16} />}
-              {archived ? "Volver" : "Archivo"}
-            </button>
-          )}
-          <button className="primary-button" onClick={() => setTitleForm("new")} type="button">
-            <Plus size={17} /> Añadir título
-          </button>
+          <Tab active={view === "statistics"} icon={BarChart3} label="Estadísticas" onClick={() => changeView("statistics")} />
         </div>
       </div>
 
@@ -297,6 +290,7 @@ export default function AnimeWorkspace() {
         <>
           {view === "watching" && (
             <WatchingView
+              actions={collectionActions}
               items={items}
               busy={busy}
               open={openDetail}
@@ -314,6 +308,7 @@ export default function AnimeWorkspace() {
           )}
           {view === "library" && (
             <LibraryView
+              actions={collectionActions}
               archived={archived}
               transitioning={libraryTransitioning}
               section={librarySection}
@@ -326,9 +321,6 @@ export default function AnimeWorkspace() {
               setFavoritesOnly={setFavoritesOnly}
               sort={librarySort}
               setSort={setLibrarySort}
-              studios={studios}
-              studio={studio}
-              setStudio={setStudio}
               items={items}
               open={openDetail}
               busy={busy}
@@ -346,9 +338,9 @@ export default function AnimeWorkspace() {
             />
           )}
           {view === "statistics" && statistics && (
-            <StatisticsView statistics={statistics} open={openDetail} studios={studios} studio={statisticsStudio} minimumScore={statisticsMinimumScore} setStudio={setStatisticsStudio} setMinimumScore={setStatisticsMinimumScore} />
+            <StatisticsView actions={collectionActions} statistics={statistics} open={openDetail} minimumScore={statisticsMinimumScore} setMinimumScore={setStatisticsMinimumScore} />
           )}
-          {view === "history" && <HistoryView busy={busy} content={historyContent} entries={history} month={historyMonth} oldestFirst={historyOldestFirst} options={historyOptions} selected={historySelection} setContent={setHistoryContent} setMonth={setHistoryMonth} setOldestFirst={setHistoryOldestFirst} setTitle={setHistoryTitle} setYear={setHistoryYear} title={historyTitle} titles={historyTitles} year={historyYear} updateDate={async (id, date) => { if (await runAction(() => mediaApi.updateHistoryDate(id, date))) await load(false); }} deleteEntry={async (entry) => { if (!window.confirm("¿Eliminar esta visualización y actualizar el progreso?")) return; if (await runAction(() => mediaApi.deleteHistoryEntry(entry.id))) await load(false); }} />}
+          {view === "history" && <HistoryView actions={collectionActions} busy={busy} content={historyContent} entries={history} month={historyMonth} oldestFirst={historyOldestFirst} options={historyOptions} selected={historySelection} setContent={setHistoryContent} setMonth={setHistoryMonth} setOldestFirst={setHistoryOldestFirst} setTitle={setHistoryTitle} setYear={setHistoryYear} title={historyTitle} titles={historyTitles} year={historyYear} updateDate={async (id, date) => { if (await runAction(() => mediaApi.updateHistoryDate(id, date))) await load(false); }} deleteEntry={async (entry) => { if (!window.confirm("¿Eliminar esta visualización y actualizar el progreso?")) return; if (await runAction(() => mediaApi.deleteHistoryEntry(entry.id))) await load(false); }} />}
         </>
       )}
 
@@ -429,7 +421,6 @@ export default function AnimeWorkspace() {
             if (!result) return false;
             if (titleForm === "edit") setDetail(result);
             await load(false);
-            setStudios(await mediaApi.listStudios());
             return true;
           }}
         />
@@ -454,11 +445,13 @@ export default function AnimeWorkspace() {
 }
 
 function WatchingView({
+  actions,
   items,
   busy,
   open,
   increment,
 }: {
+  actions: ReactNode;
   items: MediaTitle[];
   busy: boolean;
   open: (id: string) => void;
@@ -466,26 +459,26 @@ function WatchingView({
 }) {
   return (
     <section className="media-view">
-      <ViewHeading eyebrow="CONTINUAR" title="En curso" subtitle="Retoma lo último sin perder el hilo." />
+      <div className="library-heading-row anime-collection-heading"><ViewHeading eyebrow="CONTINUAR" title="En curso" subtitle="Retoma lo último sin perder el hilo." />{actions}</div>
       {items.length === 0 ? (
         <MediaEmpty text="No tienes ningún título marcado como Viendo." />
       ) : (
-        <div className="watching-grid">
+        <div className="library-grid anime-watching-grid">
           {items.map((item) => {
             const target = item.kind === "movie" ? item.watchedUnits < 1 : Boolean(item.nextContent?.canIncrement);
             return (
-              <article className="watching-card" key={item.id}>
-                <button className="watching-open" onClick={() => open(item.id)} type="button">
-                  <div className="watching-cover-wrap">
+              <article className="library-card anime-watching-card" key={item.id}>
+                <button className="library-card-open" onClick={() => open(item.id)} type="button">
+                  <div className="library-cover-wrap">
                     <CoverImage alt={`Portada de ${item.name}`} hasCover={item.hasCover} positionX={item.coverPositionX} positionY={item.coverPositionY} titleId={item.id} zoom={item.coverZoom} />
                     {item.kind === "anime" && item.catalogNumber && <span className="library-catalog-number">#{item.catalogNumber}</span>}
                     {item.favorite && <Star className="library-favorite" fill="currentColor" size={17} />}
                   </div>
-                  <div className="watching-copy">
-                    <span>{item.kind === "movie" ? "Película de anime" : "Anime"}</span>
+                  <div className="library-card-copy">
+                    <span className={`media-status status-${item.status}`}>{statusLabel(item.status)}</span>
                     <h3>{item.name}</h3>
-                    <p>{item.kind === "movie" ? "Película independiente" : item.nextContent?.name ?? "Sin contenido pendiente"}</p>
-                    <div className="watching-progress">
+                    {item.genres.length > 0 && <p>{item.genres.join(", ")}</p>}
+                    <div>
                       <strong>{progressLabel(item.progress)}</strong>
                       {(item.score ?? item.averageContentScore) !== null && <b className={`media-score-badge score-${scoreTone(item.score ?? item.averageContentScore)}`} style={{ color: scoreColor(item.score ?? item.averageContentScore) }}>{formatScore(item.score ?? item.averageContentScore)}</b>}
                     </div>
@@ -504,6 +497,7 @@ function WatchingView({
 }
 
 function LibraryView({
+  actions,
   archived,
   transitioning,
   section,
@@ -516,9 +510,6 @@ function LibraryView({
   setFavoritesOnly,
   sort,
   setSort,
-  studios,
-  studio,
-  setStudio,
   items,
   open,
   busy,
@@ -526,6 +517,7 @@ function LibraryView({
   restore,
   remove,
 }: {
+  actions: ReactNode;
   archived: boolean;
   transitioning: boolean;
   section: LibrarySection;
@@ -538,9 +530,6 @@ function LibraryView({
   setFavoritesOnly: (value: boolean) => void;
   sort: LibrarySort;
   setSort: (value: LibrarySort) => void;
-  studios: string[];
-  studio: string;
-  setStudio: (value: string) => void;
   items: MediaTitle[];
   open: (id: string) => void;
   busy: boolean;
@@ -552,7 +541,15 @@ function LibraryView({
     const result = [...items];
     const score = (item: MediaTitle) => item.score ?? item.averageContentScore;
     result.sort((left, right) => {
+      if (sort === "updated") return 0;
       if (sort === "titleAsc") return left.name.localeCompare(right.name, "es");
+      if (sort.startsWith("start") || sort.startsWith("finish")) {
+        const first = sort.startsWith("start") ? left.firstActivityOn : left.lastActivityOn;
+        const second = sort.startsWith("start") ? right.firstActivityOn : right.lastActivityOn;
+        if (!first) return second ? 1 : 0;
+        if (!second) return -1;
+        return sort.endsWith("Asc") ? first.localeCompare(second) : second.localeCompare(first);
+      }
       if (sort === "catalogAsc" || sort === "catalogDesc") {
         if (left.catalogNumber === null) return right.catalogNumber === null ? 0 : 1;
         if (right.catalogNumber === null) return -1;
@@ -570,16 +567,19 @@ function LibraryView({
 
   return (
     <section className="media-view">
-      <div className="library-heading-row">
+      <div className="library-heading-row anime-collection-heading">
         <ViewHeading
           eyebrow={archived ? "ARCHIVO" : "TU COLECCIÓN"}
-          title={archived ? (section === "anime" ? "Anime archivado" : "Películas Anime archivadas") : (section === "anime" ? "Biblioteca de anime" : "Películas Anime")}
+          title={archived ? (section === "anime" ? "Anime archivado" : "Películas archivadas") : (section === "anime" ? "Biblioteca de anime" : "Películas")}
           subtitle={archived ? "Restaura o elimina definitivamente." : section === "anime" ? "Tus franquicias, con su catálogo y contenidos relacionados." : "Películas independientes que no pertenecen a una franquicia."}
         />
       </div>
-      <div className="media-library-sections" role="tablist" aria-label="Tipo de biblioteca anime">
-        <button className={section === "anime" ? "active" : ""} disabled={transitioning} onClick={() => setSection("anime")} role="tab" type="button">Anime</button>
-        <button className={section === "movies" ? "active" : ""} disabled={transitioning} onClick={() => setSection("movies")} role="tab" type="button">Películas Anime</button>
+      <div className="anime-library-navigation">
+        <div className="media-library-sections" role="tablist" aria-label="Tipo de biblioteca anime">
+          <button className={section === "anime" ? "active" : ""} disabled={transitioning} onClick={() => setSection("anime")} role="tab" type="button">Anime</button>
+          <button className={section === "movies" ? "active" : ""} disabled={transitioning} onClick={() => setSection("movies")} role="tab" type="button">Películas</button>
+        </div>
+        {actions}
       </div>
       <div className="media-filters">
         <label className="media-search">
@@ -593,18 +593,17 @@ function LibraryView({
           </select>
         </SelectControl>
         <SelectControl>
-          <select aria-label="Filtrar por estudio" onChange={(event) => setStudio(event.target.value)} value={studio}>
-            <option value="">Todos los estudios</option>
-            {studios.map((item) => <option key={item} value={item}>{item}</option>)}
-          </select>
-        </SelectControl>
-        <SelectControl>
           <select aria-label="Ordenar biblioteca" onChange={(event) => setSort(event.target.value as LibrarySort)} value={sort}>
+            <option value="updated">Actualizados recientemente</option>
             {section === "anime" && <option value="catalogAsc">Catálogo (ascendente)</option>}
             {section === "anime" && <option value="catalogDesc">Catálogo (descendente)</option>}
             <option value="scoreDesc">Valoración (mayor primero)</option>
             <option value="scoreAsc">Valoración (menor primero)</option>
             <option value="titleAsc">Título (A–Z)</option>
+            <option value="startDesc">Inicio (más reciente)</option>
+            <option value="startAsc">Inicio (más antiguo)</option>
+            <option value="finishDesc">Finalización (más reciente)</option>
+            <option value="finishAsc">Finalización (más antigua)</option>
           </select>
         </SelectControl>
         <FavoriteFilter active={favoritesOnly} onChange={setFavoritesOnly} />
@@ -619,14 +618,11 @@ function LibraryView({
                 <div className="library-cover-wrap">
                   <CoverImage alt={`Portada de ${item.name}`} hasCover={item.hasCover} positionX={item.coverPositionX} positionY={item.coverPositionY} titleId={item.id} zoom={item.coverZoom} />
                   {item.kind === "anime" && item.catalogNumber && <span className="library-catalog-number">#{item.catalogNumber}</span>}
-                  <span className={`media-status status-${item.status}`}>{statusLabel(item.status)}</span>
                 </div>
                 <div className="library-card-copy">
-                  {item.kind === "movie" && <span>Película Anime</span>}
+                  <span className={`media-status status-${item.status}`}>{statusLabel(item.status)}</span>
                   <h3>{item.name}</h3>
-                  {item.alternativeTitle && <p>{item.alternativeTitle}</p>}
                   {item.genres.length > 0 && <p>{item.genres.join(", ")}</p>}
-                  {item.studios.length > 0 && <p className="library-card-studios" title="Estudio principal y estudios específicos de los contenidos"><Building2 size={13} /><span>{item.studios.join(", ")}</span></p>}
                   <div>
                     <strong>{progressLabel(item.progress)}</strong>
                     <b className={`media-score-badge score-${scoreTone(item.score ?? item.averageContentScore)}`} style={{ color: scoreColor(item.score ?? item.averageContentScore) }}>{formatScore(item.score ?? item.averageContentScore)}</b>
@@ -654,13 +650,12 @@ function LibraryView({
   );
 }
 
-function StatisticsView({ statistics, open, studios, studio, minimumScore, setStudio, setMinimumScore }: { statistics: MediaStatistics; open: (id: string) => void; studios: string[]; studio: string; minimumScore: string; setStudio: (value: string) => void; setMinimumScore: (value: string) => void }) {
+function StatisticsView({ actions, statistics, open, minimumScore, setMinimumScore }: { actions: ReactNode; statistics: MediaStatistics; open: (id: string) => void; minimumScore: string; setMinimumScore: (value: string) => void }) {
   const [topLimit, setTopLimit] = useState<5 | 10 | 25>(5);
   return (
     <section className="media-view">
-      <ViewHeading eyebrow="TU HISTORIAL" title="Estadísticas" subtitle="Solo tu actividad de anime y sus películas." />
+      <div className="library-heading-row anime-collection-heading"><ViewHeading eyebrow="TU HISTORIAL" title="Estadísticas" subtitle="Solo tu actividad de anime y sus películas." />{actions}</div>
       <div className="media-stat-filters">
-        <SelectControl><select aria-label="Filtrar estadísticas por estudio" onChange={(event) => setStudio(event.target.value)} value={studio}><option value="">Todos los estudios</option>{studios.map((item) => <option key={item} value={item}>{item}</option>)}</select></SelectControl>
         <SelectControl><select aria-label="Filtrar estadísticas por puntuación mínima" onChange={(event) => setMinimumScore(event.target.value)} value={minimumScore}><option value="">Cualquier puntuación</option><option value="5">5 o más</option><option value="6">6 o más</option><option value="7">7 o más</option><option value="8">8 o más</option><option value="9">9 o más</option></select></SelectControl>
       </div>
       <div className="media-stat-grid">
@@ -675,7 +670,7 @@ function StatisticsView({ statistics, open, studios, studio, minimumScore, setSt
           <h3>Biblioteca</h3>
           <div className="media-kind-breakdown">
             <span><b>{statistics.animeTitles}</b> Franquicias</span>
-            <span><b>{statistics.movieTitles}</b> Películas Anime</span>
+            <span><b>{statistics.movieTitles}</b> Películas</span>
             <span><b>{statistics.activeTitles}</b> Total</span>
           </div>
           <div className="media-status-breakdown">
@@ -712,7 +707,8 @@ function StatisticsView({ statistics, open, studios, studio, minimumScore, setSt
   );
 }
 
-function HistoryView({ entries, options, titles: titleOptions, selected, year, setYear, month, setMonth, title, setTitle, content, setContent, oldestFirst, setOldestFirst, busy, updateDate, deleteEntry }: {
+function HistoryView({ actions, entries, options, titles: titleOptions, selected, year, setYear, month, setMonth, title, setTitle, content, setContent, oldestFirst, setOldestFirst, busy, updateDate, deleteEntry }: {
+  actions: ReactNode;
   entries: MediaHistoryEntry[];
   options: MediaHistoryEntry[];
   titles: MediaTitle[];
@@ -752,7 +748,7 @@ function HistoryView({ entries, options, titles: titleOptions, selected, year, s
   const months = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
   return (
     <section className="media-view">
-      <ViewHeading eyebrow="TU ACTIVIDAD" title="Historial" subtitle="Qué viste y cuándo, episodio a episodio." />
+      <div className="library-heading-row anime-collection-heading"><ViewHeading eyebrow="TU ACTIVIDAD" title="Historial" subtitle="Qué viste y cuándo, episodio a episodio." />{actions}</div>
       <div className="media-history-filters">
         <SelectControl><select aria-label="Filtrar historial por año" onChange={(event) => setYear(event.target.value)} value={year}><option value="">Todos los años</option>{years.map((item) => <option key={item} value={item}>{item}</option>)}</select></SelectControl>
         <SelectControl><select aria-label="Filtrar historial por mes" onChange={(event) => setMonth(event.target.value)} value={month}><option value="">Todos los meses</option>{months.map((item, index) => <option key={item} value={index + 1}>{item}</option>)}</select></SelectControl>

@@ -13,20 +13,22 @@ Mantener una biblioteca personal de videojuegos que permita recordar qué se est
 - Crear, consultar y editar videojuegos mediante formularios modales.
 - Guardar nombre, portada opcional, estado, puntuación, opinión y favorito.
 - Estados: Pendiente, Jugando, En pausa, Terminado y Abandonado.
-- Buscar por nombre, filtrar por estado y favoritos y ordenar por actualización, título o puntuación.
+- Buscar por nombre, filtrar por estado y favoritos y ordenar por actualización, título, puntuación o fechas de inicio y finalización, conservando la opción elegida.
 - Iniciar una partida, finalizarla y registrar partidas antiguas mediante fecha de inicio y fin.
 - Rejugar un título creando una partida nueva sin sobrescribir las anteriores.
 - Consultar, corregir y eliminar partidas desde el historial.
 - Archivar, restaurar y eliminar definitivamente con los patrones comunes de NubeOS.
 - Mostrar estadísticas básicas: títulos activos, jugando, terminados, rejugados y puntuación media.
 - Dividir el detalle en `Resumen` e `Historial`: el resumen muestra puntuación, partidas y estado; el historial concentra partidas, rejugadas y acciones.
+- Mostrar en la tarjeta de Biblioteca las fechas inicial y final de la última partida, igual que Lectura; una partida abierta indica `En curso`.
 
 ## Reglas
 
 - El nombre es obligatorio y se normaliza antes de guardar.
 - La puntuación es opcional, está entre 0 y 10 y admite como máximo un decimal.
 - La opinión pertenece al videojuego, no a una partida concreta.
-- Una partida contiene fecha de inicio opcional y fecha final opcional, pero al menos una de las dos debe existir.
+- Una partida requiere fecha de inicio; su fecha final es opcional mientras permanece abierta.
+- Una nueva partida no puede comenzar antes de la primera partida registrada del videojuego.
 - Una partida finalizada no puede terminar antes de empezar.
 - Solo puede existir una partida sin fecha final por videojuego.
 - Iniciar una partida establece el estado Jugando.
@@ -39,7 +41,7 @@ Mantener una biblioteca personal de videojuegos que permita recordar qué se est
 
 ## Casos límite
 
-- Se puede registrar una partida histórica con fecha final y sin conocer la fecha de inicio.
+- Se puede registrar una partida histórica indicando siempre su fecha inicial y, opcionalmente, su fecha final.
 - No se puede iniciar una rejugada mientras exista otra partida abierta.
 - Corregir fechas recalcula el orden del historial, pero no modifica puntuación ni opinión.
 - Archivar conserva las partidas y la portada.

@@ -2,7 +2,7 @@ import type { ClipboardEvent } from "react";
 
 const MAX_COVER_BYTES = 8 * 1024 * 1024;
 
-export async function pastedCoverAsJpeg(event: ClipboardEvent<HTMLElement>): Promise<number[] | null> {
+export async function pastedCoverAsJpeg(event: ClipboardEvent<HTMLElement>, preserveGif = false): Promise<number[] | null> {
   const item = Array.from(event.clipboardData.items).find((candidate) =>
     candidate.type.startsWith("image/"),
   );
@@ -10,6 +10,7 @@ export async function pastedCoverAsJpeg(event: ClipboardEvent<HTMLElement>): Pro
   if (!file) return null;
   event.preventDefault();
   if (file.size > MAX_COVER_BYTES) throw new Error("La imagen supera el máximo de 8 MB.");
+  if (preserveGif && file.type === "image/gif") return Array.from(new Uint8Array(await file.arrayBuffer()));
 
   const bitmap = await createImageBitmap(file);
   try {

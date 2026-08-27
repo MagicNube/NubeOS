@@ -265,7 +265,7 @@ fn validate_run_dates(
     start: Option<NaiveDate>,
     end: Option<NaiveDate>,
 ) -> Result<(), ReadingError> {
-    if start.is_none() && end.is_none() {
+    if start.is_none() {
         return Err(ReadingError::MissingRunDate);
     }
     if start.zip(end).is_some_and(|(start, end)| start > end) {
@@ -326,7 +326,7 @@ impl fmt::Display for ReadingError {
             Self::InvalidDateRange => "La fecha final no puede ser anterior a la fecha de inicio.",
             Self::InvalidCover => "La portada guardada no es válida.",
             Self::InvalidCoverCrop => "El encuadre de la portada no es válido.",
-            Self::MissingRunDate => "Indica al menos una fecha para la lectura.",
+            Self::MissingRunDate => "La fecha de inicio de la lectura es obligatoria.",
         })
     }
 }
@@ -372,6 +372,16 @@ mod tests {
         assert_eq!(
             invalid_dates.validate().unwrap_err(),
             ReadingError::InvalidDateRange
+        );
+        assert_eq!(
+            ReadingRun::new(
+                BookId::generate(),
+                None,
+                NaiveDate::from_ymd_opt(2026, 8, 2),
+                "now".into(),
+            )
+            .unwrap_err(),
+            ReadingError::MissingRunDate
         );
     }
 
