@@ -9,6 +9,7 @@ Este directorio es la fuente de verdad del diseño del proyecto.
 - `todo.md`: bugs, detalles visuales y pequeños refinamientos pendientes.
 - `decisions/`: ADRs aprobadas.
 - `modules/`: especificación, diseño y tareas por módulo.
+- `modules/dashboard/`: proyección de Inicio que resume los módulos sin duplicar su dominio.
 - `learning/`: notas breves sobre Rust y Tauri introducidos en el proyecto.
 
 No se implementa una funcionalidad sin la documentación aplicable y una tarea aprobada.

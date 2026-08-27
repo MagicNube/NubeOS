@@ -140,6 +140,18 @@ Los siguientes módulos siguen siendo candidatos, sin orden comprometido. Cada u
 - Finanzas personales.
 - Proyectos.
 
+## Hito 9 — Inicio conectado
+
+**Objetivo:** sustituir la landing provisional por una vista diaria que conecte los módulos implementados.
+
+- [x] Mostrar hábitos de hoy y permitir su marcado rápido.
+- [x] Mostrar planificación diaria y compra semanal.
+- [x] Mostrar entretenimiento en curso y documentos que requieren atención.
+- [x] Mantener aislamiento mediante contratos públicos de consulta.
+- [ ] Revisar la composición con datos reales y cerrar el Dashboard.
+
+**Salida provisional:** Inicio es el punto de entrada predeterminado y resume información real sin persistencia propia.
+
 ## Fuera del roadmap inicial
 
 - Sincronización entre dispositivos, servidor central y cuentas remotas.

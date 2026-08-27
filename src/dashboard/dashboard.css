@@ -1,0 +1,77 @@
+.dashboard-overview { --dashboard-border: #302d32; color: #f5f3f6; }
+.dashboard-hero { display: flex; align-items: flex-start; justify-content: space-between; gap: 48px; margin-bottom: 42px; }
+.dashboard-hero-copy { min-width: 0; }
+.dashboard-hero-copy h1 { margin: 0; font-size: clamp(36px, 4vw, 48px); letter-spacing: -.045em; line-height: 1; }
+.dashboard-hero-copy .subtitle { margin-top: 14px; }
+.dashboard-activity { width: min(100%, 510px); padding-top: 2px; }
+.dashboard-activity-heading { display: flex; align-items: flex-start; justify-content: flex-end; gap: 14px; margin-bottom: 17px; text-align: right; }
+.dashboard-activity-heading > div { display: grid; gap: 4px; }
+.dashboard-activity-heading strong { color: #d7d2da; font-size: 14px; font-weight: 720; }
+.dashboard-activity-heading span { color: #77717a; font-size: 12px; text-transform: capitalize; }
+.dashboard-activity-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid #29262b; }
+.dashboard-activity-metrics > div { display: grid; gap: 5px; padding: 14px 15px 1px; border-left: 1px solid #29262b; text-align: right; }
+.dashboard-activity-metrics > div:first-child { border-left: 0; }
+.dashboard-activity-metrics strong { color: #d6c7f8; font-size: 20px; font-weight: 800; line-height: 1; letter-spacing: -.025em; }
+.dashboard-activity-metrics span { color: #827b85; font-size: 10px; white-space: nowrap; }
+.dashboard-refresh { display: grid; place-items: center; width: 38px; height: 38px; padding: 0; border: 1px solid var(--dashboard-border); border-radius: 9px; color: #aaa4ad; background: #181719; cursor: pointer; }
+.dashboard-refresh:hover { border-color: #6c4ba0; color: #d8caff; }
+.dashboard-warning { display: flex; align-items: center; gap: 8px; padding: 10px 13px; margin-bottom: 16px; border: 1px solid #6d5730; border-radius: 9px; color: #fde68a; background: rgba(120, 83, 20, .13); font-size: 13px; }
+.dashboard-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 16px; }
+.dashboard-panel { min-width: 0; padding: 19px; border: 1px solid var(--dashboard-border); border-radius: 12px; background: #181719; }
+.dashboard-panel > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 17px; }
+.dashboard-panel > header > div { display: flex; align-items: center; min-width: 0; gap: 11px; }
+.dashboard-panel-icon { display: grid; place-items: center; flex: 0 0 auto; width: 36px; height: 36px; border: 1px solid #493866; border-radius: 9px; color: #b99aff; background: rgba(139, 92, 246, .11); }
+.dashboard-panel h2 { margin: 0 0 3px; font-size: 17px; letter-spacing: -.025em; }
+.dashboard-panel header p { margin: 0; color: #8e8791; font-size: 12px; }
+.dashboard-section-link { display: inline-flex; align-items: center; flex: 0 0 auto; gap: 3px; padding: 5px 2px; border: 0; color: #b99aff; background: transparent; font: inherit; font-size: 12px; font-weight: 750; cursor: pointer; }
+.dashboard-section-link:hover { color: #dbcfff; }
+.dashboard-habits { grid-column: span 7; }
+.dashboard-today-meals { grid-column: span 5; }
+.dashboard-shopping { grid-column: span 4; }
+.dashboard-progress-media { grid-column: span 4; }
+.dashboard-documents { grid-column: span 4; }
+.dashboard-progress { overflow: hidden; height: 5px; margin: -2px 0 14px; border-radius: 99px; background: #2b282d; }
+.dashboard-progress span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #7c3aed, #a78bfa); transition: width .2s ease; }
+.dashboard-habit-list { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.dashboard-habit-list button { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 9px; min-height: 43px; padding: 5px 9px; border: 1px solid #302d32; border-radius: 8px; color: #ece8ee; background: #151416; font: inherit; text-align: left; cursor: pointer; }
+.dashboard-habit-list button > span { display: grid; place-items: center; width: 25px; height: 25px; border: 1px solid #48434b; border-radius: 7px; color: #c4b5fd; }
+.dashboard-habit-list button strong { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.dashboard-habit-list button small { color: #77717a; font-size: 10px; }
+.dashboard-habit-list button.completed { border-color: #285d45; background: rgba(6, 78, 59, .13); }
+.dashboard-habit-list button.completed > span { border-color: #347b58; color: #a7f3d0; background: rgba(6, 78, 59, .45); }
+.dashboard-habit-list button.skipped { opacity: .62; }
+.dashboard-meal-list { display: grid; gap: 8px; }
+.dashboard-meal-list > div { display: flex; align-items: center; gap: 10px; min-height: 32px; padding-bottom: 8px; border-bottom: 1px solid #29262b; }
+.dashboard-meal-list span { min-width: 66px; color: #9f82d8; font-size: 10px; font-weight: 800; text-transform: uppercase; }
+.dashboard-meal-list strong { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.dashboard-today-meals > footer { display: grid; grid-template-columns: 1fr 1fr; margin-top: 15px; border: 1px solid #302d32; border-radius: 8px; }
+.dashboard-today-meals > footer div { display: grid; gap: 4px; padding: 9px 12px; text-align: center; }
+.dashboard-today-meals > footer div:first-child { border-right: 1px solid #302d32; }
+.dashboard-today-meals > footer span { color: #77717a; font-size: 9px; font-weight: 800; text-transform: uppercase; }
+.dashboard-today-meals > footer strong { font-size: 14px; }
+.dashboard-big-value { display: block; margin-top: 3px; font-size: 29px; letter-spacing: -.045em; }
+.dashboard-big-caption { color: #817a84; font-size: 11px; }
+.dashboard-shopping-preview { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 18px; }
+.dashboard-shopping-preview span { padding: 5px 8px; border: 1px solid #373239; border-radius: 6px; color: #aaa3ad; background: #141315; font-size: 10px; }
+.dashboard-media-list { display: grid; gap: 5px; }
+.dashboard-media-list button { display: grid; grid-template-columns: 28px minmax(0, 1fr) 16px; align-items: center; gap: 8px; width: 100%; min-height: 43px; padding: 6px 8px; border: 0; border-radius: 8px; color: #a78bfa; background: transparent; font: inherit; text-align: left; cursor: pointer; }
+.dashboard-media-list button:hover { background: rgba(139, 92, 246, .08); }
+.dashboard-media-list span { display: grid; min-width: 0; gap: 2px; }
+.dashboard-media-list strong, .dashboard-media-list small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dashboard-media-list strong { color: #ece8ee; font-size: 13px; }
+.dashboard-media-list small { color: #817a84; font-size: 11px; }
+.dashboard-document-list { display: grid; gap: 8px; }
+.dashboard-document-list > div { display: grid; grid-template-columns: 26px minmax(0, 1fr); align-items: center; gap: 8px; padding: 9px; border: 1px solid #50452f; border-radius: 8px; color: #facc6b; background: rgba(120, 83, 20, .08); }
+.dashboard-document-list > div.expired { border-color: #623844; color: #fda4af; background: rgba(127, 29, 29, .1); }
+.dashboard-document-list span { display: grid; min-width: 0; gap: 2px; }
+.dashboard-document-list strong { overflow: hidden; color: #ece8ee; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.dashboard-document-list small { font-size: 10px; }
+.dashboard-document-ok { display: flex; align-items: center; gap: 9px; min-height: 58px; padding: 13px; border: 1px solid #285d45; border-radius: 9px; color: #a7f3d0; background: rgba(6, 78, 59, .1); font-size: 12px; }
+.dashboard-empty-copy { display: grid; place-items: center; min-height: 88px; margin: 0; color: #77717a; font-size: 12px; text-align: center; }
+.dashboard-loading { display: grid; place-items: center; min-height: 310px; gap: 12px; color: #8f8792; }
+.dashboard-loading strong { font-size: 13px; }
+.dashboard-spin { animation: dashboard-spin .8s linear infinite; }
+@keyframes dashboard-spin { to { transform: rotate(360deg); } }
+@media (max-width: 1100px) { .dashboard-habits, .dashboard-today-meals { grid-column: span 6; }.dashboard-shopping, .dashboard-progress-media, .dashboard-documents { grid-column: span 6; } }
+@media (max-width: 900px) { .dashboard-hero { align-items: stretch; flex-direction: column; gap: 26px; }.dashboard-activity { width: 100%; }.dashboard-activity-heading { justify-content: space-between; text-align: left; }.dashboard-activity-metrics > div { text-align: left; } }
+@media (max-width: 760px) { .dashboard-grid { grid-template-columns: 1fr; }.dashboard-habits, .dashboard-today-meals, .dashboard-shopping, .dashboard-progress-media, .dashboard-documents { grid-column: auto; }.dashboard-habit-list { grid-template-columns: 1fr; }.dashboard-panel > header { align-items: flex-start; flex-direction: column; }.dashboard-activity-metrics { grid-template-columns: repeat(2, 1fr); row-gap: 12px; }.dashboard-activity-metrics > div:nth-child(3) { border-left: 0; } }

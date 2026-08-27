@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import MealsWorkspace from "./meals/MealsWorkspace";
+import DashboardWorkspace, { type DashboardDestination } from "./dashboard/DashboardWorkspace";
 const DocumentsWorkspace = lazy(() => import("./documents/DocumentsWorkspace"));
 const HabitsWorkspace = lazy(() => import("./habits/HabitsWorkspace"));
 const AnimeWorkspace = lazy(() => import("./media/AnimeWorkspace"));
@@ -64,8 +65,8 @@ const moduleCopy: Record<
 > = {
   inicio: {
     eyebrow: "TU ESPACIO",
-    title: "Todo en su sitio.",
-    description: "Una vista tranquila de tus módulos personales.",
+    title: "Todo, en un mismo lugar.",
+    description: "Todo lo importante, de un vistazo.",
   },
   comidas: {
     eyebrow: "PLANIFICACIÓN",
@@ -143,26 +144,11 @@ function Placeholder({
   );
 }
 
-function Dashboard({ openMeals }: { openMeals: () => void }) {
-  return (
-    <section className="dashboard-card">
-      <p className="section-kicker">PRIMER MÓDULO</p>
-      <h2>Planifica una semana con intención.</h2>
-      <p>
-        Tu planificador de comidas ya tiene una semana de ejemplo, macros
-        diarios y una compra consolidada.
-      </p>
-      <button className="primary-button" onClick={openMeals} type="button">
-        Abrir planificador <ChevronRight size={17} />
-      </button>
-    </section>
-  );
-}
-
 export default function App() {
-  const [activeModule, setActiveModule] = useState<ModuleId>("comidas");
+  const [activeModule, setActiveModule] = useState<ModuleId>("inicio");
   const [collapsed, setCollapsed] = useState(false);
   const content = moduleCopy[activeModule];
+  const isEntertainmentModule = entertainmentNavigation.some((item) => item.id === activeModule);
 
   return (
     <main className={collapsed ? "app-shell sidebar-collapsed" : "app-shell"}>
@@ -214,22 +200,22 @@ export default function App() {
         </div>
       </aside>
       <section className="content">
-        <header
-          className={
-            activeModule === "comidas"
-              ? "module-header meal-header"
-              : "module-header"
-          }
-        >
-          <div>
-            <p className="eyebrow">{content.eyebrow}</p>
-            <h1>{content.title}</h1>
-            <p className="subtitle">{content.description}</p>
-          </div>
-        </header>
-        {activeModule === "inicio" && (
-          <Dashboard openMeals={() => setActiveModule("comidas")} />
+        {activeModule !== "inicio" && (
+          <header
+            className={
+              activeModule === "comidas"
+                ? "module-header meal-header"
+                : "module-header"
+            }
+          >
+            <div>
+              {!isEntertainmentModule && <p className="eyebrow">{content.eyebrow}</p>}
+              <h1>{content.title}</h1>
+              <p className="subtitle">{content.description}</p>
+            </div>
+          </header>
         )}
+        {activeModule === "inicio" && <DashboardWorkspace open={(destination: DashboardDestination) => setActiveModule(destination)} />}
         {activeModule === "comidas" && <MealsWorkspace />}
         {activeModule === "documentos" && (
           <Suspense
