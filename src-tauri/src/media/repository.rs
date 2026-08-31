@@ -8,8 +8,8 @@ use rusqlite::{params, Connection, OptionalExtension, Row, Transaction};
 use super::{
     model::{
         CanonStatus, ContentKind, ManagedCover, MediaContent, MediaContentId, MediaError,
-        MediaKind, MediaTitle, MediaTitleId, MovieViewing, MovieViewingId, SessionSource,
-        TrackingStatus, WatchSession,
+        MediaKind, MediaTitle, MediaTitleId, MovieViewing, MovieViewingId, SeriesRun, SeriesRunId,
+        SessionSource, TrackingStatus, WatchSession,
     },
     service::MediaAggregate,
 };
@@ -24,6 +24,7 @@ pub enum MediaRepositoryError {
     InvalidOrder,
     SessionCannotBeRemoved,
     ViewingBeforeFirst,
+    InvalidRunDates,
 }
 
 impl fmt::Display for MediaRepositoryError {
@@ -47,6 +48,9 @@ impl fmt::Display for MediaRepositoryError {
             Self::ViewingBeforeFirst => formatter.write_str(
                 "Un nuevo visionado no puede ser anterior al primer visionado registrado.",
             ),
+            Self::InvalidRunDates => {
+                formatter.write_str("La fecha final no puede ser anterior a la fecha de inicio.")
+            }
         }
     }
 }
@@ -280,20 +284,33 @@ impl<'connection> MediaRepository<'connection> {
 
     pub fn list_history(&mut self) -> Result<Vec<MediaHistoryEntry>, MediaRepositoryError> {
         let mut statement = self.connection.prepare(
-            "SELECT sessions.id, titles.id, titles.name, titles.kind, titles.is_anime,
-                    contents.id, contents.name, contents.kind, sessions.watched_on,
-                    sessions.episode_number,
-                    CASE
-                      WHEN contents.id IS NOT NULL THEN contents.watched_episodes = sessions.episode_number
-                      ELSE titles.watched_units = sessions.episode_number
-                    END
-             FROM media_watch_sessions sessions
-             JOIN media_titles titles
-               ON titles.id = sessions.title_id
-               OR titles.id = (SELECT title_id FROM media_contents WHERE id = sessions.content_id)
-             LEFT JOIN media_contents contents ON contents.id = sessions.content_id
-             WHERE sessions.episode_number IS NOT NULL
-             ORDER BY sessions.watched_on DESC, sessions.created_at DESC",
+            "SELECT id, title_id, title_name, title_kind, is_anime, content_id,
+                    content_name, content_kind, watched_on, episode_number, can_delete
+             FROM (
+                 SELECT sessions.id AS id, titles.id AS title_id, titles.name AS title_name,
+                        titles.kind AS title_kind, titles.is_anime AS is_anime,
+                        contents.id AS content_id, contents.name AS content_name,
+                        contents.kind AS content_kind, sessions.watched_on AS watched_on,
+                        sessions.episode_number AS episode_number,
+                        CASE
+                          WHEN contents.id IS NOT NULL THEN contents.watched_episodes = sessions.episode_number
+                          ELSE titles.watched_units = sessions.episode_number
+                        END AS can_delete,
+                        sessions.created_at AS created_at
+                 FROM media_watch_sessions sessions
+                 JOIN media_titles titles
+                   ON titles.id = sessions.title_id
+                   OR titles.id = (SELECT title_id FROM media_contents WHERE id = sessions.content_id)
+                 LEFT JOIN media_contents contents ON contents.id = sessions.content_id
+                 WHERE sessions.episode_number IS NOT NULL
+                 UNION ALL
+                 SELECT viewings.id, titles.id, titles.name, titles.kind, titles.is_anime,
+                        NULL, NULL, NULL, viewings.watched_on, 1, 1, viewings.created_at
+                 FROM media_movie_viewings viewings
+                 JOIN media_titles titles ON titles.id = viewings.title_id
+                 WHERE titles.is_anime = 1 AND titles.kind = 'movie'
+             )
+             ORDER BY watched_on DESC, created_at DESC",
         )?;
         let entries = statement
             .query_map([], |row| {
@@ -777,6 +794,114 @@ impl<'connection> MediaRepository<'connection> {
         Ok(())
     }
 
+    pub fn series_runs(
+        &mut self,
+        title_id: &MediaTitleId,
+    ) -> Result<Vec<SeriesRun>, MediaRepositoryError> {
+        let mut statement = self.connection.prepare(
+            "SELECT id,title_id,started_on,finished_on,created_at,updated_at FROM media_series_runs WHERE title_id=?1 ORDER BY COALESCE(finished_on,started_on) DESC,created_at DESC")?;
+        let runs = statement
+            .query_map([title_id.as_str()], series_run_from_row)?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(runs)
+    }
+
+    pub fn all_series_runs(&mut self) -> Result<Vec<SeriesRun>, MediaRepositoryError> {
+        let mut statement = self.connection.prepare(
+            "SELECT id,title_id,started_on,finished_on,created_at,updated_at FROM media_series_runs ORDER BY COALESCE(finished_on,started_on) DESC,created_at DESC")?;
+        let runs = statement
+            .query_map([], series_run_from_row)?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(runs)
+    }
+
+    pub fn create_series_run(&mut self, run: &SeriesRun) -> Result<(), MediaRepositoryError> {
+        validate_run_dates(run.started_on, run.finished_on)?;
+        self.connection.execute(
+            "INSERT INTO media_series_runs(id,title_id,started_on,finished_on,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,?6)",
+            params![run.id.as_str(), run.title_id.as_str(), run.started_on.to_string(), run.finished_on.map(|date| date.to_string()), run.created_at, run.updated_at],
+        )?;
+        self.sync_series_from_runs(&run.title_id)
+    }
+
+    pub fn update_series_run(
+        &mut self,
+        id: &SeriesRunId,
+        started_on: NaiveDate,
+        finished_on: Option<NaiveDate>,
+    ) -> Result<MediaTitleId, MediaRepositoryError> {
+        validate_run_dates(started_on, finished_on)?;
+        let title_id = self
+            .connection
+            .query_row(
+                "SELECT title_id FROM media_series_runs WHERE id=?1",
+                [id.as_str()],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?
+            .ok_or(MediaRepositoryError::NotFound)?;
+        self.connection.execute(
+            "UPDATE media_series_runs SET started_on=?2,finished_on=?3,updated_at=?4 WHERE id=?1",
+            params![
+                id.as_str(),
+                started_on.to_string(),
+                finished_on.map(|date| date.to_string()),
+                Utc::now().to_rfc3339()
+            ],
+        )?;
+        let title_id = MediaTitleId::new(title_id).map_err(MediaRepositoryError::InvalidStored)?;
+        self.sync_series_from_runs(&title_id)?;
+        Ok(title_id)
+    }
+
+    pub fn delete_series_run(
+        &mut self,
+        id: &SeriesRunId,
+    ) -> Result<MediaTitleId, MediaRepositoryError> {
+        let title_id = self
+            .connection
+            .query_row(
+                "SELECT title_id FROM media_series_runs WHERE id=?1",
+                [id.as_str()],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?
+            .ok_or(MediaRepositoryError::NotFound)?;
+        self.connection
+            .execute("DELETE FROM media_series_runs WHERE id=?1", [id.as_str()])?;
+        let title_id = MediaTitleId::new(title_id).map_err(MediaRepositoryError::InvalidStored)?;
+        self.sync_series_from_runs(&title_id)?;
+        Ok(title_id)
+    }
+
+    fn sync_series_from_runs(
+        &mut self,
+        title_id: &MediaTitleId,
+    ) -> Result<(), MediaRepositoryError> {
+        let dates: (Option<String>, Option<String>, i64) = self.connection.query_row(
+            "SELECT MIN(started_on),MAX(finished_on),COUNT(*) FROM media_series_runs WHERE title_id=?1",
+            [title_id.as_str()],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )?;
+        let has_open: bool = self.connection.query_row(
+            "SELECT EXISTS(SELECT 1 FROM media_series_runs WHERE title_id=?1 AND finished_on IS NULL)",
+            [title_id.as_str()],
+            |row| row.get(0),
+        )?;
+        let status = if has_open {
+            "watching"
+        } else if dates.2 > 0 {
+            "completed"
+        } else {
+            "pending"
+        };
+        self.connection.execute(
+            "UPDATE media_titles SET started_on=?2,finished_on=?3,tracking_status=?4,updated_at=?5 WHERE id=?1",
+            params![title_id.as_str(), dates.0, if has_open { None::<String> } else { dates.1 }, status, Utc::now().to_rfc3339()],
+        )?;
+        Ok(())
+    }
+
     fn set_archived(
         &mut self,
         id: &MediaTitleId,
@@ -887,6 +1012,36 @@ fn movie_viewing_from_row(row: &Row<'_>) -> rusqlite::Result<MovieViewing> {
         created_at: row.get(3)?,
         updated_at: row.get(4)?,
     })
+}
+
+fn series_run_from_row(row: &Row<'_>) -> rusqlite::Result<SeriesRun> {
+    Ok(SeriesRun {
+        id: SeriesRunId::new(row.get::<_, String>(0)?)
+            .map_err(|error| conversion_error(error.to_string()))?,
+        title_id: MediaTitleId::new(row.get::<_, String>(1)?)
+            .map_err(|error| conversion_error(error.to_string()))?,
+        started_on: NaiveDate::parse_from_str(&row.get::<_, String>(2)?, "%Y-%m-%d")
+            .map_err(|_| conversion_error("Fecha inicial de serie inválida"))?,
+        finished_on: row
+            .get::<_, Option<String>>(3)?
+            .map(|date| {
+                NaiveDate::parse_from_str(&date, "%Y-%m-%d")
+                    .map_err(|_| conversion_error("Fecha final de serie inválida"))
+            })
+            .transpose()?,
+        created_at: row.get(4)?,
+        updated_at: row.get(5)?,
+    })
+}
+
+fn validate_run_dates(
+    started_on: NaiveDate,
+    finished_on: Option<NaiveDate>,
+) -> Result<(), MediaRepositoryError> {
+    if finished_on.is_some_and(|date| date < started_on) {
+        return Err(MediaRepositoryError::InvalidRunDates);
+    }
+    Ok(())
 }
 
 fn normalize_positions(
@@ -1230,6 +1385,56 @@ mod tests {
     }
 
     #[test]
+    fn completed_anime_movie_can_register_its_first_explicit_viewing() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        apply_migrations(&mut connection).unwrap();
+        let movie = MediaTitle::new(
+            MediaTitleId::generate(),
+            MediaTitleDraft {
+                name: "Your Name".into(),
+                alternative_title: None,
+                genres: vec!["Romance".into()],
+                primary_studio: None,
+                kind: MediaKind::Movie,
+                is_anime: true,
+                status: TrackingStatus::Completed,
+                score: Some(9.0),
+                opinion: None,
+                favorite: false,
+                started_on: None,
+                finished_on: None,
+                current_season: None,
+                current_episode: None,
+            },
+        )
+        .unwrap();
+        let id = movie.id.clone();
+        let mut repository = MediaRepository::new(&mut connection);
+        repository.create_title(&movie).unwrap();
+
+        assert_eq!(
+            repository.find_title(&id).unwrap().unwrap().watched_units,
+            0
+        );
+        repository
+            .set_title_progress(
+                &id,
+                1,
+                NaiveDate::from_ymd_opt(2026, 8, 31).unwrap(),
+                SessionSource::QuickAdd,
+            )
+            .unwrap();
+
+        let restored = repository.find_aggregate(&id).unwrap().unwrap();
+        assert_eq!(restored.title.watched_units, 1);
+        assert_eq!(restored.sessions.len(), 1);
+        assert_eq!(
+            restored.sessions[0].watched_on,
+            NaiveDate::from_ymd_opt(2026, 8, 31).unwrap()
+        );
+    }
+
+    #[test]
     fn movie_viewings_keep_each_rewatch_and_sync_the_title() {
         let mut connection = Connection::open_in_memory().unwrap();
         apply_migrations(&mut connection).unwrap();
@@ -1284,6 +1489,58 @@ mod tests {
             repository.create_movie_viewing(&earlier),
             Err(MediaRepositoryError::ViewingBeforeFirst)
         ));
+    }
+
+    #[test]
+    fn anime_movie_rewatches_are_included_in_the_shared_history() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        apply_migrations(&mut connection).unwrap();
+        let movie = MediaTitle::new(
+            MediaTitleId::generate(),
+            MediaTitleDraft {
+                name: "Your Name".into(),
+                alternative_title: None,
+                genres: vec!["Romance".into()],
+                primary_studio: None,
+                kind: MediaKind::Movie,
+                is_anime: true,
+                status: TrackingStatus::Completed,
+                score: Some(9.0),
+                opinion: None,
+                favorite: true,
+                started_on: None,
+                finished_on: None,
+                current_season: None,
+                current_episode: None,
+            },
+        )
+        .unwrap();
+        let id = movie.id.clone();
+        let mut repository = MediaRepository::new(&mut connection);
+        repository.create_title(&movie).unwrap();
+        for day in [1, 15] {
+            let now = Utc::now().to_rfc3339();
+            repository
+                .create_movie_viewing(&MovieViewing {
+                    id: MovieViewingId::generate(),
+                    title_id: id.clone(),
+                    watched_on: NaiveDate::from_ymd_opt(2026, 8, day).unwrap(),
+                    created_at: now.clone(),
+                    updated_at: now,
+                })
+                .unwrap();
+        }
+
+        let entries: Vec<_> = repository
+            .list_history()
+            .unwrap()
+            .into_iter()
+            .filter(|entry| entry.title_id == id)
+            .collect();
+        assert_eq!(entries.len(), 2);
+        assert!(entries
+            .iter()
+            .all(|entry| entry.is_anime && entry.can_delete));
     }
 
     #[test]
@@ -1582,5 +1839,51 @@ mod tests {
             (Some(2), Some(4))
         );
         assert_eq!(restored.started_on, NaiveDate::from_ymd_opt(2026, 8, 1));
+    }
+
+    #[test]
+    fn relaxed_cover_zoom_survives_sqlite() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        apply_migrations(&mut connection).unwrap();
+        let mut media = title();
+        media.change_cover_position(50.0, 50.0, 0.75).unwrap();
+        let id = media.id.clone();
+        let mut repository = MediaRepository::new(&mut connection);
+        repository.create_title(&media).unwrap();
+        assert_eq!(
+            repository.find_title(&id).unwrap().unwrap().cover_zoom,
+            0.75
+        );
+    }
+
+    #[test]
+    fn series_runs_preserve_rewatches_and_synchronize_dates() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        apply_migrations(&mut connection).unwrap();
+        let mut series = title();
+        series.kind = MediaKind::Series;
+        series.is_anime = false;
+        let id = series.id.clone();
+        let mut repository = MediaRepository::new(&mut connection);
+        repository.create_title(&series).unwrap();
+        for (start, finish) in [(1, Some(10)), (20, None)] {
+            let now = Utc::now().to_rfc3339();
+            repository
+                .create_series_run(&SeriesRun {
+                    id: SeriesRunId::generate(),
+                    title_id: id.clone(),
+                    started_on: NaiveDate::from_ymd_opt(2026, 8, start).unwrap(),
+                    finished_on: finish.and_then(|day| NaiveDate::from_ymd_opt(2026, 8, day)),
+                    created_at: now.clone(),
+                    updated_at: now,
+                })
+                .unwrap();
+        }
+        assert_eq!(repository.series_runs(&id).unwrap().len(), 2);
+        assert_eq!(repository.all_series_runs().unwrap().len(), 2);
+        let restored = repository.find_title(&id).unwrap().unwrap();
+        assert_eq!(restored.status, TrackingStatus::Watching);
+        assert_eq!(restored.started_on, NaiveDate::from_ymd_opt(2026, 8, 1));
+        assert_eq!(restored.finished_on, None);
     }
 }

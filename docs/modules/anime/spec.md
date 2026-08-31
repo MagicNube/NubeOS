@@ -25,7 +25,9 @@ Mantener una biblioteca dedicada de anime que permita seguir franquicias complej
 - Omitir un contenido mediante una acción rápida para excluirlo del progreso y de las medias.
 - Consultar un historial global por año, mes, anime y contenido, con orden cronológico configurable.
 - Editar la fecha de una entrada del historial y retirar únicamente el último episodio registrado de cada contenido.
+- En películas Anime independientes, elegir entre registrar inmediatamente con la fecha de hoy o abrir un formulario para indicar otra fecha; cada visionado ofrece edición y eliminación desde el detalle.
 - Usar portadas JPEG, PNG, WebP o GIF animado.
+- Cargar inicialmente una miniatura JPEG de las portadas GIF, solicitar la animación completa al interactuar y conservar una caché limitada de las últimas animaciones reproducidas.
 - Permitir pegar una portada desde el portapapeles y normalizar esa copia a JPEG.
 - Mostrar todas las portadas de Anime en formato horizontal, tanto en Biblioteca como en En curso, el detalle y el editor de encuadre.
 - Reutilizar en En curso las mismas tarjetas que Biblioteca y añadir como única acción específica el avance rápido `+1 episodio` o el marcado de película vista.
@@ -36,7 +38,7 @@ Mantener una biblioteca dedicada de anime que permita seguir franquicias complej
 - La cantidad de títulos mostrada en `Mis top anime` puede elegirse entre 5, 10 y 25.
 - Favorito se representa mediante una estrella accesible en la cabecera, no mediante una casilla dentro del formulario.
 - La puntuación rápida se guarda automáticamente después de una breve pausa al escribir; Enter y el cambio de foco la confirman inmediatamente.
-- Cambiar entre Anime y Películas no reordena durante un instante la colección anterior.
+- Cambiar entre Anime y Películas es inmediato: ambas subsecciones comparten una única colección cargada y se filtran localmente.
 - Omitir y volver a incluir un contenido desde su tarjeta, sin abrir el formulario completo.
 - Editar el estado de un contenido directamente en su tarjeta.
 - Mostrar la confirmación manual del progreso únicamente cuando exista una corrección pendiente.
@@ -54,7 +56,8 @@ Mantener una biblioteca dedicada de anime que permita seguir franquicias complej
 ## Reglas
 
 - Solo una serie o franquicia Anime admite contenidos.
-- Una película anime independiente tiene progreso binario y no admite contenidos.
+- Una película anime independiente no admite contenidos y conserva cada visionado o revisionado como una entrada histórica independiente.
+- El estado de una película anime independiente es manual y nunca crea por sí solo un visionado. Su fecha de visionado se registra únicamente desde Historial.
 - Los contenidos omitidos no reducen el progreso agregado.
 - Si existen contenidos con total desconocido, el progreso conserva la suma conocida: `130 de 150 + ?`. Si ningún total es conocido, se muestra `X de ?`.
 - Anime nunca lista títulos de Series o Películas convencionales.
@@ -78,7 +81,7 @@ Mantener una biblioteca dedicada de anime que permita seguir franquicias complej
 - Omitir no elimina el contenido ni su historial. La acción inversa lo vuelve a incluir como Canon; otra canonicidad se elige desde la edición completa.
 - Las fechas manuales de inicio y fin no se solicitan en contenidos; la actividad se obtiene del historial y el estreno permanece como contexto objetivo.
 - La primera actividad procede exclusivamente del historial persistido. Si el progreso importado no tiene sesiones, se indica que no existe una fecha registrada.
-- El detalle del anime no contiene una copia incrustada del historial. Todos sus accesos conducen a la vista principal Historial.
+- El detalle ofrece un resumen agrupado del historial para el uso cotidiano y conserva un acceso explícito a la vista Historial completa para filtros y correcciones detalladas.
 - `Ver historial` desde la cabecera selecciona el anime y deja vacío el filtro de contenido. Desde una tarjeta selecciona tanto el anime como ese contenido.
 - El filtro de contenido depende del anime seleccionado y solo ofrece contenidos de esa franquicia. Al cambiar de anime se limpia cualquier contenido que ya no pertenezca al nuevo anime.
 - El orden visual de las tarjetas sigue el orden recomendado persistido y se lee de izquierda a derecha y de arriba abajo. Arrastrar una tarjeta continúa actualizando ese mismo orden.
@@ -99,7 +102,7 @@ Mantener una biblioteca dedicada de anime que permita seguir franquicias complej
 - APIs externas, recomendaciones, calendario de emisión y notificaciones.
 - Sincronización posterior con Notion o actualización automática de datos externos.
 - Episodios individuales con título o valoración propia.
-- Revisualizaciones y varios periodos completos de visionado del mismo contenido.
+- Revisualizaciones y varios periodos completos de visionado de temporadas, OVA, especiales o películas vinculadas dentro de una franquicia.
 - Rutas alternativas de visionado.
 - Mezclar Anime, Series y Películas en una vista Todos.
 
@@ -107,6 +110,8 @@ Mantener una biblioteca dedicada de anime que permita seguir franquicias complej
 
 - [x] Una franquicia admite temporadas, películas, OVA y especiales ordenados.
 - [x] Una película anime independiente puede marcarse vista sin crear contenido hijo.
+- [x] Una película anime independiente terminada pero sin historial continúa ofreciendo `Registrar visionado` y no muestra una fecha duplicada en su formulario principal.
+- [x] El historial de una película independiente permite registrar hoy, registrar otra fecha y editar o eliminar su entrada con las mismas convenciones de Lectura.
 - [x] Una película vinculada se muestra dentro de su anime de origen.
 - [x] En curso, Biblioteca y Estadísticas contienen únicamente Anime.
 - [x] Archivo, restauración y borrado mantienen el comportamiento seguro existente.
@@ -123,7 +128,7 @@ Mantener una biblioteca dedicada de anime que permita seguir franquicias complej
 - [x] Las estadísticas pueden filtrarse por puntuación mínima antes de calcular la media.
 - [x] El resumen del contenido muestra su último visionado real y no ofrece campos ni filtros de estudio.
 - [x] Cambiar entre Anime y Películas no muestra ni reordena fugazmente los resultados de la sección anterior.
-- [x] Cada contenido separa sus metadatos de la creación de entradas mediante las vistas `Información` e `Historial`.
+- [x] El detalle separa una cuadrícula de contenidos puramente informativa de un historial global para toda la franquicia.
 - [x] La portada puede recolocarse dentro de su marco y conserva la posición elegida tras reiniciar.
 - [x] El formulario solicita únicamente el estreno como fecha manual del contenido.
 - [x] La puntuación es un control visual principal, no un campo ordinario ni un selector con botón de confirmación.
@@ -135,12 +140,18 @@ Mantener una biblioteca dedicada de anime que permita seguir franquicias complej
 - [x] Las portadas GIF pegadas conservan su animación y solo se reproducen al pasar el cursor sobre la tarjeta; las demás imágenes pegadas se convierten a JPEG.
 - [x] La minivista de películas independientes se denomina `Películas`, el estado aparece fuera de la portada y la ordenación seleccionada se conserva.
 - [x] La puntuación rápida se guarda sin exigir un clic fuera del control.
+- [x] Los géneros se eligen mediante opciones visuales y se muestran como etiquetas, sin escribir listas separadas por comas.
+- [x] Una única selección `Contenidos / Historial` alterna entre la colección ordenada y la actividad global de la franquicia.
+- [x] Las portadas GIF indican su formato mientras están detenidas y reproducen la animación únicamente al interactuar con la tarjeta.
+- [x] El editor presenta la imagen completa junto al encuadre final y permite ajustar punto focal y zoom.
+- [x] Las estadísticas pueden incluir toda la colección o limitarse a Anime o Películas.
+- [x] Las películas independientes omiten el progreso redundante `1 de 1` y muestran un resumen de puntuación, visionados y estado.
 - [x] Cambiar de minivista oculta la colección anterior antes de aplicar el nuevo orden.
 - [x] Las tarjetas separan puntuación, información, estado/progreso y acciones, reduciendo píldoras y ruido permanente.
 - [x] El formulario de contenido recupera una cuadrícula compacta, agrupa campos y evita fechas de seguimiento redundantes con el historial.
 - [x] Un contenido omitido puede volver a incluirse desde la misma acción rápida.
 - [x] Estado, puntuación y progreso mantienen una jerarquía alineada y sin superficies anidadas.
-- [ ] Guardar progreso permanece visible y solo se habilita cuando la corrección manual difiere del valor persistido.
+- [x] Registrar visionado permite elegir contenido, fecha y número de episodios, mostrando de antemano el rango que se añadirá.
 - [x] Los seis estados pueden elegirse con un clic y muestran nombre accesible mediante ayuda contextual.
 - [x] Un contenido Terminado con progreso incompleto admite `+1` y registra el episodio en el historial.
 - [x] Favorito puede alternarse desde Biblioteca sin abrir el detalle.
@@ -149,12 +160,13 @@ Mantener una biblioteca dedicada de anime que permita seguir franquicias complej
 - [x] `+1` aparece inmediatamente a la derecha de la fecha.
 - [x] La tarjeta separa título, clasificación y estreno y no muestra fechas de inicio o fin.
 - [x] El historial puede abrirse completo o filtrado por contenido y comunica la primera actividad registrada.
-- [ ] El detalle no incrusta el historial y sus accesos abren la vista principal Historial con los filtros de anime y contenido adecuados.
-- [ ] El filtro de contenido permanece vacío o inactivo hasta elegir un anime y nunca muestra contenidos de otra franquicia.
-- [ ] Los contenidos se presentan en dos tarjetas por fila, conservan su orden y pasan a una columna cuando falta anchura.
-- [ ] Las tarjetas pueden seguir reordenándose mediante arrastre dentro de la nueva cuadrícula.
-- [ ] Editar usa el mismo formato de icono que las demás acciones de la cabecera.
+- [x] El detalle presenta un historial resumido por fecha y contenido y conserva el acceso a la vista completa ya filtrada por anime.
+- [x] El filtro de contenido permanece vacío o inactivo hasta elegir un anime y nunca muestra contenidos de otra franquicia.
+- [x] Los contenidos se presentan en dos tarjetas por fila, conservan su orden y pasan a una columna cuando falta anchura.
+- [x] Las tarjetas pueden seguir reordenándose mediante arrastre dentro de la nueva cuadrícula.
+- [x] Editar usa el mismo formato de icono que las demás acciones de la cabecera.
 - [x] Tu puntuación y Media comparten tamaño y alineación; el estado textual aparece junto a Progreso y Contenidos sin selector de iconos.
-- [ ] Las tarjetas no conservan una fila inferior vacía cuando sus acciones secundarias están ocultas.
-- [ ] Los metadatos superiores aprovechan el ancho de la tarjeta y se reorganizan sin solaparse cuando alguno falta.
-- [ ] La puntuación comienza arriba y las acciones Guardar e Historial forman una segunda fila alineada con contador y fecha.
+- [x] Las tarjetas no conservan una fila inferior vacía cuando sus acciones secundarias están ocultas.
+- [x] Los metadatos superiores aprovechan el ancho de la tarjeta y se reorganizan sin solaparse cuando alguno falta.
+- [x] La puntuación utiliza una celda SeriesGraph con texto blanco y color derivado de la nota.
+- [x] Historial permite avanzar `+1 episodio` sobre el siguiente contenido disponible, registrar varios episodios y abrir la vista completa desde la misma cabecera, sin mostrar `Añadir contenido`.

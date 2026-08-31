@@ -1,7 +1,7 @@
 # Spec — Series
 
-- Estado: Ampliación de revisionados pendiente de aprobación
-- Última actualización: 2026-08-16
+- Estado: Ampliación de revisionados implementada; revisión visual pendiente
+- Última actualización: 2026-08-30
 
 ## Objetivo
 
@@ -10,10 +10,11 @@ Registrar series convencionales mediante un tracker sencillo que recuerde qué s
 ## Funcionalidades
 
 - Biblioteca exclusiva de Series con tarjetas y portadas.
-- Navegación mediante dos vistas, `Biblioteca` y `Estadísticas`, alineada visualmente con los demás módulos de entretenimiento.
+- Navegación mediante `Biblioteca` y `Estadísticas`; el detalle incorpora `Resumen` e `Historial`.
 - Crear y editar nombre, título alternativo, estado, puntuación, opinión y favorito.
 - Temporada y episodio actuales opcionales.
 - Fecha de inicio y finalización opcionales para cada periodo de visionado.
+- El formulario principal no solicita fechas: inicio y fin pertenecen exclusivamente a los periodos del historial.
 - Registrar cada visionado completo como un periodo independiente y permitir volver a ver una serie.
 - Consultar, corregir y retirar periodos desde Historial.
 - Buscar y filtrar por estado y favoritos.
@@ -22,13 +23,14 @@ Registrar series convencionales mediante un tracker sencillo que recuerde qué s
 - Mostrar de forma compacta `T2 · E5` cuando existe posición.
 - Presentar tarjeta y detalle con la misma geometría horizontal y jerarquía de métricas que Películas y Videojuegos.
 - Permitir recolocar la portada dentro del marco horizontal y conservar el encuadre.
-- Permitir ampliar la portada entre `1×` y `2×` y conservar el zoom.
+- Permitir ajustar la portada entre `0,25×` y `3×` y conservar el zoom.
 
 ## Reglas
 
 - Una Serie convencional no crea temporadas ni episodios como entidades.
 - Temporada y episodio son enteros positivos e independientes; ambos son opcionales.
 - La fecha final no puede ser anterior a la fecha inicial.
+- Ninguna fecha del historial puede estar en el futuro según la fecha local de Madrid.
 - La tarjeta presenta el estado fuera de la portada y prioriza la fecha o el periodo del último seguimiento frente al número de episodio.
 - La biblioteca conserva la ordenación elegida y permite ordenar por título, puntuación y fechas inicial y final.
 - Series nunca muestra Anime ni Películas.

@@ -11,6 +11,7 @@ use uuid::Uuid;
 use super::model::ManagedCover;
 
 const MAX_COVER_BYTES: u64 = 8 * 1024 * 1024;
+const MAX_THUMBNAIL_BYTES: usize = 1024 * 1024;
 
 #[derive(Debug, Clone)]
 pub struct PendingCover {
@@ -25,6 +26,7 @@ pub struct PendingCover {
 #[derive(Debug)]
 pub struct CoverStore {
     covers: PathBuf,
+    thumbnails: PathBuf,
     staging: PathBuf,
     pending: HashMap<String, PendingCover>,
 }
@@ -32,11 +34,14 @@ pub struct CoverStore {
 impl CoverStore {
     pub fn open(root: PathBuf) -> Result<Self, CoverStoreError> {
         let covers = root.join("covers");
+        let thumbnails = root.join("thumbnails");
         let staging = root.join("staging");
         fs::create_dir_all(&covers)?;
+        fs::create_dir_all(&thumbnails)?;
         fs::create_dir_all(&staging)?;
         Ok(Self {
             covers,
+            thumbnails,
             staging,
             pending: HashMap::new(),
         })
@@ -124,10 +129,33 @@ impl CoverStore {
         Ok(fs::read(self.path_for(cover)?)?)
     }
 
+    pub fn read_thumbnail(&self, cover: &ManagedCover) -> Result<Vec<u8>, CoverStoreError> {
+        Ok(fs::read(self.thumbnail_path_for(cover)?)?)
+    }
+
+    pub fn write_thumbnail(
+        &self,
+        cover: &ManagedCover,
+        bytes: &[u8],
+    ) -> Result<(), CoverStoreError> {
+        if bytes.is_empty()
+            || bytes.len() > MAX_THUMBNAIL_BYTES
+            || !bytes.starts_with(&[0xFF, 0xD8, 0xFF])
+        {
+            return Err(CoverStoreError::InvalidImage);
+        }
+        fs::write(self.thumbnail_path_for(cover)?, bytes)?;
+        Ok(())
+    }
+
     pub fn delete(&self, cover: &ManagedCover) -> Result<(), CoverStoreError> {
         let path = self.path_for(cover)?;
         if path.exists() {
             fs::remove_file(path)?;
+        }
+        let thumbnail = self.thumbnail_path_for(cover)?;
+        if thumbnail.exists() {
+            fs::remove_file(thumbnail)?;
         }
         Ok(())
     }
@@ -141,6 +169,11 @@ impl CoverStore {
             return Err(CoverStoreError::InvalidImage);
         }
         Ok(self.covers.join(&cover.file_name))
+    }
+
+    fn thumbnail_path_for(&self, cover: &ManagedCover) -> Result<PathBuf, CoverStoreError> {
+        self.path_for(cover)?;
+        Ok(self.thumbnails.join(format!("{}.jpg", cover.file_name)))
     }
 }
 
@@ -175,7 +208,7 @@ impl fmt::Display for CoverStoreError {
         match self {
             Self::Io(error) => write!(formatter, "No se pudo gestionar la portada: {error}"),
             Self::InvalidImage => {
-                formatter.write_str("Selecciona una imagen JPEG, PNG o WebP de hasta 8 MB.")
+                formatter.write_str("Selecciona una imagen JPEG, PNG, WebP o GIF de hasta 8 MB.")
             }
             Self::UnknownToken => {
                 formatter.write_str("La selección de portada ya no está disponible.")
@@ -207,6 +240,23 @@ mod tests {
         fs::remove_file(source).unwrap();
         let cover = store.promote(&pending.token).unwrap();
         assert_eq!(store.read(&cover).unwrap().len(), 9);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn thumbnail_is_persisted_and_removed_with_its_cover() {
+        let root = std::env::temp_dir().join(format!("nubeos-thumbnails-{}", Uuid::new_v4()));
+        fs::create_dir_all(&root).unwrap();
+        let source = root.join("cover.gif");
+        fs::write(&source, b"GIF89a-content").unwrap();
+        let mut store = CoverStore::open(root.join("private")).unwrap();
+        let pending = store.prepare(&source).unwrap();
+        let cover = store.promote(&pending.token).unwrap();
+        let jpeg = [0xFF, 0xD8, 0xFF, 0xD9];
+        store.write_thumbnail(&cover, &jpeg).unwrap();
+        assert_eq!(store.read_thumbnail(&cover).unwrap(), jpeg);
+        store.delete(&cover).unwrap();
+        assert!(store.read_thumbnail(&cover).is_err());
         fs::remove_dir_all(root).unwrap();
     }
 }

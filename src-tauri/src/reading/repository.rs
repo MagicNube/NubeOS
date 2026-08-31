@@ -199,7 +199,7 @@ impl<'connection> ReadingRepository<'connection> {
         book_id: &BookId,
     ) -> Result<Vec<ReadingRun>, ReadingRepositoryError> {
         let mut statement = self.connection.prepare(
-            "SELECT id,book_id,started_on,finished_on,created_at,updated_at FROM reading_runs
+            "SELECT id,book_id,started_on,finished_on,completed,created_at,updated_at FROM reading_runs
              WHERE book_id=?1 ORDER BY COALESCE(finished_on,started_on) DESC, created_at DESC",
         )?;
         let runs = statement
@@ -210,7 +210,7 @@ impl<'connection> ReadingRepository<'connection> {
 
     pub fn all_runs(&mut self) -> Result<Vec<ReadingRun>, ReadingRepositoryError> {
         let mut statement = self.connection.prepare(
-            "SELECT id,book_id,started_on,finished_on,created_at,updated_at FROM reading_runs
+            "SELECT id,book_id,started_on,finished_on,completed,created_at,updated_at FROM reading_runs
              ORDER BY COALESCE(finished_on,started_on) DESC, created_at DESC",
         )?;
         let runs = statement
@@ -224,7 +224,7 @@ impl<'connection> ReadingRepository<'connection> {
         id: &ReadingRunId,
     ) -> Result<Option<ReadingRun>, ReadingRepositoryError> {
         self.connection.query_row(
-            "SELECT id,book_id,started_on,finished_on,created_at,updated_at FROM reading_runs WHERE id=?1",
+            "SELECT id,book_id,started_on,finished_on,completed,created_at,updated_at FROM reading_runs WHERE id=?1",
             [id.as_str()], reading_run_from_row).optional().map_err(Into::into)
     }
 
@@ -248,8 +248,8 @@ impl<'connection> ReadingRepository<'connection> {
             return Err(ReadingRepositoryError::OpenRunExists);
         }
         self.connection.execute(
-            "INSERT INTO reading_runs(id,book_id,started_on,finished_on,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,?6)",
-            params![run.id.as_str(), run.book_id.as_str(), run.started_on.map(|d| d.to_string()), run.finished_on.map(|d| d.to_string()), run.created_at, run.updated_at])?;
+            "INSERT INTO reading_runs(id,book_id,started_on,finished_on,completed,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,?6,?7)",
+            params![run.id.as_str(), run.book_id.as_str(), run.started_on.map(|d| d.to_string()), run.finished_on.map(|d| d.to_string()), run.completed, run.created_at, run.updated_at])?;
         self.synchronize_after_run_change(&run.book_id)
     }
 
@@ -268,11 +268,12 @@ impl<'connection> ReadingRepository<'connection> {
             }
         }
         let count = self.connection.execute(
-            "UPDATE reading_runs SET started_on=?2,finished_on=?3,updated_at=?4 WHERE id=?1",
+            "UPDATE reading_runs SET started_on=?2,finished_on=?3,completed=?4,updated_at=?5 WHERE id=?1",
             params![
                 run.id.as_str(),
                 run.started_on.map(|d| d.to_string()),
                 run.finished_on.map(|d| d.to_string()),
+                run.completed,
                 run.updated_at
             ],
         )?;
@@ -297,16 +298,17 @@ impl<'connection> ReadingRepository<'connection> {
         book_id: &BookId,
     ) -> Result<(), ReadingRepositoryError> {
         let runs = self.runs_for(book_id)?;
-        let open = runs.iter().find(|run| run.finished_on.is_none());
-        let latest = open.or_else(|| runs.first());
+        let latest = runs.first();
         let current = self
             .find(book_id)?
             .ok_or(ReadingRepositoryError::NotFound)?
             .status;
-        let status = if open.is_some() {
+        let status = if latest.is_some_and(|run| run.finished_on.is_none()) {
             ReadingStatus::Reading
-        } else if runs.iter().any(|run| run.finished_on.is_some()) {
+        } else if latest.is_some_and(|run| run.completed) {
             ReadingStatus::Completed
+        } else if latest.is_some() {
+            ReadingStatus::Paused
         } else if matches!(current, ReadingStatus::Reading | ReadingStatus::Completed) {
             ReadingStatus::Pending
         } else {
@@ -379,8 +381,9 @@ fn reading_run_from_row(row: &Row<'_>) -> rusqlite::Result<ReadingRun> {
             .map_err(|_| conversion_error(1, "libro"))?,
         started_on: parse_date(row.get(2)?, 2)?,
         finished_on: parse_date(row.get(3)?, 3)?,
-        created_at: row.get(4)?,
-        updated_at: row.get(5)?,
+        completed: row.get(4)?,
+        created_at: row.get(5)?,
+        updated_at: row.get(6)?,
     })
 }
 
@@ -451,6 +454,7 @@ mod tests {
             .execute_batch(include_str!("../../migrations/0021_add_reading_runs.sql"))
             .unwrap();
         connection.execute_batch("ALTER TABLE reading_books ADD COLUMN cover_position_x REAL NOT NULL DEFAULT 50.0; ALTER TABLE reading_books ADD COLUMN cover_position_y REAL NOT NULL DEFAULT 50.0; ALTER TABLE reading_books ADD COLUMN cover_zoom REAL NOT NULL DEFAULT 1.0;").unwrap();
+        connection.execute_batch("ALTER TABLE reading_runs ADD COLUMN completed INTEGER NOT NULL DEFAULT 0 CHECK (completed IN (0, 1));").unwrap();
         connection
     }
 
@@ -497,21 +501,28 @@ mod tests {
         repository.create(&book).unwrap();
         let start = NaiveDate::from_ymd_opt(2026, 8, 1).unwrap();
         let end = NaiveDate::from_ymd_opt(2026, 8, 5).unwrap();
-        let mut first =
-            ReadingRun::new(book.id.clone(), Some(start), None, Utc::now().to_rfc3339()).unwrap();
+        let mut first = ReadingRun::new(
+            book.id.clone(),
+            Some(start),
+            None,
+            false,
+            Utc::now().to_rfc3339(),
+        )
+        .unwrap();
         repository.create_run(&first).unwrap();
         assert_eq!(
             repository.find(&book.id).unwrap().unwrap().status,
             ReadingStatus::Reading
         );
         first
-            .update(Some(start), Some(end), Utc::now().to_rfc3339())
+            .update(Some(start), Some(end), true, Utc::now().to_rfc3339())
             .unwrap();
         repository.update_run(&first).unwrap();
         let second = ReadingRun::new(
             book.id.clone(),
             Some(end),
             Some(end),
+            true,
             Utc::now().to_rfc3339(),
         )
         .unwrap();
@@ -566,6 +577,7 @@ mod tests {
             book.id.clone(),
             NaiveDate::from_ymd_opt(2026, 8, 10),
             NaiveDate::from_ymd_opt(2026, 8, 12),
+            true,
             Utc::now().to_rfc3339(),
         )
         .unwrap();
@@ -574,6 +586,7 @@ mod tests {
             book.id.clone(),
             NaiveDate::from_ymd_opt(2026, 8, 5),
             NaiveDate::from_ymd_opt(2026, 8, 6),
+            true,
             Utc::now().to_rfc3339(),
         )
         .unwrap();

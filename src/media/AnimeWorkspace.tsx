@@ -14,29 +14,28 @@ import {
   X,
 } from "lucide-react";
 import SelectControl from "../ui/SelectControl";
+import SmartDateInput from "../ui/SmartDateInput";
+import ScoreTile from "../ui/ScoreTile";
 import FavoriteFilter from "../ui/FavoriteFilter";
 import ArchiveItemActions from "../ui/ArchiveItemActions";
+import MediaStatisticsDashboard from "../ui/MediaStatisticsDashboard";
 import type {
   MediaContent,
   MediaContentInput,
   MediaDetail,
   MediaHistoryEntry,
-  MediaKind,
-  MediaStatistics,
   MediaTitle,
   MediaTitleInput,
-  ProgressTarget,
+  MovieViewing,
   TrackingStatus,
 } from "./api";
 import { mediaApi, mediaErrorMessage } from "./api";
 import CoverImage from "./CoverImage";
 import MediaDetailView from "./MediaDetail";
 import { MediaContentForm, MediaTitleForm } from "./MediaForms";
+import { resolveInferredMediaStatus } from "./statusChoice";
 import {
-  formatScore,
   progressLabel,
-  scoreColor,
-  scoreTone,
   contentKindLabel,
   formatDate,
   statusLabel,
@@ -46,6 +45,8 @@ import {
 import "./media.css";
 
 type View = "watching" | "library" | "statistics" | "history";
+type StatisticsScope = "anime" | "movie" | "content";
+type AnimeStatContent = MediaContent & { titleId: string; titleName: string; genres: string[] };
 type LibrarySort = "updated" | "catalogAsc" | "catalogDesc" | "scoreDesc" | "scoreAsc" | "titleAsc" | "startAsc" | "startDesc" | "finishAsc" | "finishDesc";
 type LibrarySection = "anime" | "movies";
 
@@ -70,18 +71,22 @@ function contentInput(content: MediaContent, overrides: Partial<MediaContentInpu
 export default function AnimeWorkspace() {
   const [view, setView] = useState<View>("library");
   const [items, setItems] = useState<MediaTitle[]>([]);
-  const [statistics, setStatistics] = useState<MediaStatistics | null>(null);
+  const [statisticsItems, setStatisticsItems] = useState<MediaTitle[]>([]);
+  const [statisticsHistory, setStatisticsHistory] = useState<MediaHistoryEntry[]>([]);
+  const [statisticsContents, setStatisticsContents] = useState<AnimeStatContent[]>([]);
   const [detail, setDetail] = useState<MediaDetail | null>(null);
+  const [movieViewings, setMovieViewings] = useState<MovieViewing[]>([]);
   const [titleForm, setTitleForm] = useState<"new" | "edit" | null>(null);
   const [contentForm, setContentForm] = useState<MediaContent | "new" | null>(null);
   const [archived, setArchived] = useState(false);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<TrackingStatus | "">("");
   const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [scoreFilter, setScoreFilter] = useState<"" | "unscored">("");
   const [librarySort, setLibrarySort] = useState<LibrarySort>(() => (localStorage.getItem("nubeos.anime.sort.anime") as LibrarySort) || (localStorage.getItem("nubeos.anime.sort") as LibrarySort) || "catalogAsc");
   const [librarySection, setLibrarySection] = useState<LibrarySection>("anime");
   useEffect(() => { localStorage.setItem(`nubeos.anime.sort.${librarySection}`, librarySort); }, [librarySection, librarySort]);
-  const [statisticsMinimumScore, setStatisticsMinimumScore] = useState("");
+  const [statisticsScope, setStatisticsScope] = useState<StatisticsScope>("anime");
   const [history, setHistory] = useState<MediaHistoryEntry[]>([]);
   const [historyOptions, setHistoryOptions] = useState<MediaHistoryEntry[]>([]);
   const [historyYear, setHistoryYear] = useState("");
@@ -92,7 +97,6 @@ export default function AnimeWorkspace() {
   const [historyTitles, setHistoryTitles] = useState<MediaTitle[]>([]);
   const [historySelection, setHistorySelection] = useState<MediaDetail | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
-  const [libraryTransitioning, setLibraryTransitioning] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const requestId = useRef(0);
@@ -103,8 +107,16 @@ export default function AnimeWorkspace() {
       if (showInitial) setInitialLoading(true);
       try {
         if (view === "statistics") {
-          const data = await mediaApi.statistics({ area: "anime", minimumScore: statisticsMinimumScore ? Number(statisticsMinimumScore) : null });
-          if (requestId.current === id) setStatistics(data);
+          const [active, activity] = await Promise.all([
+            mediaApi.list({ archived: false, area: "anime" }),
+            mediaApi.history({ area: "anime" }),
+          ]);
+          const details = await Promise.all(active.filter((item) => item.kind === "anime").map((item) => mediaApi.get(item.id)));
+          if (requestId.current === id) {
+            setStatisticsItems(active);
+            setStatisticsHistory(activity);
+            setStatisticsContents(details.flatMap((entry) => entry.contents.filter((content) => content.canonStatus !== "omitted").map((content) => ({ ...content, titleId: entry.title.id, titleName: entry.title.name, genres: entry.title.genres }))));
+          }
         } else if (view === "history") {
           const [data, options] = await Promise.all([
             mediaApi.history({ area: "anime", year: historyYear ? Number(historyYear) : null, month: historyMonth ? Number(historyMonth) : null, titleId: historyTitle || null, contentId: historyContent || null, oldestFirst: historyOldestFirst }),
@@ -116,7 +128,7 @@ export default function AnimeWorkspace() {
             archived: view === "library" ? archived : false,
             search: view === "library" ? search || null : null,
             area: "anime",
-            kind: view === "library" ? (librarySection === "anime" ? "anime" : "movie") : null,
+            kind: null,
             status: view === "watching" ? "watching" : status || null,
             favoritesOnly: view === "library" && favoritesOnly,
           });
@@ -129,7 +141,7 @@ export default function AnimeWorkspace() {
         if (requestId.current === id) setInitialLoading(false);
       }
     },
-    [archived, favoritesOnly, historyContent, historyMonth, historyOldestFirst, historyTitle, historyYear, librarySection, search, statisticsMinimumScore, status, view],
+    [archived, favoritesOnly, historyContent, historyMonth, historyOldestFirst, historyTitle, historyYear, search, status, view],
   );
 
   useEffect(() => {
@@ -198,14 +210,22 @@ export default function AnimeWorkspace() {
   }
 
   async function openDetail(id: string) {
-    const result = await run(() => mediaApi.get(id));
-    if (result) setDetail(result);
+    const result = await run(async () => {
+      const selected = await mediaApi.get(id);
+      const viewings = selected.title.kind === "movie" ? await mediaApi.movieViewings(id) : [];
+      return { selected, viewings };
+    });
+    if (result) {
+      setDetail(result.selected);
+      setMovieViewings(result.viewings);
+    }
   }
 
   async function refreshDetail(id = detail?.title.id) {
     if (!id) return;
     const next = await mediaApi.get(id);
     setDetail(next);
+    setMovieViewings(next.title.kind === "movie" ? await mediaApi.movieViewings(id) : []);
   }
 
   async function mutateDetail(operation: () => Promise<MediaDetail>) {
@@ -216,35 +236,44 @@ export default function AnimeWorkspace() {
     return true;
   }
 
+  async function mutateHistoryDetail(operation: () => Promise<MediaDetail>) {
+    if (!detail) return false;
+    const before = detail;
+    const result = await run(async () => resolveInferredMediaStatus(before, await operation()));
+    if (!result) return false;
+    setDetail(result);
+    await load(false);
+    return true;
+  }
+
+  async function mutateMovieViewing(operation: () => Promise<MovieViewing[]>) {
+    if (!detail) return null;
+    const before = detail;
+    const result = await run(async () => {
+      const viewings = await operation();
+      const next = await resolveInferredMediaStatus(before, await mediaApi.get(before.title.id));
+      return { viewings, detail: next };
+    });
+    if (!result) return null;
+    setMovieViewings(result.viewings);
+    setDetail(result.detail);
+    await load(false);
+    return result.viewings;
+  }
+
   function changeView(next: View) {
+    if (next === view) return;
+    setInitialLoading(true);
+    if (next === "library" || next === "watching") setItems([]);
     setView(next);
     setArchived(false);
     setDetail(null);
   }
 
-  async function changeLibrarySection(next: LibrarySection) {
+  function changeLibrarySection(next: LibrarySection) {
     if (next === librarySection) return;
-    const id = ++requestId.current;
-    setLibraryTransitioning(true);
-    try {
-      const data = await mediaApi.list({
-        archived,
-        search: search || null,
-        area: "anime",
-        kind: next === "anime" ? "anime" : "movie",
-        status: status || null,
-        favoritesOnly,
-      });
-      if (requestId.current !== id) return;
-      setItems(data);
-      setLibrarySort((localStorage.getItem(`nubeos.anime.sort.${next}`) as LibrarySort) || (next === "anime" ? "catalogAsc" : "scoreDesc"));
-      setLibrarySection(next);
-      setError(null);
-    } catch (reason) {
-      if (requestId.current === id) setError(mediaErrorMessage(reason));
-    } finally {
-      if (requestId.current === id) setLibraryTransitioning(false);
-    }
+    setLibrarySort((localStorage.getItem(`nubeos.anime.sort.${next}`) as LibrarySort) || (next === "anime" ? "catalogAsc" : "scoreDesc"));
+    setLibrarySection(next);
   }
 
   function openHistory(titleId: string, contentId?: string) {
@@ -301,7 +330,11 @@ export default function AnimeWorkspace() {
                     ? { type: "content" as const, id: item.nextContent.id }
                     : null;
                 if (!target) return;
-                const result = await run(() => mediaApi.increment(target.type, target.id, todayMadrid()));
+                const result = await run(async () => {
+                  const before = target.type === "title" ? await mediaApi.get(item.id) : null;
+                  const next = await mediaApi.increment(target.type, target.id, todayMadrid());
+                  return before ? resolveInferredMediaStatus(before, next) : next;
+                });
                 if (result) await load(false);
               }}
             />
@@ -310,7 +343,6 @@ export default function AnimeWorkspace() {
             <LibraryView
               actions={collectionActions}
               archived={archived}
-              transitioning={libraryTransitioning}
               section={librarySection}
               setSection={changeLibrarySection}
               search={search}
@@ -319,6 +351,8 @@ export default function AnimeWorkspace() {
               setStatus={setStatus}
               favoritesOnly={favoritesOnly}
               setFavoritesOnly={setFavoritesOnly}
+              scoreFilter={scoreFilter}
+              setScoreFilter={setScoreFilter}
               sort={librarySort}
               setSort={setLibrarySort}
               items={items}
@@ -337,8 +371,8 @@ export default function AnimeWorkspace() {
               }}
             />
           )}
-          {view === "statistics" && statistics && (
-            <StatisticsView actions={collectionActions} statistics={statistics} open={openDetail} minimumScore={statisticsMinimumScore} setMinimumScore={setStatisticsMinimumScore} />
+          {view === "statistics" && (
+            <StatisticsView actions={collectionActions} contents={statisticsContents} history={statisticsHistory} items={statisticsItems} open={openDetail} scope={statisticsScope} setScope={setStatisticsScope} showUnscored={statisticsScope === "content" ? undefined : () => { changeLibrarySection(statisticsScope === "movie" ? "movies" : "anime"); setScoreFilter("unscored"); changeView("library"); }} />
           )}
           {view === "history" && <HistoryView actions={collectionActions} busy={busy} content={historyContent} entries={history} month={historyMonth} oldestFirst={historyOldestFirst} options={historyOptions} selected={historySelection} setContent={setHistoryContent} setMonth={setHistoryMonth} setOldestFirst={setHistoryOldestFirst} setTitle={setHistoryTitle} setYear={setHistoryYear} title={historyTitle} titles={historyTitles} year={historyYear} updateDate={async (id, date) => { if (await runAction(() => mediaApi.updateHistoryDate(id, date))) await load(false); }} deleteEntry={async (entry) => { if (!window.confirm("¿Eliminar esta visualización y actualizar el progreso?")) return; if (await runAction(() => mediaApi.deleteHistoryEntry(entry.id))) await load(false); }} />}
         </>
@@ -347,16 +381,17 @@ export default function AnimeWorkspace() {
       {detail && (
         <MediaDetailView
           detail={detail}
+          movieViewings={movieViewings}
           busy={busy}
           close={() => setDetail(null)}
           editTitle={() => setTitleForm("edit")}
           addContent={() => setContentForm("new")}
           editContent={setContentForm}
           increment={async (type, id) => {
-            await mutateDetail(() => mediaApi.increment(type, id, todayMadrid()));
+            await mutateHistoryDetail(() => mediaApi.increment(type, id, todayMadrid()));
           }}
           setProgress={async (type, id, watched, date) => {
-            await mutateDetail(() => mediaApi.setProgress(type, id, watched, date));
+            return mutateHistoryDetail(() => mediaApi.setProgress(type, id, watched, date));
           }}
           removeContent={async (content) => {
             if (!window.confirm(`¿Eliminar “${content.name}” y su historial?`)) return;
@@ -402,6 +437,27 @@ export default function AnimeWorkspace() {
           setTitleFavorite={async (next) => { await mutateDetail(() => mediaApi.setTitleFavorite(detail.title.id, next)); }}
           setCoverPosition={(x, y, zoom) => mutateDetail(() => mediaApi.setCoverPosition(detail.title.id, x, y, zoom))}
           openHistory={openHistory}
+          updateHistoryDates={async (sessionIds, watchedOn) => {
+            const updated = await runAction(() => Promise.all(sessionIds.map((sessionId) => mediaApi.updateHistoryDate(sessionId, watchedOn))));
+            if (!updated) return false;
+            await refreshDetail();
+            await load(false);
+            return true;
+          }}
+          deleteHistoryGroup={async (sessionIds) => {
+            const before = detail;
+            const result = await run(async () => {
+              for (const sessionId of sessionIds) await mediaApi.deleteHistoryEntry(sessionId);
+              return resolveInferredMediaStatus(before, await mediaApi.get(before.title.id));
+            });
+            if (!result) return false;
+            setDetail(result);
+            await load(false);
+            return true;
+          }}
+          addMovieViewing={async (watchedOn) => Boolean(await mutateMovieViewing(() => mediaApi.createMovieViewing(detail.title.id, watchedOn)))}
+          editMovieViewing={async (viewingId, watchedOn) => { await mutateMovieViewing(() => mediaApi.updateMovieViewing(viewingId, watchedOn)); }}
+          deleteMovieViewing={async (viewingId) => { await mutateMovieViewing(() => mediaApi.deleteMovieViewing(viewingId)); }}
         />
       )}
 
@@ -470,17 +526,17 @@ function WatchingView({
               <article className="library-card anime-watching-card" key={item.id}>
                 <button className="library-card-open" onClick={() => open(item.id)} type="button">
                   <div className="library-cover-wrap">
-                    <CoverImage alt={`Portada de ${item.name}`} hasCover={item.hasCover} positionX={item.coverPositionX} positionY={item.coverPositionY} titleId={item.id} zoom={item.coverZoom} />
+                    <CoverImage alt={`Portada de ${item.name}`} animated={item.animatedCover} hasCover={item.hasCover} positionX={item.coverPositionX} positionY={item.coverPositionY} titleId={item.id} zoom={item.coverZoom} />
                     {item.kind === "anime" && item.catalogNumber && <span className="library-catalog-number">#{item.catalogNumber}</span>}
                     {item.favorite && <Star className="library-favorite" fill="currentColor" size={17} />}
                   </div>
                   <div className="library-card-copy">
                     <span className={`media-status status-${item.status}`}>{statusLabel(item.status)}</span>
                     <h3>{item.name}</h3>
-                    {item.genres.length > 0 && <p>{item.genres.join(", ")}</p>}
-                    <div>
+                    {item.genres.length > 0 && <div className="media-genre-tags">{item.genres.slice(0, 3).map((genre) => <span key={genre}>{genre}</span>)}</div>}
+                    <div className="media-library-card-footer">
                       <strong>{progressLabel(item.progress)}</strong>
-                      {(item.score ?? item.averageContentScore) !== null && <b className={`media-score-badge score-${scoreTone(item.score ?? item.averageContentScore)}`} style={{ color: scoreColor(item.score ?? item.averageContentScore) }}>{formatScore(item.score ?? item.averageContentScore)}</b>}
+                      <ScoreTile className="media-score-badge" score={item.score ?? item.averageContentScore} />
                     </div>
                   </div>
                 </button>
@@ -499,7 +555,6 @@ function WatchingView({
 function LibraryView({
   actions,
   archived,
-  transitioning,
   section,
   setSection,
   search,
@@ -508,6 +563,8 @@ function LibraryView({
   setStatus,
   favoritesOnly,
   setFavoritesOnly,
+  scoreFilter,
+  setScoreFilter,
   sort,
   setSort,
   items,
@@ -519,7 +576,6 @@ function LibraryView({
 }: {
   actions: ReactNode;
   archived: boolean;
-  transitioning: boolean;
   section: LibrarySection;
   setSection: (value: LibrarySection) => void;
   search: string;
@@ -528,6 +584,8 @@ function LibraryView({
   setStatus: (value: TrackingStatus | "") => void;
   favoritesOnly: boolean;
   setFavoritesOnly: (value: boolean) => void;
+  scoreFilter: "" | "unscored";
+  setScoreFilter: (value: "" | "unscored") => void;
   sort: LibrarySort;
   setSort: (value: LibrarySort) => void;
   items: MediaTitle[];
@@ -538,7 +596,8 @@ function LibraryView({
   remove: (id: string, name: string) => Promise<void>;
 }) {
   const sortedItems = useMemo(() => {
-    const result = [...items];
+    const expectedKind = section === "anime" ? "anime" : "movie";
+    const result = items.filter((item) => item.kind === expectedKind && (!scoreFilter || (item.score ?? item.averageContentScore) === null));
     const score = (item: MediaTitle) => item.score ?? item.averageContentScore;
     result.sort((left, right) => {
       if (sort === "updated") return 0;
@@ -563,7 +622,7 @@ function LibraryView({
       return sort === "scoreDesc" ? rightScore - leftScore : leftScore - rightScore;
     });
     return result;
-  }, [items, sort]);
+  }, [items, scoreFilter, section, sort]);
 
   return (
     <section className="media-view">
@@ -576,8 +635,8 @@ function LibraryView({
       </div>
       <div className="anime-library-navigation">
         <div className="media-library-sections" role="tablist" aria-label="Tipo de biblioteca anime">
-          <button className={section === "anime" ? "active" : ""} disabled={transitioning} onClick={() => setSection("anime")} role="tab" type="button">Anime</button>
-          <button className={section === "movies" ? "active" : ""} disabled={transitioning} onClick={() => setSection("movies")} role="tab" type="button">Películas</button>
+          <button className={section === "anime" ? "active" : ""} onClick={() => setSection("anime")} role="tab" type="button">Anime</button>
+          <button className={section === "movies" ? "active" : ""} onClick={() => setSection("movies")} role="tab" type="button">Películas</button>
         </div>
         {actions}
       </div>
@@ -592,6 +651,7 @@ function LibraryView({
             {trackingStatuses.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
           </select>
         </SelectControl>
+        <SelectControl><select aria-label="Filtrar por puntuación" onChange={(event) => setScoreFilter(event.target.value as "" | "unscored")} value={scoreFilter}><option value="">Todas las puntuaciones</option><option value="unscored">Sin puntuar</option></select></SelectControl>
         <SelectControl>
           <select aria-label="Ordenar biblioteca" onChange={(event) => setSort(event.target.value as LibrarySort)} value={sort}>
             <option value="updated">Actualizados recientemente</option>
@@ -608,24 +668,24 @@ function LibraryView({
         </SelectControl>
         <FavoriteFilter active={favoritesOnly} onChange={setFavoritesOnly} />
       </div>
-      {items.length === 0 ? (
+      {sortedItems.length === 0 ? (
         <MediaEmpty text={archived ? "El Archivo está vacío." : section === "anime" ? "No hay anime con estos filtros." : "No hay películas anime con estos filtros."} />
       ) : (
-        <div aria-busy={transitioning} className={`library-grid${transitioning ? " transitioning" : ""}`}>
+        <div className="library-grid">
           {sortedItems.map((item) => (
             <article className="library-card" key={item.id}>
               <button className="library-card-open" onClick={() => open(item.id)} type="button">
                 <div className="library-cover-wrap">
-                  <CoverImage alt={`Portada de ${item.name}`} hasCover={item.hasCover} positionX={item.coverPositionX} positionY={item.coverPositionY} titleId={item.id} zoom={item.coverZoom} />
+                  <CoverImage alt={`Portada de ${item.name}`} animated={item.animatedCover} hasCover={item.hasCover} positionX={item.coverPositionX} positionY={item.coverPositionY} titleId={item.id} zoom={item.coverZoom} />
                   {item.kind === "anime" && item.catalogNumber && <span className="library-catalog-number">#{item.catalogNumber}</span>}
                 </div>
                 <div className="library-card-copy">
                   <span className={`media-status status-${item.status}`}>{statusLabel(item.status)}</span>
                   <h3>{item.name}</h3>
-                  {item.genres.length > 0 && <p>{item.genres.join(", ")}</p>}
-                  <div>
+                  {item.genres.length > 0 && <div className="media-genre-tags">{item.genres.slice(0, 3).map((genre) => <span key={genre}>{genre}</span>)}</div>}
+                  <div className="media-library-card-footer">
                     <strong>{progressLabel(item.progress)}</strong>
-                    <b className={`media-score-badge score-${scoreTone(item.score ?? item.averageContentScore)}`} style={{ color: scoreColor(item.score ?? item.averageContentScore) }}>{formatScore(item.score ?? item.averageContentScore)}</b>
+                    <ScoreTile className="media-score-badge" score={item.score ?? item.averageContentScore} />
                   </div>
                 </div>
               </button>
@@ -650,61 +710,26 @@ function LibraryView({
   );
 }
 
-function StatisticsView({ actions, statistics, open, minimumScore, setMinimumScore }: { actions: ReactNode; statistics: MediaStatistics; open: (id: string) => void; minimumScore: string; setMinimumScore: (value: string) => void }) {
-  const [topLimit, setTopLimit] = useState<5 | 10 | 25>(5);
-  return (
-    <section className="media-view">
-      <div className="library-heading-row anime-collection-heading"><ViewHeading eyebrow="TU HISTORIAL" title="Estadísticas" subtitle="Solo tu actividad de anime y sus películas." />{actions}</div>
-      <div className="media-stat-filters">
-        <SelectControl><select aria-label="Filtrar estadísticas por puntuación mínima" onChange={(event) => setMinimumScore(event.target.value)} value={minimumScore}><option value="">Cualquier puntuación</option><option value="5">5 o más</option><option value="6">6 o más</option><option value="7">7 o más</option><option value="8">8 o más</option><option value="9">9 o más</option></select></SelectControl>
-      </div>
-      <div className="media-stat-grid">
-        <Stat label="Títulos activos" value={statistics.activeTitles} />
-        <Stat label="Episodios vistos" value={statistics.watchedEpisodes} />
-        <Stat label="Películas vistas" value={statistics.completedMovies} />
-        <Stat label="Sesiones" value={statistics.sessions} />
-        <Stat color={scoreColor(statistics.averageScore)} label="Puntuación media" value={statistics.averageScore === null ? "—" : formatScore(statistics.averageScore)} />
-      </div>
-      <div className="media-stat-panels">
-        <section className="media-stat-panel">
-          <h3>Biblioteca</h3>
-          <div className="media-kind-breakdown">
-            <span><b>{statistics.animeTitles}</b> Franquicias</span>
-            <span><b>{statistics.movieTitles}</b> Películas</span>
-            <span><b>{statistics.activeTitles}</b> Total</span>
-          </div>
-          <div className="media-status-breakdown">
-            {statistics.byStatus.map((item) => (
-              <div key={item.status}><span>{statusLabel(item.status)}</span><strong>{item.count}</strong></div>
-            ))}
-          </div>
-        </section>
-        <section className="media-stat-panel">
-          <div className="media-stat-panel-heading">
-            <h3>Mis top anime</h3>
-            <SelectControl>
-              <select aria-label="Cantidad de animes del top" onChange={(event) => setTopLimit(Number(event.target.value) as 5 | 10 | 25)} value={topLimit}>
-                <option value={5}>Top 5</option>
-                <option value={10}>Top 10</option>
-                <option value={25}>Top 25</option>
-              </select>
-            </SelectControl>
-          </div>
-          {statistics.topTitles.length === 0 ? (
-            <p className="media-muted">Puntúa algún título para verlo aquí.</p>
-          ) : (
-            <div className="media-top-list">
-              {statistics.topTitles.slice(0, topLimit).map((item, index) => (
-                <button key={item.id} onClick={() => open(item.id)} type="button">
-                  <span>{index + 1}</span><strong>{item.name}</strong><b style={{ color: scoreColor(item.score) }}>{formatScore(item.score)}</b>
-                </button>
-              ))}
-            </div>
-          )}
-        </section>
-      </div>
-    </section>
-  );
+function StatisticsView({ actions, contents, history, items, open, scope, setScope, showUnscored }: { actions: ReactNode; contents: AnimeStatContent[]; history: MediaHistoryEntry[]; items: MediaTitle[]; open: (id: string) => void; scope: StatisticsScope; setScope: (value: StatisticsScope) => void; showUnscored?: () => void }) {
+  const scopedTitles = items.filter((item) => item.kind === scope);
+  const normalizedItems = scope === "content"
+    ? contents.map((content) => ({ id: content.id, name: content.name, detail: content.titleName, status: content.status, statusLabel: statusLabel(content.status), score: content.score, favorite: false, genres: content.genres, startedOn: content.firstActivityOn, finishedOn: content.status === "completed" ? content.lastActivityOn : null }))
+    : scopedTitles.map((item) => ({ id: item.id, name: item.name, status: item.status, statusLabel: statusLabel(item.status), score: item.score ?? (scope === "anime" ? item.averageContentScore : null), favorite: item.favorite, genres: item.genres, startedOn: item.firstActivityOn, finishedOn: item.status === "completed" ? item.lastActivityOn : null }));
+  const normalizedHistory = history.filter((entry) => scope === "content" ? Boolean(entry.contentId) : scopedTitles.some((item) => item.id === entry.titleId)).map((entry) => ({ id: entry.id, itemId: scope === "content" ? entry.contentId! : entry.titleId, activityOn: entry.watchedOn, completed: true, units: 1 }));
+  return <section className="media-view">
+    <div className="library-heading-row anime-collection-heading"><ViewHeading eyebrow="TU HISTORIAL" title="Estadísticas" subtitle="Franquicias, películas y contenidos sin mezclar sus escalas." />{actions}</div>
+    <MediaStatisticsDashboard
+      extraFilters={<SelectControl><select aria-label="Ámbito de las estadísticas de Anime" onChange={(event) => setScope(event.target.value as StatisticsScope)} value={scope}><option value="anime">Anime</option><option value="movie">Películas</option><option value="content">Contenidos</option></select></SelectControl>}
+      items={normalizedItems}
+      noun={scope === "anime" ? "Anime" : scope === "movie" ? "Películas" : "Contenidos"}
+      openItem={(id) => { if (scope === "content") { const content = contents.find((item) => item.id === id); if (content) void open(content.titleId); } else void open(id); }}
+      repeatable={false}
+      showUnscored={showUnscored}
+      sessions={normalizedHistory}
+      storageKey={`nubeos.anime.statistics.${scope}`}
+      unitLabel="Episodios registrados"
+    />
+  </section>;
 }
 
 function HistoryView({ actions, entries, options, titles: titleOptions, selected, year, setYear, month, setMonth, title, setTitle, content, setContent, oldestFirst, setOldestFirst, busy, updateDate, deleteEntry }: {
@@ -773,7 +798,7 @@ function GlobalHistoryRow({ entry, busy, updateDate, deleteEntry }: { entry: Med
     : entry.contentKind
       ? `${contentKindLabel(entry.contentKind)} “${entry.contentName}” ${entry.contentKind === "movie" ? "vista" : "visto"}`
       : `Película “${entry.titleName}” vista`;
-  return <article className="media-global-history-row"><HistoryIcon size={16} /><div><strong>{description}</strong><span>{entry.contentName ? `${entry.titleName} (${entry.contentName})` : entry.titleName}</span></div><time>{formatDate(entry.watchedOn)}</time><input aria-label={`Fecha de ${description}`} disabled={busy} max={todayMadrid()} onChange={(event) => setDate(event.target.value)} type="date" value={date} /><button aria-label="Guardar fecha" className="media-history-save" disabled={busy || date === entry.watchedOn} onClick={() => void updateDate(date)} type="button">Guardar</button><button aria-label="Eliminar entrada" className="media-icon-button danger" disabled={busy || !entry.canDelete} onClick={() => void deleteEntry()} title={entry.canDelete ? "Eliminar y actualizar progreso" : "Solo puede eliminarse el último episodio"} type="button"><Trash2 size={15} /></button></article>;
+  return <article className="media-global-history-row"><HistoryIcon size={16} /><div><strong>{description}</strong><span>{entry.contentName ? `${entry.titleName} (${entry.contentName})` : entry.titleName}</span></div><time>{formatDate(entry.watchedOn)}</time><SmartDateInput aria-label={`Fecha de ${description}`} disabled={busy} max={todayMadrid()} onChange={setDate} value={date} /><button aria-label="Guardar fecha" className="media-history-save" disabled={busy || date === entry.watchedOn} onClick={() => void updateDate(date)} type="button">Guardar</button><button aria-label="Eliminar entrada" className="media-icon-button danger" disabled={busy || !entry.canDelete} onClick={() => void deleteEntry()} title={entry.canDelete ? "Eliminar y actualizar progreso" : "Solo puede eliminarse el último episodio"} type="button"><Trash2 size={15} /></button></article>;
 }
 
 function Tab({ active, icon: Icon, label, onClick }: { active: boolean; icon: typeof Film; label: string; onClick: () => void }) {
@@ -782,10 +807,6 @@ function Tab({ active, icon: Icon, label, onClick }: { active: boolean; icon: ty
 
 function ViewHeading({ eyebrow, title, subtitle }: { eyebrow: string; title: string; subtitle: string }) {
   return <header className="media-view-heading"><span>{eyebrow}</span><h2>{title}</h2><p>{subtitle}</p></header>;
-}
-
-function Stat({ label, value, color }: { label: string; value: string | number; color?: string }) {
-  return <div className="media-stat-card"><span>{label}</span><strong style={{ color }}>{value}</strong></div>;
 }
 
 function MediaEmpty({ loading = false, text }: { loading?: boolean; text?: string }) {

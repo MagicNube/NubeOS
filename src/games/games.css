@@ -13,8 +13,10 @@
 .games-collection-heading { display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:20px; }.games-collection-heading>.games-view-heading { margin-bottom:0; }
 .games-view-heading h2 { margin:7px 0 5px;font-size:24px;letter-spacing:-.04em; }
 .games-view-heading p { margin:0;color:#8e8791;font-size:14px; }
-.games-filters { display:grid;grid-template-columns:minmax(240px,1.4fr) repeat(2,minmax(170px,.75fr)) 43px;gap:10px;margin-bottom:22px; }
-.games-filters.without-favorite { grid-template-columns:minmax(240px,1.4fr) repeat(2,minmax(170px,.75fr)); }
+.games-filters { display:flex;flex-wrap:wrap;align-items:stretch;gap:10px;margin-bottom:22px; }
+.games-filters>.games-search { flex:2 1 300px; }
+.games-filters>.ui-select { flex:1 1 190px;min-width:180px; }
+.games-filters>.ui-select:has(select[aria-label^="Ordenar"]) { flex-basis:235px; }
 .games-search { display:flex;align-items:center;gap:10px;min-height:43px;padding:0 13px;border:1px solid #39363b;border-radius:8px;color:#77717b;background:#151416; }
 .games-search input,.games-filters select,.game-form-modal input,.game-form-modal select,.game-form-modal textarea,.game-run-modal input { width:100%;border:1px solid #39363b;border-radius:8px;outline:0;color:#f2eff3;background:#151416;font:inherit;font-size:var(--ui-control-font-size); }
 .games-search input { min-width:0;border:0;background:transparent; }
@@ -34,18 +36,19 @@
 .game-status.status-paused { border-color:#426686;color:#bfdbfe;background:rgba(30,64,175,.25); }
 .game-status.status-abandoned { border-color:#7f3948;color:#fecdd3;background:rgba(127,29,29,.28); }
 .game-card-meta { display:flex;align-items:end;justify-content:space-between;gap:10px;margin-top:auto;color:#8d858f;font-size:11px; }
-.game-card-dates { display:grid;gap:4px;min-width:0; }
-.game-card-dates>div { display:flex;align-items:baseline;gap:5px; }
-.game-card-dates small { color:#77717b;font-size:10px; }
-.game-card-dates span { color:#b5aeb8;font-size:11px;white-space:nowrap; }
-.game-card-meta strong { display:grid;place-items:center;min-width:52px;height:42px;border:1px solid currentColor;border-radius:8px;font-size:17px; }
+.game-card-dates { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px;min-width:0; }
+.game-card-dates>div { display:grid;gap:4px;min-width:0; }
+.game-card-dates small { color:#817a84;font-size:9px;font-weight:750;letter-spacing:.06em;text-transform:uppercase; }
+.game-card-dates strong { overflow:hidden;color:#bbb4bd;font-size:11px;font-weight:650;text-overflow:ellipsis;white-space:nowrap; }
+.game-card-score { display:grid;place-items:center;flex:0 0 58px;min-width:58px;height:48px;border:1px solid currentColor;border-radius:8px;background:color-mix(in srgb,currentColor 8%,#171518);font-size:17px; }
 .game-favorite { position:absolute;top:12px;right:12px;display:grid;place-items:center;width:34px;height:34px;padding:0;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#938b96;background:rgba(18,17,19,.72);cursor:pointer;backdrop-filter:blur(5px); }
 .game-favorite:hover,.game-favorite.active { color:#c4b5fd;background:rgba(139,92,246,.22); }
 .game-card>.ui-archive-item-actions { position:absolute;top:12px;right:12px;padding:5px;border-radius:999px;background:rgba(18,17,19,.82); }
 .games-empty { display:grid;place-items:center;gap:10px;min-height:220px;border:1px dashed #39353b;border-radius:10px;color:#817a84; }
 .games-empty strong { font-size:13px; }
 .game-icon-action { display:grid;place-items:center;width:38px;height:38px;padding:0;border:1px solid #3a363c;border-radius:8px;color:#aaa3ad;background:#1b191c;cursor:pointer; }
-.game-icon-action:hover { border-color:#8b5cf6;color:#fff; }
+.game-icon-action:hover,.game-icon-action:focus-visible { border-color:#8b5cf6;color:#f5f3ff;background:rgba(139,92,246,.16); }
+.game-favorite-action.active { border-color:#765bb0;color:#c4b5fd;background:rgba(139,92,246,.12); }
 .game-icon-action.danger:hover { border-color:#7f3948;color:#fecdd3; }
 .game-detail-modal { width:min(100%,880px);padding:24px; }
 .game-detail-header { align-items:flex-start;padding-bottom:20px;border-bottom:1px solid var(--game-border); }
@@ -81,9 +84,17 @@
 .game-cover-field:focus { outline:1px solid #8b5cf6; outline-offset:7px; border-radius:4px; }
 .game-form-modal footer,.game-run-modal footer { display:flex;justify-content:flex-end;gap:9px;padding-top:20px;margin-top:22px;border-top:1px solid var(--game-border); }
 .game-run-modal .game-form-grid { margin-top:20px; }
+.game-run-modal label.tracker-run-completion { display:inline-flex;align-items:center;width:fit-content;min-height:34px;padding:7px 10px;gap:8px; }
+.game-run-modal label.tracker-run-completion input[type="checkbox"] { flex:0 0 16px;width:16px;height:16px;min-height:0;padding:0;margin:0;border-radius:4px;box-shadow:none;accent-color:#8b5cf6; }
 .game-history-filters { display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-bottom:18px; }.game-history-filters select { width:100%;min-height:43px;padding:0 40px 0 12px;border:1px solid #39363b;border-radius:8px;color:#f2eff3;background:#151416;font:inherit;font-size:var(--ui-control-font-size); }
 .game-history-list { display:grid;gap:8px; }.game-history-list article { display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:13px;padding:13px 15px;border:1px solid var(--game-border);border-radius:9px;background:var(--game-surface);color:#a78bfa; }.game-history-list article>div:nth-child(2) { display:grid;gap:4px; }.game-history-list strong { color:#eeeaf0;font-size:14px; }.game-history-list span { color:#8e8791;font-size:11px; }.game-history-list article>div:last-child { display:flex;gap:7px; }
 .game-stat-grid { display:grid;grid-template-columns:repeat(4,1fr);gap:10px; }.game-stat { display:grid;gap:8px;padding:16px;border:1px solid var(--game-border);border-radius:9px;background:var(--game-surface); }.game-stat strong { font-size:22px; }
 .game-status-stats { max-width:520px;padding:18px;margin-top:14px;border:1px solid var(--game-border);border-radius:9px;background:var(--game-surface); }.game-status-stats h3 { margin:0 0 10px;font-size:14px; }.game-status-stats>div { display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #29262b;color:#aaa3ac;font-size:12px; }.game-status-stats>div:last-child { border:0; }
 @media(max-width:1100px){.games-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.game-stat-grid{grid-template-columns:repeat(3,1fr)}}
-@media(max-width:760px){.games-toolbar,.games-collection-heading,.game-detail-header,.game-runs header{align-items:stretch;flex-direction:column}.games-filters,.games-filters.without-favorite,.games-grid,.game-form-grid,.game-history-filters{grid-template-columns:1fr}.games-tabs{max-width:100%;overflow-x:auto}.game-detail-summary{grid-template-columns:1fr}.game-detail-summary>div{border-right:0;border-bottom:1px solid var(--game-border)}.game-stat-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:760px){.games-toolbar,.games-collection-heading,.game-detail-header,.game-runs header{align-items:stretch;flex-direction:column}.games-filters,.games-filters.without-favorite,.games-grid,.game-form-grid,.game-history-filters{grid-template-columns:1fr}.games-tabs{max-width:100%;overflow-x:auto}.game-card-dates{grid-template-columns:1fr;gap:5px}.game-detail-summary{grid-template-columns:1fr}.game-detail-summary>div{border-right:0;border-bottom:1px solid var(--game-border)}.game-stat-grid{grid-template-columns:repeat(2,1fr)}}
+.game-genre-field { display: grid; gap: 8px; margin-top: 12px; }
+.game-genre-field > span { color: #aaa3ad; font-size: 11px; font-weight: 700; }
+.game-genre-field > div { display: flex; flex-wrap: wrap; gap: 6px; }
+.game-genre-field button { min-height: 29px; padding: 0 9px; border: 1px solid #39353b; border-radius: 7px; color: #928b95; background: #151416; cursor: pointer; font: inherit; font-size: 10px; font-weight: 700; }
+.game-genre-field button:hover { border-color: #765bb0; color: #ddd6fe; }
+.game-genre-field button.active { border-color: #8b5cf6; color: #f1ebff; background: rgba(139,92,246,.16); }

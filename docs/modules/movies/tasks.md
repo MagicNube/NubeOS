@@ -1,7 +1,7 @@
 # Tareas — Películas
 
-- Estado: Primera versión implementada; comprobación funcional pendiente
-- Última actualización: 2026-08-16
+- Estado: T-P01 a T-P17 implementadas; comprobación funcional pendiente
+- Última actualización: 2026-08-30
 
 ## T-P01 — Separar Películas de Anime
 
@@ -103,3 +103,29 @@
 - Estado: Implementada; comprobación visual pendiente.
 - Alcance: presentar el historial general con las mismas filas, icono morado, tipografía, acciones iconográficas y estados hover que Lectura y Videojuegos, reutilizando el formulario modal del detalle.
 - Verificación: filtrar visionados, editar su fecha mediante el formulario y eliminar una entrada sin mostrar campos permanentes.
+
+## T-P17 — Separar historial y estado manual
+
+- Estado: Implementada; comprobación visual pendiente.
+- Alcance: avisar si crear, editar o eliminar un visionado sugiere otro estado y permitir mantener el estado elegido sin descartar la fecha.
+- Restricciones: cambiar manualmente el estado nunca crea un visionado con la fecha actual; `Ver hoy` es secundaria y `Registrar visionado` es principal.
+- Verificación: registrar una película antigua como Pendiente, aceptar o mantener su estado, editar y eliminar el último visionado y comprobar que el historial permanece coherente.
+
+**Resultado:** visionados y estado pueden evolucionar juntos por decisión explícita, pero ninguno altera silenciosamente al otro.
+
+## T-P18 — Completar acciones y estadísticas
+
+- Estado: Implementada; comprobación visual pendiente.
+- Alcance: convertir Editar en acción iconográfica, retirar la estrella duplicada de la identidad y añadir Top 5/10/15/25, distribución por estado y actividad registrada.
+- Verificación: abrir una película favorita y otra normal, editar ambas y cambiar el tamaño del ranking con filtros activos.
+
+**Resultado:** Favorito se comunica mediante su botón activo y Estadísticas ofrece tanto agregados como una clasificación personal configurable.
+
+## T-P19 — Normalizar fechas y filtros Media
+
+- Estado: Implementada; comprobación visual pendiente.
+- Alcance: aceptar años de dos cifras en visionados y adoptar la barra común de búsqueda, filtros, ordenación y favoritos.
+- Restricciones: no modificar los visionados existentes ni la semántica binaria de Pendiente/Vista.
+- Verificación: introducir `26` y `19`, combinar todos los filtros y revisar el texto completo de la ordenación en escritorio y anchura intermedia.
+
+**Resultado:** las fechas de visionado aceptan años abreviados y la biblioteca comparte controles adaptables y legibles con los otros cuatro trackers.

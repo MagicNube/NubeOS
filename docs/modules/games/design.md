@@ -33,7 +33,7 @@ GameRun
 
 ## Invariantes
 
-- Rust valida nombre, puntuación, fechas y el máximo de una partida abierta.
+- Rust valida nombre, géneros, puntuación, fechas y el máximo de una partida abierta.
 - Una partida debe tener al menos una fecha.
 - `started_on <= finished_on` cuando ambas existen.
 - Iniciar y finalizar partidas actualiza estado e historial en una misma transacción.
@@ -98,3 +98,5 @@ Los comandos adaptan DTOs y delegan en dominio y repositorio. React no calcula e
 ## Encuadre de portada
 
 La portada horizontal conserva posición X/Y y zoom entre `1×` y `2×`. Rust valida y guarda esos valores; React utiliza el editor compartido y aplica el mismo encuadre en Biblioteca y detalle. Sustituir o retirar la imagen restablece los valores centrales.
+
+La tarjeta resume la última partida con dos columnas `Inicio` y `Fin`. Reutiliza tamaños, mayúsculas y tratamiento de ausencias de Lectura para evitar una variante visual propia.

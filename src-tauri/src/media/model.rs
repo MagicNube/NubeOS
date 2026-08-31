@@ -31,6 +31,7 @@ macro_rules! uuid_id {
 uuid_id!(MediaTitleId);
 uuid_id!(MediaContentId);
 uuid_id!(MovieViewingId);
+uuid_id!(SeriesRunId);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MediaKind {
@@ -157,11 +158,19 @@ pub struct MovieViewing {
     pub updated_at: String,
 }
 
+#[derive(Debug, Clone)]
+pub struct SeriesRun {
+    pub id: SeriesRunId,
+    pub title_id: MediaTitleId,
+    pub started_on: NaiveDate,
+    pub finished_on: Option<NaiveDate>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
 impl MediaTitle {
     pub fn new(id: MediaTitleId, draft: MediaTitleDraft) -> Result<Self, MediaError> {
         let draft = draft.validate()?;
-        let watched_units =
-            u32::from(draft.kind == MediaKind::Movie && draft.status == TrackingStatus::Completed);
         Ok(Self {
             id,
             catalog_number: None,
@@ -176,7 +185,7 @@ impl MediaTitle {
             opinion: draft.opinion,
             favorite: draft.favorite,
             archived: false,
-            watched_units,
+            watched_units: 0,
             started_on: draft.started_on,
             finished_on: draft.finished_on,
             current_season: draft.current_season,
@@ -204,8 +213,6 @@ impl MediaTitle {
         self.finished_on = draft.finished_on;
         self.current_season = draft.current_season;
         self.current_episode = draft.current_episode;
-        self.watched_units =
-            u32::from(self.kind == MediaKind::Movie && self.status == TrackingStatus::Completed);
         if self.kind != MediaKind::Series {
             self.current_season = None;
             self.current_episode = None;
@@ -253,7 +260,7 @@ impl MediaTitle {
             || !zoom.is_finite()
             || !(0.0..=100.0).contains(&x)
             || !(0.0..=100.0).contains(&y)
-            || !(1.0..=2.0).contains(&zoom)
+            || !(0.25..=3.0).contains(&zoom)
         {
             return Err(MediaError::InvalidCoverPosition);
         }
@@ -638,7 +645,7 @@ mod tests {
     }
 
     #[test]
-    fn a_completed_movie_starts_as_watched() {
+    fn a_completed_movie_waits_for_an_explicit_history_entry() {
         let mut title = MediaTitle::new(
             MediaTitleId::generate(),
             MediaTitleDraft {
@@ -659,7 +666,26 @@ mod tests {
             },
         )
         .unwrap();
-        assert_eq!(title.watched_units, 1);
+        assert_eq!(title.watched_units, 0);
+        title
+            .apply(MediaTitleDraft {
+                name: "Your Name".into(),
+                alternative_title: None,
+                genres: vec!["Romance".into()],
+                primary_studio: None,
+                kind: MediaKind::Movie,
+                is_anime: true,
+                status: TrackingStatus::Completed,
+                score: Some(9.0),
+                opinion: Some("Revisada".into()),
+                favorite: true,
+                started_on: None,
+                finished_on: None,
+                current_season: None,
+                current_episode: None,
+            })
+            .unwrap();
+        assert_eq!(title.watched_units, 0);
         assert!(title.is_anime);
         assert!(title.belongs_to(MediaArea::Anime));
         assert!(!title.belongs_to(MediaArea::Movies));
@@ -698,6 +724,8 @@ mod tests {
             (24.5, 71.25)
         );
         assert_eq!(title.cover_zoom, 1.4);
+        title.change_cover_position(50.0, 50.0, 0.75).unwrap();
+        assert_eq!(title.cover_zoom, 0.75);
         assert_eq!(
             title.change_cover_position(-0.1, 50.0, 1.0).unwrap_err(),
             MediaError::InvalidCoverPosition
@@ -709,7 +737,7 @@ mod tests {
             MediaError::InvalidCoverPosition
         );
         assert_eq!(
-            title.change_cover_position(50.0, 50.0, 2.01).unwrap_err(),
+            title.change_cover_position(50.0, 50.0, 3.01).unwrap_err(),
             MediaError::InvalidCoverPosition
         );
     }

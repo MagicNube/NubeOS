@@ -24,9 +24,9 @@ No sustituye al roadmap, las specs, los diseños ni las tareas de cada módulo. 
 - [ ] **TODO-001 — Modificar visualmente las tarjetas de contenidos de Anime.** Terminar de ajustar su distribución antes de cerrar el módulo.
 - [ ] **TODO-002 — Terminar de revisar el bloque audiovisual.** Probar Anime, Series y Películas con datos reales, aprobar sus documentos y cerrar el Hito 7.
 - [ ] **TODO-003 — Terminar de revisar Lectura.** Validar formularios, filtros, ordenación, tarjetas, portadas y Archivo; después aprobar sus documentos y cerrar el Hito 8.
-- [ ] **TODO-007 — Implementar revisionados en Series.** Relecturas en Lectura y revisionados en Películas ya están implementados y pendientes de prueba manual; Series conserva su ampliación aprobada sin implementar.
 - [ ] **TODO-008 — Revisar Videojuegos.** Probar la vertical implementada con datos reales y cerrar su comprobación visual.
-- [ ] **TODO-009 — Revisar geometría y estadísticas de trackers.** Validar portadas horizontales de Videojuegos, Películas y Series, portada vertical del detalle de Lectura y filtros estadísticos de Lectura, Películas y Anime.
+- [ ] **TODO-009 — Revisar geometría y estadísticas de trackers.** Validar portadas, las cinco subvistas estadísticas, filtros persistentes, rankings, tablas, gráficas y calendarios con datos reales.
+- [ ] **TODO-010 — Diseñar un Wrapped global MEDIA.** Resumir Anime, Lectura, Videojuegos, Películas y Series sin mezclar sus escalas; queda fuera de la versión 1.0 por decisión de Nube.
 
 ### Módulos pendientes
 

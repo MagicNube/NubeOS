@@ -32,7 +32,10 @@ Mantener una biblioteca personal de libros pendientes, en lectura y terminados, 
 - Un libro puede tener varios géneros sin duplicados.
 - La puntuación es opcional; cuando existe debe estar entre 0 y 10 y tener como máximo un decimal.
 - La fecha final no puede ser anterior a la fecha inicial.
-- Cada lectura requiere fecha inicial; la fecha final es opcional mientras no haya terminado.
+- Ninguna fecha del historial puede estar en el futuro según la fecha local de Madrid.
+- Cada lectura requiere fecha inicial; la fecha final cierra el periodo, pero la finalización del libro se registra de forma independiente.
+- Las fechas aceptan escritura local `dd/mm/aaaa`; un año de dos cifras se interpreta en el siglo XXI antes de validarse y persistirse.
+- Una lectura marcada como terminada exige fecha final. Una lectura cerrada sin terminar propone el estado En pausa.
 - Una relectura no puede comenzar antes de la primera lectura registrada del libro.
 - Terminar un libro no inventa fechas. Las fechas continúan siendo datos explícitos del usuario.
 - Solo puede existir una lectura sin fecha final por libro.
@@ -42,7 +45,7 @@ Mantener una biblioteca personal de libros pendientes, en lectura y terminados, 
 - Archivar no elimina ni modifica la información del libro.
 - El borrado definitivo solo está disponible desde Archivo.
 - El filtro Favoritos es una estrella compacta: vacía cuando está inactivo y rellena cuando está activo.
-- Los géneros disponibles inicialmente son Fantasía, Ciencia ficción, Romance, Misterio y suspense, Terror, Aventura, Novela histórica, Desarrollo personal, Psicología y Otro.
+- Los géneros se eligen de una lista cerrada amplia: ficción por género y forma, clásicos, juvenil, ensayo, biografía y memorias, filosofía, no ficción, desarrollo personal y psicología, además de `Otro`.
 - La portada es opcional, se copia al almacenamiento privado de NubeOS y admite JPEG, PNG o WebP de hasta 8 MB.
 - La portada también puede pegarse desde el portapapeles; NubeOS la normaliza a JPEG antes de guardarla.
 - La portada puede recolocarse y ampliarse entre `1×` y `2×`; el encuadre se conserva tras reiniciar.
@@ -72,6 +75,7 @@ Los CSV aportados se usan únicamente para validar el modelo. Contienen 27 libro
 - [x] Leyendo contiene únicamente libros con estado Leyendo y conserva filtros independientes de Biblioteca.
 - [x] Biblioteca es la vista inicial y Leyendo no muestra el filtro Favoritos.
 - [x] El formulario ofrece géneros predefinidos sin texto libre.
+- [x] El campo Autor propone autores ya utilizados conforme se escribe.
 - [x] Una portada seleccionada se copia al espacio privado y puede sustituirse o eliminarse.
 - [x] El encuadre y el zoom de la portada se aplican en Biblioteca y detalle.
 - [x] La puntuación usa valor numérico y colores SeriesGraph, no estrellas acumulativas.
@@ -79,5 +83,7 @@ Los CSV aportados se usan únicamente para validar el modelo. Contienen 27 libro
 - [x] Las estadísticas se calculan desde los datos persistidos.
 - [x] Las estadísticas pueden acotarse por género y puntuación mínima.
 - [x] Se puede iniciar y finalizar una relectura sin modificar periodos anteriores.
+- [x] Una lectura puede cerrarse sin marcar el libro como terminado y queda identificada como tal en el historial.
+- [x] Registrar una lectura propone el estado coherente y permite conservar explícitamente el estado actual.
 - [ ] El historial permite corregir y retirar periodos de lectura.
 - [ ] Los campos de inicio y fin visibles representan la lectura actual o la última lectura, no un dato sobrescrito manualmente.

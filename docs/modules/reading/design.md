@@ -72,7 +72,7 @@ La consulta admite archivo, texto, estado, género y favoritos. La ordenación p
 - La cabecera coloca Archivo antes de Añadir libro.
 - Biblioteca usa tarjetas estables en dos columnas: portada vertical `2:3` a la izquierda y título, autor, géneros, fechas y puntuación numérica prominente a la derecha. La cubierta usa `object-fit: cover`: conserva su proporción y llena el marco común, aceptando recorte en imágenes con otra relación de aspecto. El marco usa cuatro esquinas redondeadas, lomo y sombra discretos.
 - Favorito se puede alternar desde la tarjeta y se filtra con `FavoriteFilter` únicamente en Biblioteca.
-- El formulario usa una selección múltiple de diez géneros predefinidos.
+- El formulario usa una selección múltiple de veinticinco géneros predefinidos, con categorías literarias, temáticas y de no ficción.
 - La tarjeta y el detalle cargan la portada local mediante `read_reading_cover`; el formulario gestiona selección provisional, sustitución y retirada.
   - El formulario es modal, avisa ante cambios sin guardar y ordena Identificación, Seguimiento, Opinión y Portada, dejando la gestión visual al final como en el módulo Anime.
 - El detalle también es modal y mantiene Editar, Archivar y Cerrar en la cabecera.
@@ -87,6 +87,10 @@ La consulta admite archivo, texto, estado, género y favoritos. La ordenación p
 `FavoriteFilter` es un botón compacto compartido por Documentos, Anime, Series, Películas y Lectura. Usa únicamente una estrella, `aria-pressed`, tooltip y nombre accesible; la estrella se rellena al activar el filtro.
 
 `ArchiveItemActions` unifica las acciones de los elementos archivados: restaurar con flecha circular y eliminar con papelera, ambas como botones iconográficos que aparecen al hacer hover o al navegar con teclado.
+
+El formulario deriva una lista normalizada de autores de la biblioteca cargada y la ofrece mediante sugerencias del campo Autor. No crea otra tabla ni restringe la escritura de autores nuevos.
+
+Al crear un periodo, React compara el estado actual con el sugerido por las fechas. La interfaz solicita una decisión antes de persistir el cambio de estado; si se conserva el anterior, usa el detalle devuelto tras crear el periodo para mantener actualizadas sus fechas resumen.
 
 ## Decisiones aplazadas
 

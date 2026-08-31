@@ -1,7 +1,7 @@
 # Tareas — Anime
 
-- Estado: T-A01 a T-A22 implementadas; comprobación manual pendiente
-- Última actualización: 2026-08-22
+- Estado: T-A01 a T-A41 implementadas; comprobación manual pendiente
+- Última actualización: 2026-08-30
 
 ## T-A01 — Separar la Biblioteca Anime
 
@@ -291,3 +291,101 @@
 - Estado: Implementada; comprobación visual pendiente.
 - Alcance: retirar el selector iconográfico superior, igualar y centrar las dos puntuaciones, abrir el detalle sin enfocar automáticamente la nota y mostrar el estado textual en el resumen junto a Progreso y Contenidos.
 - Verificación: revisar franquicias y películas independientes, comprobar ambos valores y modificar el estado desde el formulario de edición.
+
+## T-A37 — Unificar navegación de contenidos, portadas y estadísticas
+
+- Estado: Implementada; comprobación visual pendiente.
+- Alcance: utilizar un único selector `Información / Historial` para todos los contenidos, identificar portadas GIF detenidas, ampliar el editor con imagen completa y recorte final, convertir géneros en una selección visual y permitir estadísticas combinadas o separadas entre Anime y Películas.
+- Restricciones: conservar el estado global manual; las sugerencias se muestran a la izquierda inmediatamente encima del resumen y nunca se aplican automáticamente.
+- Verificación: alternar la vista global con contenidos de distinto tipo, ajustar una portada recortada, reproducir un GIF y combinar los tres ámbitos estadísticos.
+
+**Resultado:** la jerarquía de los contenidos deja de repetirse tarjeta por tarjeta, el encuadre revela la zona que quedará visible, los GIF se reconocen antes de reproducirse y las estadísticas distinguen Anime, Películas o toda la colección.
+
+## T-A38 — Compactar metadatos y centrar la navegación del contenido
+
+- Estado: Implementada; comprobación visual pendiente.
+- Alcance: impedir que los géneros se repartan por toda la tarjeta, centrar geométricamente el selector global `Información / Historial` e igualar la caja de puntuación con Lectura.
+- Restricciones: la ausencia de nota se representa mediante `—` en todos los trackers y estadísticas que reutilizan el formateador común.
+- Verificación: revisar tarjetas con uno, dos y tres géneros, contenidos en ambas vistas y títulos con o sin puntuación.
+
+**Resultado:** los géneros forman un grupo compacto y legible con la escala compartida de etiquetas a 11 px; las pestañas ya no dependen del ancho de los filtros y la puntuación comparte 58 × 48 px con Lectura. Anime, Películas y Series reutilizan además el título global de tarjeta a 18 px.
+
+## T-A39 — Centralizar contenidos e historial de la franquicia
+
+- Estado: Implementada; comprobación visual pendiente.
+- Alcance: sustituir las vistas repetidas de cada tarjeta por una selección global `Contenidos / Historial`, convertir las tarjetas en resúmenes audiovisuales, agrupar sesiones por contenido y fecha y registrar varios episodios desde un único formulario.
+- Restricciones: conservar una sesión persistida por episodio, permitir retirar únicamente el último bloque de cada contenido y mantener disponible la vista Historial completa para correcciones detalladas.
+- Verificación: registrar uno y varios episodios, editar la fecha agrupada, retirar el último bloque, reordenar tarjetas y comprobar puntuaciones nulas y de todos los tramos SeriesGraph.
+
+**Resultado:** Contenidos queda libre de formularios repetidos; el estado aparece bajo el título, el progreso ocupa el pie izquierdo y la puntuación una celda coloreada con texto blanco. Historial adopta el patrón de Lectura y registra contenido, fecha y cantidad sin perder el detalle episodio a episodio. La sugerencia global se desplaza a la parte superior del detalle.
+
+## T-A40 — Consolidar puntuaciones y acciones de Historial
+
+- Estado: Implementada; comprobación visual pendiente.
+- Alcance: reutilizar la celda SeriesGraph en los cinco trackers, integrar la sugerencia en la identidad del anime, reunir el acceso completo y las dos formas de registro en la cabecera de Historial y separar estreno y último visionado en las tarjetas.
+- Restricciones: `+1 episodio` prioriza el contenido marcado como Viendo y, si no existe, utiliza el siguiente contenido que el dominio declara avanzable; registrar varios episodios conserva una sesión persistida por episodio; `Añadir contenido` permanece disponible solo en Contenidos.
+- Verificación: revisar notas puntuadas y vacías en colecciones, detalles y estadísticas; avanzar un episodio desde Historial; registrar varios; abrir el historial completo; comprobar el formulario y tarjetas en ancho normal y estrecho.
+
+**Resultado:** puntuaciones, medias y rankings comparten una única celda cromática; la sugerencia deja de competir con la portada; Historial ofrece `Ver historial completo`, `+1 episodio` y `Registrar visionado` en una sola zona; y los metadatos temporales dejan de colisionar en una línea.
+
+## T-A41 — Simplificar puntuaciones y estados de unidades
+
+- Estado: Implementada; comprobación visual pendiente.
+- Alcance: retirar `/ 10` y los contenedores exteriores de las notas del detalle, expresar los contenidos unitarios como `Visto / No visto` y confirmar cualquier estado derivado al registrar películas independientes.
+- Restricciones: el progreso episódico no modifica estados; cambiar manualmente el estado de una película de anime no inventa una sesión con fecha actual.
+- Verificación: revisar anime con y sin notas, OVA y películas a cero y uno, y aceptar o mantener una sugerencia de estado tras registrar un visionado.
+
+**Resultado:** las notas conservan únicamente su celda SeriesGraph y el seguimiento de unidades deja de mostrar la redundancia `0 de 1`.
+
+## T-A42 — Reequilibrar la cabecera horizontal del detalle
+
+- Estado: Implementada; comprobación visual pendiente.
+- Alcance: separar portada, identidad, puntuaciones y acciones en cuatro zonas de cabecera y mantener el resumen general como una fila completa inferior.
+- Restricciones: conservar la portada 16:9, las dos puntuaciones editables y todas las acciones accesibles; no alterar contenidos ni historial.
+- Verificación: revisar títulos cortos y largos, con una o dos puntuaciones, activos y archivados, en escritorio, anchura intermedia y móvil.
+
+**Resultado:** la cabecera deja de crecer únicamente bajo el título y aprovecha el ancho disponible sin convertir la portada horizontal en una composición vertical.
+
+## T-A43 — Unificar la navegación del detalle
+
+- Estado: Implementada; comprobación visual pendiente.
+- Alcance: presentar `Contenidos / Historial` como una barra de ancho completo con iconos, reutilizando el patrón de los trackers simples.
+- Restricciones: conservar filtros y creación dentro de Contenidos, y las acciones de registro dentro de Historial.
+- Verificación: alternar ambas vistas en una franquicia con varios contenidos y comprobar teclado, foco y anchura estrecha.
+
+**Resultado:** la navegación de la franquicia comparte geometría, tamaño y accesibilidad con `Resumen / Historial` de Lectura, Videojuegos y Películas.
+
+## T-A44 — Evitar contenido obsoleto al cambiar de vista
+
+- Estado: Implementada; comprobación visual pendiente.
+- Alcance: invalidar las tarjetas de Biblioteca al entrar en En curso y mantener el estado de carga hasta recibir la consulta correspondiente.
+- Verificación: alternar varias veces entre Biblioteca y En curso con una colección grande y comprobar que ninguna tarjeta ajena muestra temporalmente `+1 episodio`.
+
+**Resultado:** cada vista renderiza únicamente datos de su propia consulta y la transición deja de transformar fugazmente la Biblioteca en En curso.
+
+## T-A45 — Completar clasificación y acelerar portadas animadas
+
+- Estado: Implementada; comprobación visual pendiente.
+- Alcance: asignar géneros a las entradas existentes sin clasificación; guardar una miniatura JPEG ligera para cada GIF, cargar el GIF completo únicamente al interactuar y conservar una caché acotada de animaciones recientes; adoptar la barra común de búsqueda y filtros de Media.
+- Restricciones: no alterar títulos, contenidos ni puntuaciones; los formatos estáticos conservan su flujo actual y la caché debe liberar URLs al expulsarlas.
+- Verificación: migrar una colección existente, abrir Biblioteca sin descargar todos los GIF, activar varias animaciones por hover y comprobar filtros completos en anchuras intermedias.
+
+**Resultado:** los títulos existentes quedan clasificados, cada GIF persiste una miniatura JPEG después de su primera reproducción y Biblioteca conserva como máximo cuatro animaciones completas en memoria; los filtros se distribuyen sin truncar su valor.
+
+## T-A46 — Recuperar visionados de películas y alternancia inmediata
+
+- Estado: Implementada; comprobación visual pendiente.
+- Alcance: retirar la fecha duplicada del formulario de película Anime, impedir que el estado Terminado cree progreso sin historial, recuperar películas existentes bloqueadas sin sesiones y alternar Anime/Películas sobre una colección ya cargada.
+- Restricciones: conservar el estado manual y las sesiones existentes; no inventar fechas ni modificar películas convencionales.
+- Verificación: crear y editar una película Anime terminada sin historial, registrar su primer visionado y alternar repetidamente ambas subsecciones con filtros y ordenaciones independientes.
+
+**Resultado:** las películas Anime solo avanzan mediante una entrada explícita de Historial; la migración 0032 conserva como sesión cualquier fecha antigua verificable y libera las entradas sin fecha para registrar su primer visionado. El formulario deja de duplicar esa fecha y Anime/Películas alternan mediante filtrado local sobre una sola colección. 120 pruebas Rust, formato y build TypeScript/Vite correctos; comprobación visual en Tauri pendiente.
+
+## T-A47 — Historial editable de películas Anime
+
+- Estado: Implementada; comprobación visual pendiente.
+- Alcance: separar el registro inmediato del registro fechado y añadir edición y eliminación a cada visionado desde el detalle de la película.
+- Restricciones: migrar la sesión existente sin duplicarla, reutilizar el historial repetible compartido con Películas y confirmar cualquier cambio automático de estado al añadir o retirar un visionado.
+- Verificación: registrar con hoy y con una fecha anterior, añadir un revisionado, corregir ambas fechas, eliminar una entrada y aceptar o rechazar la sugerencia de estado resultante.
+
+**Resultado:** el detalle ofrece `Registrar hoy` como atajo y `Registrar visionado` como formulario con fecha; los botones permanecen disponibles tras el primer visionado y cada revisionado puede editarse o eliminarse con el patrón visual de Lectura. La migración 0033 conserva la entrada histórica previa en el almacenamiento repetible compartido. Build TypeScript/Vite, 121 pruebas Rust, Clippy estricto y formato correctos; comprobación visual en Tauri pendiente.

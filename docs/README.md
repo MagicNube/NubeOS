@@ -10,6 +10,7 @@ Este directorio es la fuente de verdad del diseño del proyecto.
 - `decisions/`: ADRs aprobadas.
 - `modules/`: especificación, diseño y tareas por módulo.
 - `modules/dashboard/`: proyección de Inicio que resume los módulos sin duplicar su dominio.
+- `modules/media-statistics/`: sistema estadístico compartido por los cinco módulos MEDIA.
 - `learning/`: notas breves sobre Rust y Tauri introducidos en el proyecto.
 
 No se implementa una funcionalidad sin la documentación aplicable y una tarea aprobada.

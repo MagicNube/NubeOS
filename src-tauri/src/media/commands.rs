@@ -15,7 +15,7 @@ use super::{
     model::{
         CanonStatus, ContentKind, MediaArea, MediaContent, MediaContentDraft, MediaContentId,
         MediaError, MediaKind, MediaTitle, MediaTitleDraft, MediaTitleId, MovieViewing,
-        MovieViewingId, SessionSource, TrackingStatus,
+        MovieViewingId, SeriesRun, SeriesRunId, SessionSource, TrackingStatus,
     },
     repository::{normalize, MediaHistoryEntry, MediaRepository, MediaRepositoryError},
     service::{
@@ -190,6 +190,15 @@ pub struct MovieViewingDto {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct SeriesRunDto {
+    pub id: String,
+    pub title_id: String,
+    pub started_on: String,
+    pub finished_on: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ProgressDto {
     pub watched: u32,
     pub total: Option<u32>,
@@ -224,6 +233,7 @@ pub struct MediaTitleDto {
     pub favorite: bool,
     pub archived: bool,
     pub has_cover: bool,
+    pub animated_cover: bool,
     pub cover_position_x: f64,
     pub cover_position_y: f64,
     pub cover_zoom: f64,
@@ -336,6 +346,7 @@ pub struct MediaStatisticsDto {
 #[serde(rename_all = "camelCase")]
 pub struct MediaStatisticsFilterDto {
     pub area: Option<MediaAreaDto>,
+    pub kind: Option<MediaKindDto>,
     pub studio: Option<String>,
     pub minimum_score: Option<f64>,
     pub completed_year: Option<i32>,
@@ -493,16 +504,19 @@ pub fn create_movie_viewing(
 ) -> Result<Vec<MovieViewingDto>, MediaCommandErrorDto> {
     let id = MediaTitleId::new(title_id).map_err(domain_error)?;
     let date = parse_date(&watched_on)?;
+    if date > madrid_today() {
+        return Err(domain_error(MediaError::FutureSession));
+    }
     let mut connection = database.connection.lock().map_err(|_| unavailable())?;
     let mut repository = MediaRepository::new(&mut connection);
     let title = repository
         .find_title(&id)
         .map_err(repository_error)?
         .ok_or_else(|| error("notFound", "No existe la película solicitada."))?;
-    if title.kind != MediaKind::Movie || title.is_anime {
+    if title.kind != MediaKind::Movie {
         return Err(error(
             "invalidMovie",
-            "Los revisionados solo se registran en Películas.",
+            "Solo una película admite visionados independientes.",
         ));
     }
     let now = Utc::now().to_rfc3339();
@@ -531,6 +545,9 @@ pub fn update_movie_viewing(
 ) -> Result<Vec<MovieViewingDto>, MediaCommandErrorDto> {
     let id = MovieViewingId::new(viewing_id).map_err(domain_error)?;
     let date = parse_date(&watched_on)?;
+    if date > madrid_today() {
+        return Err(domain_error(MediaError::FutureSession));
+    }
     let mut connection = database.connection.lock().map_err(|_| unavailable())?;
     let mut repository = MediaRepository::new(&mut connection);
     let title_id = repository
@@ -564,6 +581,112 @@ pub fn delete_movie_viewing(
 }
 
 #[tauri::command]
+pub fn list_series_runs(
+    database: State<'_, ProductDatabase>,
+    title_id: Option<String>,
+) -> Result<Vec<SeriesRunDto>, MediaCommandErrorDto> {
+    let selected = title_id
+        .as_deref()
+        .map(MediaTitleId::new)
+        .transpose()
+        .map_err(domain_error)?;
+    let mut connection = database.connection.lock().map_err(|_| unavailable())?;
+    let mut repository = MediaRepository::new(&mut connection);
+    let runs = if let Some(id) = selected.as_ref() {
+        repository.series_runs(id)
+    } else {
+        repository.all_series_runs()
+    }
+    .map_err(repository_error)?;
+    Ok(runs.into_iter().map(series_run_to_dto).collect())
+}
+
+#[tauri::command]
+pub fn create_series_run(
+    database: State<'_, ProductDatabase>,
+    title_id: String,
+    started_on: String,
+    finished_on: Option<String>,
+) -> Result<Vec<SeriesRunDto>, MediaCommandErrorDto> {
+    let title_id = MediaTitleId::new(title_id).map_err(domain_error)?;
+    let started_on = parse_date(&started_on)?;
+    let finished_on = finished_on.as_deref().map(parse_date).transpose()?;
+    reject_future_dates(started_on, finished_on)?;
+    let mut connection = database.connection.lock().map_err(|_| unavailable())?;
+    let mut repository = MediaRepository::new(&mut connection);
+    let title = repository
+        .find_title(&title_id)
+        .map_err(repository_error)?
+        .ok_or_else(not_found)?;
+    if title.kind != MediaKind::Series || title.is_anime {
+        return Err(error(
+            "invalidSeries",
+            "Los periodos solo se registran en Series.",
+        ));
+    }
+    let now = Utc::now().to_rfc3339();
+    repository
+        .create_series_run(&SeriesRun {
+            id: SeriesRunId::generate(),
+            title_id: title_id.clone(),
+            started_on,
+            finished_on,
+            created_at: now.clone(),
+            updated_at: now,
+        })
+        .map_err(repository_error)?;
+    Ok(repository
+        .series_runs(&title_id)
+        .map_err(repository_error)?
+        .into_iter()
+        .map(series_run_to_dto)
+        .collect())
+}
+
+#[tauri::command]
+pub fn update_series_run(
+    database: State<'_, ProductDatabase>,
+    run_id: String,
+    started_on: String,
+    finished_on: Option<String>,
+) -> Result<Vec<SeriesRunDto>, MediaCommandErrorDto> {
+    let run_id = SeriesRunId::new(run_id).map_err(domain_error)?;
+    let started_on = parse_date(&started_on)?;
+    let finished_on = finished_on.as_deref().map(parse_date).transpose()?;
+    reject_future_dates(started_on, finished_on)?;
+    let mut connection = database.connection.lock().map_err(|_| unavailable())?;
+    let mut repository = MediaRepository::new(&mut connection);
+    let title_id = repository
+        .update_series_run(&run_id, started_on, finished_on)
+        .map_err(repository_error)?;
+    Ok(repository
+        .series_runs(&title_id)
+        .map_err(repository_error)?
+        .into_iter()
+        .map(series_run_to_dto)
+        .collect())
+}
+
+#[tauri::command]
+pub fn delete_series_run(
+    database: State<'_, ProductDatabase>,
+    run_id: String,
+) -> Result<Vec<SeriesRunDto>, MediaCommandErrorDto> {
+    let run_id = SeriesRunId::new(run_id).map_err(domain_error)?;
+    let mut connection = database.connection.lock().map_err(|_| unavailable())?;
+    let mut repository = MediaRepository::new(&mut connection);
+    let title_id = repository
+        .delete_series_run(&run_id)
+        .map_err(repository_error)?;
+    Ok(repository
+        .series_runs(&title_id)
+        .map_err(repository_error)?
+        .into_iter()
+        .map(series_run_to_dto)
+        .collect())
+}
+
+#[tauri::command]
 pub fn get_media_title(
     database: State<'_, ProductDatabase>,
     title_id: String,
@@ -591,23 +714,6 @@ pub fn set_media_title_status(
         .map_err(repository_error)?
         .ok_or_else(not_found)?;
     let next_status = status_from_dto(status);
-    if title.kind == MediaKind::Movie {
-        let watched = u32::from(next_status == TrackingStatus::Completed);
-        if watched != title.watched_units {
-            repository
-                .set_title_progress(
-                    &id,
-                    watched,
-                    madrid_today(),
-                    SessionSource::ManualAdjustment,
-                )
-                .map_err(repository_error)?;
-            title = repository
-                .find_title(&id)
-                .map_err(repository_error)?
-                .ok_or_else(not_found)?;
-        }
-    }
     title.change_status(next_status);
     repository.update_title(&title).map_err(repository_error)?;
     let aggregate = repository
@@ -751,9 +857,18 @@ pub fn update_media_history_date(
         return Err(domain_error(MediaError::FutureSession));
     }
     let mut connection = database.connection.lock().map_err(|_| unavailable())?;
-    MediaRepository::new(&mut connection)
-        .update_session_date(&session_id, date)
-        .map_err(repository_error)
+    let mut repository = MediaRepository::new(&mut connection);
+    match repository.update_session_date(&session_id, date) {
+        Ok(()) => Ok(()),
+        Err(MediaRepositoryError::NotFound) => {
+            let viewing_id = MovieViewingId::new(session_id).map_err(domain_error)?;
+            repository
+                .update_movie_viewing(&viewing_id, date)
+                .map(|_| ())
+                .map_err(repository_error)
+        }
+        Err(reason) => Err(repository_error(reason)),
+    }
 }
 
 #[tauri::command]
@@ -762,9 +877,18 @@ pub fn delete_media_history_entry(
     session_id: String,
 ) -> Result<(), MediaCommandErrorDto> {
     let mut connection = database.connection.lock().map_err(|_| unavailable())?;
-    MediaRepository::new(&mut connection)
-        .delete_latest_session(&session_id)
-        .map_err(repository_error)
+    let mut repository = MediaRepository::new(&mut connection);
+    match repository.delete_latest_session(&session_id) {
+        Ok(()) => Ok(()),
+        Err(MediaRepositoryError::NotFound) => {
+            let viewing_id = MovieViewingId::new(session_id).map_err(domain_error)?;
+            repository
+                .delete_movie_viewing(&viewing_id)
+                .map(|_| ())
+                .map_err(repository_error)
+        }
+        Err(reason) => Err(repository_error(reason)),
+    }
 }
 
 #[tauri::command]
@@ -1102,6 +1226,60 @@ pub fn read_media_cover(
 }
 
 #[tauri::command]
+pub fn read_media_cover_thumbnail(
+    database: State<'_, ProductDatabase>,
+    cover_state: State<'_, MediaCoverState>,
+    title_id: String,
+) -> Result<tauri::ipc::Response, MediaCommandErrorDto> {
+    let id = parse_title_id(&title_id)?;
+    let mut connection = database.connection.lock().map_err(|_| unavailable())?;
+    let title = MediaRepository::new(&mut connection)
+        .find_title(&id)
+        .map_err(repository_error)?
+        .ok_or_else(not_found)?;
+    let cover = title
+        .cover
+        .ok_or_else(|| error("coverMissing", "Este título no tiene portada."))?;
+    let bytes = cover_state
+        .store
+        .lock()
+        .map_err(|_| unavailable())?
+        .read_thumbnail(&cover)
+        .map_err(|reason| error("thumbnailMissing", reason.to_string()))?;
+    Ok(tauri::ipc::Response::new(bytes))
+}
+
+#[tauri::command]
+pub fn save_media_cover_thumbnail(
+    database: State<'_, ProductDatabase>,
+    cover_state: State<'_, MediaCoverState>,
+    title_id: String,
+    bytes: Vec<u8>,
+) -> Result<(), MediaCommandErrorDto> {
+    let id = parse_title_id(&title_id)?;
+    let mut connection = database.connection.lock().map_err(|_| unavailable())?;
+    let title = MediaRepository::new(&mut connection)
+        .find_title(&id)
+        .map_err(repository_error)?
+        .ok_or_else(not_found)?;
+    let cover = title
+        .cover
+        .ok_or_else(|| error("coverMissing", "Este título no tiene portada."))?;
+    if cover.mime_type != "image/gif" {
+        return Err(error(
+            "invalidThumbnail",
+            "Solo las portadas GIF necesitan miniatura.",
+        ));
+    }
+    cover_state
+        .store
+        .lock()
+        .map_err(|_| unavailable())?
+        .write_thumbnail(&cover, &bytes)
+        .map_err(|reason| error("invalidThumbnail", reason.to_string()))
+}
+
+#[tauri::command]
 pub fn get_media_statistics(
     database: State<'_, ProductDatabase>,
     input: MediaStatisticsFilterDto,
@@ -1113,6 +1291,10 @@ pub fn get_media_statistics(
     if let Some(area) = input.area {
         let area = media_area_from_dto(area);
         aggregates.retain(|aggregate| aggregate.title.belongs_to(area));
+    }
+    if let Some(kind) = input.kind {
+        let kind = media_kind_from_dto(kind);
+        aggregates.retain(|aggregate| aggregate.title.kind == kind);
     }
     if let Some(studio) = input.studio.filter(|value| !value.trim().is_empty()) {
         aggregates.retain(|aggregate| {
@@ -1140,7 +1322,34 @@ pub fn get_media_statistics(
                 .is_some_and(|date| date.year() == year)
         });
     }
-    let statistics = build_statistics(&aggregates);
+    let mut statistics = build_statistics(&aggregates);
+    if matches!(input.area, Some(MediaAreaDto::Series)) {
+        let mut repository = MediaRepository::new(&mut connection);
+        statistics.sessions = aggregates
+            .iter()
+            .map(|aggregate| {
+                repository
+                    .series_runs(&aggregate.title.id)
+                    .map(|runs| runs.len() as u32)
+            })
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(repository_error)?
+            .into_iter()
+            .sum();
+    } else if matches!(input.area, Some(MediaAreaDto::Movies)) {
+        let mut repository = MediaRepository::new(&mut connection);
+        statistics.sessions = aggregates
+            .iter()
+            .map(|aggregate| {
+                repository
+                    .movie_viewings(&aggregate.title.id)
+                    .map(|runs| runs.len() as u32)
+            })
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(repository_error)?
+            .into_iter()
+            .sum();
+    }
     Ok(MediaStatisticsDto {
         active_titles: statistics.active_titles,
         anime_titles: statistics.anime_titles,
@@ -1308,6 +1517,11 @@ fn title_to_dto(aggregate: &MediaAggregate) -> MediaTitleDto {
         favorite: aggregate.title.favorite,
         archived: aggregate.title.archived,
         has_cover: aggregate.title.cover.is_some(),
+        animated_cover: aggregate
+            .title
+            .cover
+            .as_ref()
+            .is_some_and(|cover| cover.mime_type == "image/gif"),
         cover_position_x: aggregate.title.cover_position_x,
         cover_position_y: aggregate.title.cover_position_y,
         cover_zoom: aggregate.title.cover_zoom,
@@ -1389,6 +1603,15 @@ fn movie_viewing_to_dto(viewing: MovieViewing) -> MovieViewingDto {
     }
 }
 
+fn series_run_to_dto(run: SeriesRun) -> SeriesRunDto {
+    SeriesRunDto {
+        id: run.id.as_str().to_owned(),
+        title_id: run.title_id.as_str().to_owned(),
+        started_on: run.started_on.to_string(),
+        finished_on: run.finished_on.map(|date| date.to_string()),
+    }
+}
+
 fn content_to_dto(
     content: &MediaContent,
     sessions: &[super::model::WatchSession],
@@ -1450,6 +1673,17 @@ fn parse_date(value: &str) -> Result<NaiveDate, MediaCommandErrorDto> {
 fn madrid_today() -> NaiveDate {
     let now = Utc::now().with_timezone(&Madrid);
     NaiveDate::from_ymd_opt(now.year(), now.month(), now.day()).expect("fecha de chrono válida")
+}
+
+fn reject_future_dates(
+    started_on: NaiveDate,
+    finished_on: Option<NaiveDate>,
+) -> Result<(), MediaCommandErrorDto> {
+    let today = madrid_today();
+    if started_on > today || finished_on.is_some_and(|date| date > today) {
+        return Err(domain_error(MediaError::FutureSession));
+    }
+    Ok(())
 }
 
 fn media_kind_from_dto(value: MediaKindDto) -> MediaKind {
@@ -1537,11 +1771,30 @@ fn not_found() -> MediaCommandErrorDto {
     error("notFound", "No existe el título o contenido solicitado.")
 }
 fn unavailable() -> MediaCommandErrorDto {
-    error("internal", "No se ha podido acceder a Series.")
+    error(
+        "internal",
+        "No se ha podido acceder a la biblioteca audiovisual.",
+    )
 }
 fn error(code: &'static str, message: impl Into<String>) -> MediaCommandErrorDto {
     MediaCommandErrorDto {
         code,
         message: message.into(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::reject_future_dates;
+    use chrono::NaiveDate;
+
+    #[test]
+    fn series_history_dates_reject_the_future() {
+        let past = NaiveDate::from_ymd_opt(2000, 1, 1).unwrap();
+        let future = NaiveDate::from_ymd_opt(9999, 1, 1).unwrap();
+
+        assert!(reject_future_dates(past, Some(past)).is_ok());
+        assert!(reject_future_dates(future, None).is_err());
+        assert!(reject_future_dates(past, Some(future)).is_err());
     }
 }

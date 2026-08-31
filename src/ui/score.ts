@@ -22,6 +22,6 @@ export function scoreTone(score: number | null) {
 
 export function formatScore(score: number | null) {
   return score === null
-    ? "Sin puntuar"
+    ? "—"
     : score.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 }

@@ -1,7 +1,7 @@
 # Tareas — Lectura
 
-- Estado: T-R01 a T-R20 implementadas; comprobación manual pendiente
-- Última actualización: 2026-08-24
+- Estado: T-R01 a T-R30 implementadas; comprobación manual pendiente
+- Última actualización: 2026-08-30
 
 ## T-R01 — Auditar el modelo de Notion
 
@@ -182,3 +182,74 @@
 - Estado: Implementada; comprobación visual pendiente.
 - Alcance: obtener los años a partir del historial completo del libro seleccionado, independientemente del año actualmente filtrado.
 - Verificación: alternar entre varios años sin que desaparezcan las demás opciones y comprobar el filtro combinado por libro.
+
+## T-R29 — Recordar autores y confirmar estados derivados
+
+- Estado: Implementada; comprobación visual pendiente.
+- Alcance: sugerir autores ya utilizados al escribir y pedir confirmación cuando una nueva lectura implique cambiar el estado del libro.
+- Restricciones: conservar siempre el nuevo registro; rechazar la sugerencia mantiene el estado elegido por el usuario sin perder las fechas derivadas del historial.
+- Verificación: crear dos libros del mismo autor, iniciar un libro Terminado y registrar una lectura histórica manteniendo su estado.
+
+**Resultado:** el formulario reutiliza autores persistidos y el historial nunca altera silenciosamente el estado del libro.
+
+Las etiquetas de género de tarjeta y detalle adoptan la misma geometría y tipografía de 11 px que Anime para mantener legibilidad entre ambos módulos.
+
+## T-R30 — Aplicar la confirmación a todo el ciclo del historial
+
+- Estado: Implementada; comprobación visual pendiente.
+- Alcance: confirmar los estados derivados al crear, editar, empezar, terminar o eliminar una lectura y ordenar las acciones de la cabecera por frecuencia de uso.
+- Restricciones: rechazar la sugerencia conserva las fechas registradas; `Registrar lectura` es la acción principal situada a la derecha.
+- Verificación: probar los cinco tipos de mutación sobre libros Pendiente, Leyendo y Terminado.
+
+**Resultado:** el aviso de estado ya no se limita al alta de una relectura y las acciones rápidas comparten jerarquía con Videojuegos.
+
+## T-R31 — Separar periodo cerrado de libro terminado
+
+- Estado: Implementada; comprobación visual pendiente.
+- Alcance: persistir si cada lectura terminó realmente el libro, además de sus fechas, y mostrar `Sin terminar` en los periodos cerrados incompletos.
+- Restricciones: `Terminar hoy` completa el libro; cerrar manualmente una lectura sin terminar sugiere En pausa y conserva la confirmación de estado.
+- Verificación: migrar lecturas existentes, registrar una lectura cerrada completa e incompleta y comprobar historial y estado sugerido.
+
+**Resultado:** una fecha final puede representar que dejaste de leer sin afirmar que terminaste el libro.
+
+## T-R32 — Completar detalle y estadísticas
+
+- Estado: Implementada; comprobación visual pendiente.
+- Alcance: añadir favorito al detalle, alinear las tres métricas compartidas y ampliar Estadísticas con libros puntuados y un Top 5/10/15/25 persistente.
+- Verificación: alternar favorito dentro del libro, revisar métricas con y sin nota y cambiar la longitud del ranking.
+
+**Resultado:** el detalle ya no obliga a volver a Biblioteca para gestionar favoritos y las estadísticas permiten consultar una clasificación personal configurable.
+
+## T-R33 — Ampliar géneros y enlazar libros sin puntuar
+
+- Estado: Implementada; comprobación visual pendiente.
+- Alcance: ampliar la lista cerrada a veinticinco géneros y convertir el recuento de obras sin puntuar en un acceso a Biblioteca con el filtro aplicado.
+- Verificación: clasificar ficción contemporánea y filosofía, guardar y editar el libro, y abrir `Fuera del ranking` desde Estadísticas.
+
+**Resultado:** la taxonomía cubre mejor títulos híbridos y el dato estadístico permite actuar sobre la colección.
+
+## T-R34 — Representar periodos de lectura en el calendario
+
+- Estado: Implementada; comprobación visual pendiente.
+- Alcance: añadir los modos `Actividad`, `Periodos` y `Ambas`, conservando el primero como valor inicial.
+- Restricciones: los días entre inicio y fin se describen como periodo estimado, no como actividad diaria confirmada; las lecturas abiertas terminan visualmente en el día actual.
+- Verificación: revisar lecturas cerradas, abiertas, relecturas y periodos que cruzan de año, además del detalle al pasar el cursor.
+
+**Resultado:** el calendario puede mostrar continuidad sin inventar días concretos de lectura.
+
+## T-R35 — Completar géneros y normalizar controles Media
+
+- Estado: Implementada; comprobación visual pendiente.
+- Alcance: asignar géneros a los libros existentes sin clasificación, corregir clasificaciones heredadas evidentes, aceptar años de dos cifras en las fechas de historial y adoptar la barra común de búsqueda y filtros.
+- Restricciones: no importar libros nuevos ni modificar lecturas, estados o puntuaciones.
+- Verificación: ejecutar la migración sobre datos existentes, introducir `26` y `19` como años y revisar búsqueda, filtros y ordenación sin textos recortados.
+
+**Resultado:** la colección existente recibe géneros reproducibles, las fechas aceptan `dd/mm/aa` y los controles se adaptan al ancho disponible sin ocultar su texto.
+
+## T-R36 — Reforzar integridad temporal
+
+- Estado: Implementada; comprobación visual pendiente.
+- Alcance: rechazar también en Rust cualquier fecha futura recibida al crear o editar una lectura.
+- Verificación: enviar fechas pasada y futura directamente al comando, sin depender de la validación del formulario.
+
+**Resultado:** el historial conserva su contrato aunque el dato no proceda de la interfaz actual.

@@ -1,7 +1,7 @@
 # Tareas — Series
 
-- Estado: Primera versión implementada; comprobación funcional pendiente
-- Última actualización: 2026-08-16
+- Estado: Historial por serie implementado; revisión visual pendiente
+- Última actualización: 2026-08-30
 
 ## T-S01 — Separar Series de Anime
 
@@ -27,27 +27,27 @@
 
 ## T-S05 — Crear recorridos audiovisuales
 
-- Estado: Propuesta pendiente de aprobación
-- Alcance: `MediaTitleRun`, migración e invariantes compartidas con Películas.
+- Estado: Implementada; comprobación visual pendiente
+- Alcance: `SeriesRun`, migración e invariantes propias de Series.
 - Verificación: migración de fechas existentes y un recorrido abierto máximo.
 
 ## T-S06 — Implementar casos de uso de revisionado
 
-- Estado: Propuesta pendiente de aprobación
+- Estado: Implementada; comprobación visual pendiente
 - Dependencias: T-S05
 - Alcance: iniciar, finalizar, registrar, corregir y retirar visionados de Series.
 - Verificación: transacciones de estado, posición e historial.
 
 ## T-S07 — Añadir Historial y acciones de detalle
 
-- Estado: Propuesta pendiente de aprobación
+- Estado: Implementada; comprobación visual pendiente
 - Dependencias: T-S06
 - Alcance: API, filtros, `Volver a ver`, finalizar y correcciones.
 - Verificación: build y recorrido con dos visionados.
 
 ## T-S08 — Revisar la ampliación
 
-- Estado: Propuesta pendiente de aprobación
+- Estado: Revisión técnica completada; comprobación manual pendiente
 - Dependencias: T-S05 a T-S07
 - Verificación: pruebas Rust, Clippy, formato, build y uso manual.
 
@@ -76,3 +76,37 @@
 - Estado: Implementada; comprobación visual pendiente.
 - Alcance: presentar las vistas `Biblioteca` y `Estadísticas` a la misma altura que los demás trackers, sin añadir historial global a Series.
 - Verificación: alternar ambas pestañas, consultar series totales, terminadas y puntuación media y aplicar el filtro de puntuación mínima.
+
+## T-S13 — Evitar inferencias temporales silenciosas
+
+- Estado: Implementada; comprobación visual pendiente.
+- Alcance: pedir confirmación antes de marcar una serie como Terminada al introducir una fecha de finalización.
+- Restricciones: cambiar el estado manualmente no inventa fechas ni entradas de historial.
+- Verificación: introducir y retirar una fecha final desde distintos estados, aceptando y rechazando la sugerencia.
+
+**Resultado:** la fecha final puede sugerir un estado, pero la decisión sigue siendo del usuario.
+
+## T-S14 — Completar acciones y estadísticas
+
+- Estado: Implementada; comprobación visual pendiente.
+- Alcance: convertir Editar en acción iconográfica, retirar la estrella duplicada de la identidad y añadir Top 5/10/25, distribución por estado y actividad registrada.
+- Verificación: abrir una serie favorita, editarla y consultar el ranking con distintos límites y puntuaciones mínimas.
+
+**Resultado:** el detalle adopta la misma barra de acciones que el resto de Media y Estadísticas deja de limitarse a tres cifras aisladas.
+
+## T-S15 — Derivar fechas del historial y normalizar filtros
+
+- Estado: Implementada; comprobación visual pendiente.
+- Alcance: retirar inicio y fin del formulario principal, conservar las fechas derivadas de los visionados existentes, aceptar años abreviados en el historial y adoptar la barra común de búsqueda y filtros.
+- Restricciones: editar metadatos no elimina fechas históricas y cambiar el estado no inventa visionados.
+- Verificación: editar una serie con historial, registrar fechas con años de dos cifras y comprobar que búsqueda, favoritos y ordenación muestran siempre su texto completo.
+
+**Resultado:** el formulario principal ya no duplica fechas del historial; los periodos siguen siendo su fuente y los controles usan la presentación común de Media.
+
+## T-S16 — Consolidar historial y validación
+
+- Estado: Implementada; comprobación visual pendiente.
+- Alcance: cargar todos los visionados de Estadísticas en una única consulta y rechazar en Rust fechas futuras al crear o editar periodos.
+- Verificación: consultar varias series con historial y enviar fechas pasada y futura directamente a los comandos.
+
+**Resultado:** Estadísticas evita una consulta por serie y el historial no depende únicamente de la validación visual.

@@ -8,6 +8,7 @@ use super::model::{Game, GameError, GameId, GameRun, GameRunId, GameStatus, Mana
 #[derive(Debug)]
 pub enum GameRepositoryError {
     Database(rusqlite::Error),
+    Json(serde_json::Error),
     InvalidStored(GameError),
     InvalidStoredValue(&'static str),
     NotFound,
@@ -21,6 +22,7 @@ impl fmt::Display for GameRepositoryError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Database(error) => write!(f, "Error de SQLite: {error}"),
+            Self::Json(error) => write!(f, "No se pudieron guardar los géneros: {error}"),
             Self::InvalidStored(error) => write!(f, "Videojuego guardado inválido: {error}"),
             Self::InvalidStoredValue(field) => {
                 write!(f, "El valor guardado de {field} no es válido.")
@@ -43,6 +45,11 @@ impl From<rusqlite::Error> for GameRepositoryError {
         Self::Database(error)
     }
 }
+impl From<serde_json::Error> for GameRepositoryError {
+    fn from(error: serde_json::Error) -> Self {
+        Self::Json(error)
+    }
+}
 
 pub struct GameRepository<'a> {
     connection: &'a Connection,
@@ -54,11 +61,12 @@ impl<'a> GameRepository<'a> {
     }
 
     pub fn create(&mut self, game: &Game) -> Result<(), GameRepositoryError> {
+        let genres = serde_json::to_string(&game.genres)?;
         self.connection.execute(
             "INSERT INTO games (id, name, normalized_name, game_status, score, opinion,
              is_favorite, is_archived, cover_file_name, cover_mime_type, cover_size_bytes,
-             cover_position_x, cover_position_y, cover_zoom, created_at, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 0, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?14)",
+             cover_position_x, cover_position_y, cover_zoom, created_at, updated_at, genres_json)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 0, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?14, ?15)",
             params![
                 game.id.as_str(),
                 game.name,
@@ -73,18 +81,20 @@ impl<'a> GameRepository<'a> {
                 game.cover_position_x,
                 game.cover_position_y,
                 game.cover_zoom,
-                game.updated_at
+                game.updated_at,
+                genres
             ],
         )?;
         Ok(())
     }
 
     pub fn update(&mut self, game: &Game) -> Result<(), GameRepositoryError> {
+        let genres = serde_json::to_string(&game.genres)?;
         let count = self.connection.execute(
             "UPDATE games SET name=?2, normalized_name=?3, game_status=?4, score=?5,
              opinion=?6, is_favorite=?7, cover_file_name=?8, cover_mime_type=?9,
              cover_size_bytes=?10, cover_position_x=?11, cover_position_y=?12,
-             cover_zoom=?13, updated_at=?14 WHERE id=?1",
+             cover_zoom=?13, updated_at=?14, genres_json=?15 WHERE id=?1",
             params![
                 game.id.as_str(),
                 game.name,
@@ -99,7 +109,8 @@ impl<'a> GameRepository<'a> {
                 game.cover_position_x,
                 game.cover_position_y,
                 game.cover_zoom,
-                game.updated_at
+                game.updated_at,
+                genres
             ],
         )?;
         exists(count)
@@ -109,7 +120,7 @@ impl<'a> GameRepository<'a> {
         self.connection
             .query_row(
                 "SELECT id,name,game_status,score,opinion,is_favorite,is_archived,updated_at,
-             cover_file_name,cover_mime_type,cover_size_bytes,cover_position_x,cover_position_y,cover_zoom FROM games WHERE id=?1",
+             cover_file_name,cover_mime_type,cover_size_bytes,cover_position_x,cover_position_y,cover_zoom,genres_json FROM games WHERE id=?1",
                 [id.as_str()],
                 game_from_row,
             )
@@ -120,7 +131,7 @@ impl<'a> GameRepository<'a> {
     pub fn list(&mut self, archived: bool) -> Result<Vec<Game>, GameRepositoryError> {
         let mut statement = self.connection.prepare(
             "SELECT id,name,game_status,score,opinion,is_favorite,is_archived,updated_at,
-             cover_file_name,cover_mime_type,cover_size_bytes,cover_position_x,cover_position_y,cover_zoom FROM games
+             cover_file_name,cover_mime_type,cover_size_bytes,cover_position_x,cover_position_y,cover_zoom,genres_json FROM games
              WHERE is_archived=?1 ORDER BY updated_at DESC, name COLLATE NOCASE",
         )?;
         let games = statement
@@ -179,7 +190,7 @@ impl<'a> GameRepository<'a> {
 
     pub fn runs_for(&mut self, game_id: &GameId) -> Result<Vec<GameRun>, GameRepositoryError> {
         let mut statement = self.connection.prepare(
-            "SELECT id,game_id,started_on,finished_on,created_at,updated_at FROM game_runs
+            "SELECT id,game_id,started_on,finished_on,completed,created_at,updated_at FROM game_runs
              WHERE game_id=?1 ORDER BY COALESCE(finished_on,started_on) DESC, created_at DESC",
         )?;
         let runs = statement
@@ -190,7 +201,7 @@ impl<'a> GameRepository<'a> {
 
     pub fn all_runs(&mut self) -> Result<Vec<GameRun>, GameRepositoryError> {
         let mut statement = self.connection.prepare(
-            "SELECT id,game_id,started_on,finished_on,created_at,updated_at FROM game_runs
+            "SELECT id,game_id,started_on,finished_on,completed,created_at,updated_at FROM game_runs
              ORDER BY COALESCE(finished_on,started_on) DESC, created_at DESC",
         )?;
         let runs = statement
@@ -201,7 +212,7 @@ impl<'a> GameRepository<'a> {
 
     pub fn find_run(&mut self, id: &GameRunId) -> Result<Option<GameRun>, GameRepositoryError> {
         self.connection.query_row(
-            "SELECT id,game_id,started_on,finished_on,created_at,updated_at FROM game_runs WHERE id=?1",
+            "SELECT id,game_id,started_on,finished_on,completed,created_at,updated_at FROM game_runs WHERE id=?1",
             [id.as_str()], run_from_row,
         ).optional().map_err(Into::into)
     }
@@ -230,13 +241,14 @@ impl<'a> GameRepository<'a> {
             return Err(GameRepositoryError::OpenRunExists);
         }
         let result = self.connection.execute(
-            "INSERT INTO game_runs (id,game_id,started_on,finished_on,created_at,updated_at)
-             VALUES (?1,?2,?3,?4,?5,?6)",
+            "INSERT INTO game_runs (id,game_id,started_on,finished_on,completed,created_at,updated_at)
+             VALUES (?1,?2,?3,?4,?5,?6,?7)",
             params![
                 run.id.as_str(),
                 run.game_id.as_str(),
                 run.started_on.map(|d| d.to_string()),
                 run.finished_on.map(|d| d.to_string()),
+                run.completed,
                 run.created_at,
                 run.updated_at
             ],
@@ -265,11 +277,12 @@ impl<'a> GameRepository<'a> {
             }
         }
         let count = self.connection.execute(
-            "UPDATE game_runs SET started_on=?2,finished_on=?3,updated_at=?4 WHERE id=?1",
+            "UPDATE game_runs SET started_on=?2,finished_on=?3,completed=?4,updated_at=?5 WHERE id=?1",
             params![
                 run.id.as_str(),
                 run.started_on.map(|d| d.to_string()),
                 run.finished_on.map(|d| d.to_string()),
+                run.completed,
                 run.updated_at
             ],
         )?;
@@ -291,26 +304,18 @@ impl<'a> GameRepository<'a> {
         &mut self,
         game_id: &GameId,
     ) -> Result<(), GameRepositoryError> {
-        let (open, completed): (i64, i64) = self.connection.query_row(
-            "SELECT SUM(CASE WHEN finished_on IS NULL THEN 1 ELSE 0 END),
-                    SUM(CASE WHEN finished_on IS NOT NULL THEN 1 ELSE 0 END)
-             FROM game_runs WHERE game_id=?1",
-            [game_id.as_str()],
-            |row| {
-                Ok((
-                    row.get::<_, Option<i64>>(0)?.unwrap_or(0),
-                    row.get::<_, Option<i64>>(1)?.unwrap_or(0),
-                ))
-            },
-        )?;
+        let runs = self.runs_for(game_id)?;
+        let latest = runs.first();
         let current = self
             .find(game_id)?
             .ok_or(GameRepositoryError::NotFound)?
             .status;
-        let status = if open > 0 {
+        let status = if latest.is_some_and(|run| run.finished_on.is_none()) {
             GameStatus::Playing
-        } else if completed > 0 {
+        } else if latest.is_some_and(|run| run.completed) {
             GameStatus::Completed
+        } else if latest.is_some() {
+            GameStatus::Paused
         } else if matches!(current, GameStatus::Playing | GameStatus::Completed) {
             GameStatus::Pending
         } else {
@@ -366,6 +371,8 @@ fn game_from_row(row: &Row<'_>) -> rusqlite::Result<Game> {
         cover_position_x: row.get(11)?,
         cover_position_y: row.get(12)?,
         cover_zoom: row.get(13)?,
+        genres: serde_json::from_str(&row.get::<_, String>(14)?)
+            .map_err(|_| conversion_error(14, "géneros"))?,
     })
 }
 
@@ -377,8 +384,9 @@ fn run_from_row(row: &Row<'_>) -> rusqlite::Result<GameRun> {
             .map_err(|_| conversion_error(1, "videojuego"))?,
         started_on: parse_date(row.get(2)?, 2)?,
         finished_on: parse_date(row.get(3)?, 3)?,
-        created_at: row.get(4)?,
-        updated_at: row.get(5)?,
+        completed: row.get(4)?,
+        created_at: row.get(5)?,
+        updated_at: row.get(6)?,
     })
 }
 
@@ -431,6 +439,10 @@ mod tests {
             .execute_batch(include_str!("../../migrations/0020_create_games.sql"))
             .unwrap();
         connection.execute_batch("ALTER TABLE games ADD COLUMN cover_position_x REAL NOT NULL DEFAULT 50.0; ALTER TABLE games ADD COLUMN cover_position_y REAL NOT NULL DEFAULT 50.0; ALTER TABLE games ADD COLUMN cover_zoom REAL NOT NULL DEFAULT 1.0;").unwrap();
+        connection.execute_batch("ALTER TABLE game_runs ADD COLUMN completed INTEGER NOT NULL DEFAULT 0 CHECK (completed IN (0, 1));").unwrap();
+        connection
+            .execute_batch(include_str!("../../migrations/0030_add_game_genres.sql"))
+            .unwrap();
         connection
     }
     fn game() -> Game {
@@ -438,6 +450,7 @@ mod tests {
             GameId::generate(),
             GameDraft {
                 name: "Celeste".into(),
+                genres: vec!["Plataformas".into()],
                 status: GameStatus::Pending,
                 score: None,
                 opinion: None,
@@ -453,10 +466,15 @@ mod tests {
         let mut repository = GameRepository::new(&connection);
         let game = game();
         repository.create(&game).unwrap();
+        assert_eq!(
+            repository.find(&game.id).unwrap().unwrap().genres,
+            vec!["Plataformas"]
+        );
         let run = GameRun::new(
             game.id.clone(),
             Some(NaiveDate::from_ymd_opt(2026, 8, 1).unwrap()),
             None,
+            false,
             Utc::now().to_rfc3339(),
         )
         .unwrap();
@@ -477,13 +495,14 @@ mod tests {
         let date = NaiveDate::from_ymd_opt(2026, 8, 1);
         repository
             .create_run(
-                &GameRun::new(game.id.clone(), date, None, Utc::now().to_rfc3339()).unwrap(),
+                &GameRun::new(game.id.clone(), date, None, false, Utc::now().to_rfc3339()).unwrap(),
             )
             .unwrap();
         let second = GameRun::new(
             game.id.clone(),
             NaiveDate::from_ymd_opt(2026, 8, 2),
             None,
+            false,
             Utc::now().to_rfc3339(),
         )
         .unwrap();
@@ -503,6 +522,7 @@ mod tests {
             game.id.clone(),
             NaiveDate::from_ymd_opt(2026, 8, 1),
             NaiveDate::from_ymd_opt(2026, 8, 3),
+            true,
             Utc::now().to_rfc3339(),
         )
         .unwrap();
@@ -522,6 +542,7 @@ mod tests {
             game.id.clone(),
             NaiveDate::from_ymd_opt(2026, 8, 10),
             NaiveDate::from_ymd_opt(2026, 8, 12),
+            true,
             Utc::now().to_rfc3339(),
         )
         .unwrap();
@@ -530,6 +551,7 @@ mod tests {
             game.id.clone(),
             NaiveDate::from_ymd_opt(2026, 8, 5),
             NaiveDate::from_ymd_opt(2026, 8, 6),
+            true,
             Utc::now().to_rfc3339(),
         )
         .unwrap();

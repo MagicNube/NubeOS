@@ -79,6 +79,21 @@ pub fn apply_migrations(connection: &mut Connection) -> rusqlite_migration::Resu
         M::up(include_str!(
             "../../migrations/0026_add_tracker_cover_crop.sql"
         )),
+        M::up(include_str!(
+            "../../migrations/0027_distinguish_completed_tracker_runs.sql"
+        )),
+        M::up(include_str!("../../migrations/0028_relax_cover_zoom.sql")),
+        M::up(include_str!("../../migrations/0029_add_series_runs.sql")),
+        M::up(include_str!("../../migrations/0030_add_game_genres.sql")),
+        M::up(include_str!(
+            "../../migrations/0031_backfill_tracker_genres.sql"
+        )),
+        M::up(include_str!(
+            "../../migrations/0032_recover_anime_movie_history.sql"
+        )),
+        M::up(include_str!(
+            "../../migrations/0033_add_anime_movie_rewatches.sql"
+        )),
     ])
     .to_latest(connection)
 }

@@ -47,6 +47,7 @@ pub enum GameStatus {
 #[derive(Debug, Clone)]
 pub struct GameDraft {
     pub name: String,
+    pub genres: Vec<String>,
     pub status: GameStatus,
     pub score: Option<f64>,
     pub opinion: Option<String>,
@@ -83,6 +84,7 @@ impl ManagedGameCover {
 pub struct Game {
     pub id: GameId,
     pub name: String,
+    pub genres: Vec<String>,
     pub status: GameStatus,
     pub score: Option<f64>,
     pub opinion: Option<String>,
@@ -98,6 +100,16 @@ pub struct Game {
 impl GameDraft {
     pub fn validate(mut self) -> Result<Self, GameError> {
         self.name = clean_required(self.name, 180)?;
+        self.genres = self
+            .genres
+            .into_iter()
+            .map(|genre| clean_required(genre, 60))
+            .collect::<Result<Vec<_>, _>>()?;
+        self.genres.sort();
+        self.genres.dedup();
+        if self.genres.len() > 12 {
+            return Err(GameError::TooManyGenres);
+        }
         self.opinion = clean_optional(self.opinion, 5000)?;
         if self.score.is_some_and(|score| {
             !(0.0..=10.0).contains(&score)
@@ -115,6 +127,7 @@ impl Game {
         Ok(Self {
             id,
             name: draft.name,
+            genres: draft.genres,
             status: draft.status,
             score: draft.score,
             opinion: draft.opinion,
@@ -130,6 +143,7 @@ impl Game {
     pub fn apply(&mut self, draft: GameDraft, updated_at: String) -> Result<(), GameError> {
         let draft = draft.validate()?;
         self.name = draft.name;
+        self.genres = draft.genres;
         self.status = draft.status;
         self.score = draft.score;
         self.opinion = draft.opinion;
@@ -150,7 +164,7 @@ impl Game {
             || !zoom.is_finite()
             || !(0.0..=100.0).contains(&x)
             || !(0.0..=100.0).contains(&y)
-            || !(1.0..=2.0).contains(&zoom)
+            || !(0.25..=3.0).contains(&zoom)
         {
             return Err(GameError::InvalidCoverCrop);
         }
@@ -168,6 +182,7 @@ pub struct GameRun {
     pub game_id: GameId,
     pub started_on: Option<NaiveDate>,
     pub finished_on: Option<NaiveDate>,
+    pub completed: bool,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -177,14 +192,17 @@ impl GameRun {
         game_id: GameId,
         started_on: Option<NaiveDate>,
         finished_on: Option<NaiveDate>,
+        completed: bool,
         now: String,
     ) -> Result<Self, GameError> {
         validate_dates(started_on, finished_on)?;
+        validate_completion(finished_on, completed)?;
         Ok(Self {
             id: GameRunId::generate(),
             game_id,
             started_on,
             finished_on,
+            completed,
             created_at: now.clone(),
             updated_at: now,
         })
@@ -193,14 +211,24 @@ impl GameRun {
         &mut self,
         started_on: Option<NaiveDate>,
         finished_on: Option<NaiveDate>,
+        completed: bool,
         now: String,
     ) -> Result<(), GameError> {
         validate_dates(started_on, finished_on)?;
+        validate_completion(finished_on, completed)?;
         self.started_on = started_on;
         self.finished_on = finished_on;
+        self.completed = completed;
         self.updated_at = now;
         Ok(())
     }
+}
+
+fn validate_completion(end: Option<NaiveDate>, completed: bool) -> Result<(), GameError> {
+    if completed && end.is_none() {
+        return Err(GameError::CompletedRunWithoutEnd);
+    }
+    Ok(())
 }
 
 fn validate_dates(start: Option<NaiveDate>, end: Option<NaiveDate>) -> Result<(), GameError> {
@@ -242,9 +270,11 @@ pub enum GameError {
     InvalidId,
     RequiredName,
     TextTooLong,
+    TooManyGenres,
     InvalidScore,
     InvalidDateRange,
     MissingRunDate,
+    CompletedRunWithoutEnd,
     InvalidCover,
     InvalidCoverCrop,
 }
@@ -255,11 +285,13 @@ impl fmt::Display for GameError {
             Self::InvalidId => "El identificador no es válido.",
             Self::RequiredName => "El nombre del videojuego es obligatorio.",
             Self::TextTooLong => "Uno de los textos supera la longitud permitida.",
+            Self::TooManyGenres => "Un videojuego no puede tener más de 12 géneros.",
             Self::InvalidScore => {
                 "La puntuación debe estar entre 0 y 10 y tener como máximo un decimal."
             }
             Self::InvalidDateRange => "La fecha final no puede ser anterior a la fecha de inicio.",
             Self::MissingRunDate => "La fecha de inicio de la partida es obligatoria.",
+            Self::CompletedRunWithoutEnd => "Una partida terminada necesita fecha final.",
             Self::InvalidCover => "La portada guardada no es válida.",
             Self::InvalidCoverCrop => "El encuadre de la portada no es válido.",
         })
@@ -274,6 +306,7 @@ mod tests {
     fn validates_game_and_score() {
         let draft = GameDraft {
             name: " Hollow Knight ".into(),
+            genres: vec!["Metroidvania".into()],
             status: GameStatus::Playing,
             score: Some(9.5),
             opinion: None,
@@ -292,7 +325,7 @@ mod tests {
     fn validates_run_dates() {
         let game_id = GameId::generate();
         assert_eq!(
-            GameRun::new(game_id.clone(), None, None, "now".into()).unwrap_err(),
+            GameRun::new(game_id.clone(), None, None, false, "now".into()).unwrap_err(),
             GameError::MissingRunDate
         );
         assert_eq!(
@@ -300,6 +333,7 @@ mod tests {
                 game_id.clone(),
                 None,
                 NaiveDate::from_ymd_opt(2026, 8, 2),
+                false,
                 "now".into(),
             )
             .unwrap_err(),
@@ -308,14 +342,26 @@ mod tests {
         let start = NaiveDate::from_ymd_opt(2026, 8, 2);
         let end = NaiveDate::from_ymd_opt(2026, 8, 1);
         assert_eq!(
-            GameRun::new(game_id, start, end, "now".into()).unwrap_err(),
+            GameRun::new(game_id, start, end, false, "now".into()).unwrap_err(),
             GameError::InvalidDateRange
+        );
+        assert_eq!(
+            GameRun::new(
+                GameId::generate(),
+                NaiveDate::from_ymd_opt(2026, 8, 2),
+                None,
+                true,
+                "now".into(),
+            )
+            .unwrap_err(),
+            GameError::CompletedRunWithoutEnd
         );
     }
     #[test]
     fn cover_crop_is_bounded() {
         let draft = GameDraft {
             name: "Celeste".into(),
+            genres: vec!["Plataformas".into()],
             status: GameStatus::Playing,
             score: None,
             opinion: None,
@@ -337,5 +383,8 @@ mod tests {
                 .unwrap_err(),
             GameError::InvalidCoverCrop
         );
+        game.change_cover_crop(50.0, 50.0, 0.75, "later".into())
+            .unwrap();
+        assert_eq!(game.cover_zoom, 0.75);
     }
 }

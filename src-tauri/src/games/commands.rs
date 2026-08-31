@@ -1,6 +1,7 @@
 use std::sync::Mutex;
 
-use chrono::{NaiveDate, Utc};
+use chrono::{Datelike, NaiveDate, Utc};
+use chrono_tz::Europe::Madrid;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, State};
 use tauri_plugin_dialog::DialogExt;
@@ -30,6 +31,8 @@ pub enum GameStatusDto {
 #[serde(rename_all = "camelCase")]
 pub struct GameInputDto {
     pub name: String,
+    #[serde(default)]
+    pub genres: Vec<String>,
     pub status: GameStatusDto,
     pub score: Option<f64>,
     pub opinion: Option<String>,
@@ -55,6 +58,8 @@ pub struct ListGamesInputDto {
 pub struct GameRunInputDto {
     pub started_on: Option<String>,
     pub finished_on: Option<String>,
+    #[serde(default)]
+    pub completed: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -69,6 +74,7 @@ pub struct GameHistoryInputDto {
 pub struct GameDto {
     pub id: String,
     pub name: String,
+    pub genres: Vec<String>,
     pub status: GameStatusDto,
     pub score: Option<f64>,
     pub opinion: Option<String>,
@@ -90,6 +96,7 @@ pub struct GameRunDto {
     pub game_id: String,
     pub started_on: Option<String>,
     pub finished_on: Option<String>,
+    pub completed: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -411,6 +418,7 @@ pub fn start_game_run(
         GameRunInputDto {
             started_on: Some(started_on),
             finished_on: None,
+            completed: false,
         },
     )
 }
@@ -432,7 +440,8 @@ fn create_run_internal(
     let id = GameId::parse(&game_id).map_err(|e| e.to_string())?;
     let dates = parse_run_input(input)?;
     let now = Utc::now().to_rfc3339();
-    let run = GameRun::new(id.clone(), dates.0, dates.1, now).map_err(|e| e.to_string())?;
+    let run =
+        GameRun::new(id.clone(), dates.0, dates.1, dates.2, now).map_err(|e| e.to_string())?;
     let mut connection = database
         .connection
         .lock()
@@ -473,7 +482,7 @@ pub fn finish_game_run(
             .map_err(|e| e.to_string())?
             .ok_or_else(|| "No existe la partida solicitada.".to_owned())?;
         game_id = run.game_id.clone();
-        run.update(run.started_on, Some(end), Utc::now().to_rfc3339())
+        run.update(run.started_on, Some(end), true, Utc::now().to_rfc3339())
             .map_err(|e| e.to_string())?;
         repository.update_run(&run).map_err(|e| e.to_string())?;
         repository
@@ -505,7 +514,7 @@ pub fn update_game_run(
             .map_err(|e| e.to_string())?
             .ok_or_else(|| "No existe la partida solicitada.".to_owned())?;
         game_id = run.game_id.clone();
-        run.update(dates.0, dates.1, Utc::now().to_rfc3339())
+        run.update(dates.0, dates.1, dates.2, Utc::now().to_rfc3339())
             .map_err(|e| e.to_string())?;
         repository.update_run(&run).map_err(|e| e.to_string())?;
         repository
@@ -615,13 +624,13 @@ pub fn get_game_statistics(
             .iter()
             .filter(|game| {
                 runs.iter()
-                    .filter(|run| run.game_id == game.id && run.finished_on.is_some())
+                    .filter(|run| run.game_id == game.id && run.completed)
                     .count()
                     > 1
             })
             .count(),
         favorite_games: games.iter().filter(|g| g.favorite).count(),
-        completed_runs: runs.iter().filter(|r| r.finished_on.is_some()).count(),
+        completed_runs: runs.iter().filter(|r| r.completed).count(),
         average_score: (!scored.is_empty())
             .then(|| scored.iter().sum::<f64>() / scored.len() as f64),
         by_status: statuses
@@ -705,6 +714,7 @@ fn dto_from_parts(game: Game, runs: &[GameRun]) -> GameDto {
     GameDto {
         id: game.id.as_str().into(),
         name: game.name,
+        genres: game.genres,
         status: game.status.into(),
         score: game.score,
         opinion: game.opinion,
@@ -712,7 +722,7 @@ fn dto_from_parts(game: Game, runs: &[GameRun]) -> GameDto {
         archived: game.archived,
         updated_at: game.updated_at,
         has_cover: game.cover.is_some(),
-        completed_runs: runs.iter().filter(|run| run.finished_on.is_some()).count(),
+        completed_runs: runs.iter().filter(|run| run.completed).count(),
         has_open_run: runs.iter().any(|run| run.finished_on.is_none()),
         cover_position_x: game.cover_position_x,
         cover_position_y: game.cover_position_y,
@@ -721,20 +731,30 @@ fn dto_from_parts(game: Game, runs: &[GameRun]) -> GameDto {
 }
 fn parse_run_input(
     input: GameRunInputDto,
-) -> Result<(Option<NaiveDate>, Option<NaiveDate>), String> {
+) -> Result<(Option<NaiveDate>, Option<NaiveDate>, bool), String> {
     Ok((
         parse_date(input.started_on)?,
         parse_date(input.finished_on)?,
+        input.completed,
     ))
 }
 fn parse_date(value: Option<String>) -> Result<Option<NaiveDate>, String> {
-    value
+    let date = value
         .filter(|v| !v.trim().is_empty())
         .map(|v| {
             NaiveDate::parse_from_str(&v, "%Y-%m-%d")
                 .map_err(|_| "La fecha no es válida.".to_owned())
         })
-        .transpose()
+        .transpose()?;
+    if date.is_some_and(|value| value > madrid_today()) {
+        return Err("No se puede registrar una partida futura.".to_owned());
+    }
+    Ok(date)
+}
+
+fn madrid_today() -> NaiveDate {
+    let now = Utc::now().with_timezone(&Madrid);
+    NaiveDate::from_ymd_opt(now.year(), now.month(), now.day()).expect("fecha de chrono válida")
 }
 fn database_lock_error() -> String {
     "No se ha podido acceder a la base de datos.".to_owned()
@@ -748,6 +768,7 @@ impl TryFrom<GameInputDto> for GameDraft {
     fn try_from(value: GameInputDto) -> Result<Self, Self::Error> {
         Ok(Self {
             name: value.name,
+            genres: value.genres,
             status: value.status.into(),
             score: value.score,
             opinion: value.opinion,
@@ -784,8 +805,18 @@ impl From<GameRun> for GameRunDto {
             game_id: run.game_id.as_str().into(),
             started_on: run.started_on.map(|d| d.to_string()),
             finished_on: run.finished_on.map(|d| d.to_string()),
+            completed: run.completed,
         }
     }
 }
 
-use chrono::Datelike;
+#[cfg(test)]
+mod tests {
+    use super::parse_date;
+
+    #[test]
+    fn history_dates_reject_the_future() {
+        assert!(parse_date(Some("2000-01-01".into())).is_ok());
+        assert!(parse_date(Some("9999-01-01".into())).is_err());
+    }
+}

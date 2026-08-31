@@ -67,3 +67,11 @@ Este documento recoge conceptos de Tauri incorporados de forma consciente al pro
 - **Límite de responsabilidad:** Rust resuelve un `DocumentId`, comprueba que el documento exista y lee su archivo. React carga PDF.js, presenta las páginas y gestiona únicamente el estado visual del visor.
 - **Implicaciones de seguridad:** el worker de PDF.js forma parte del bundle y funciona sin red. Al cambiar o cerrar el documento se cancelan renderizados y se destruye la tarea de carga para liberar recursos.
 - **Ejemplo pequeño:** `read_document_pdf` responde con `Response::new(bytes)`; `invoke<ArrayBuffer>` entrega el cuerpo a `getDocument({ data: new Uint8Array(buffer) })`.
+
+### Derivados binarios privados
+
+- **Qué son:** archivos pequeños calculados a partir de un original administrado, como la miniatura JPEG de una portada GIF.
+- **Por qué se usan en NubeOS:** Biblioteca puede mostrar una imagen estática ligera sin transferir ni decodificar todas las animaciones al abrirse.
+- **Límite de responsabilidad:** Rust valida la identidad del título y guarda o lee la miniatura en una carpeta privada predecible; React genera el primer fotograma, solicita el GIF completo solo al interactuar y limita su caché de URLs.
+- **Implicaciones de seguridad:** la interfaz nunca aporta rutas, la miniatura debe ser JPEG y tiene un máximo de 1 MB. El borrado definitivo elimina original y derivado.
+- **Ejemplo pequeño:** `read_media_cover_thumbnail` devuelve bytes por IPC; si todavía no existe, React la genera una vez y `save_media_cover_thumbnail` la persiste para las siguientes visitas.

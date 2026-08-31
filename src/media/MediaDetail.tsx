@@ -6,6 +6,7 @@ import {
   GripVertical,
   History,
   Lightbulb,
+  ListVideo,
   Move,
   Eye,
   EyeOff,
@@ -16,12 +17,17 @@ import {
   X,
 } from "lucide-react";
 import Modal from "../ui/Modal";
+import ScoreTile from "../ui/ScoreTile";
 import SelectControl from "../ui/SelectControl";
+import SmartDateInput from "../ui/SmartDateInput";
+import { TrackerDetailTabs, TrackerMetricGrid } from "../ui/TrackerDetail";
 import type {
   MediaContent,
   MediaDetail,
+  MovieViewing,
   ProgressTarget,
   TrackingStatus,
+  WatchSession,
 } from "./api";
 import CoverImage from "./CoverImage";
 import CoverPositionEditor from "./CoverPositionEditor";
@@ -33,7 +39,6 @@ import {
   kindLabel,
   progressLabel,
   scoreColor,
-  scoreTone,
   statusLabel,
   todayMadrid,
   trackingStatuses,
@@ -41,6 +46,7 @@ import {
 
 export default function MediaDetailView({
   detail,
+  movieViewings,
   busy,
   close,
   editTitle,
@@ -58,9 +64,15 @@ export default function MediaDetailView({
   setTitleScore,
   setTitleFavorite,
   openHistory,
+  updateHistoryDates,
+  deleteHistoryGroup,
+  addMovieViewing,
+  editMovieViewing,
+  deleteMovieViewing,
   setCoverPosition,
 }: {
   detail: MediaDetail;
+  movieViewings: MovieViewing[];
   busy: boolean;
   close: () => void;
   editTitle: () => void;
@@ -72,7 +84,7 @@ export default function MediaDetailView({
     id: string,
     watched: number,
     date: string,
-  ) => Promise<void>;
+  ) => Promise<boolean>;
   removeContent: (content: MediaContent) => Promise<void>;
   omitContent: (content: MediaContent) => Promise<void>;
   reorder: (ids: string[]) => Promise<void>;
@@ -83,10 +95,20 @@ export default function MediaDetailView({
   setTitleScore: (score: number | null) => Promise<void>;
   setTitleFavorite: (favorite: boolean) => Promise<void>;
   openHistory: (titleId: string, contentId?: string) => void;
+  updateHistoryDates: (sessionIds: string[], watchedOn: string) => Promise<boolean>;
+  deleteHistoryGroup: (sessionIds: string[]) => Promise<boolean>;
+  addMovieViewing: (watchedOn: string) => Promise<boolean>;
+  editMovieViewing: (viewingId: string, watchedOn: string) => Promise<void>;
+  deleteMovieViewing: (viewingId: string) => Promise<void>;
   setCoverPosition: (x: number, y: number, zoom: number) => Promise<boolean>;
 }) {
   const { title } = detail;
   const [contentStatus, setContentStatus] = useState<TrackingStatus | "">("");
+  const [contentPanel, setContentPanel] = useState<"contents" | "history">("contents");
+  const [moviePanel, setMoviePanel] = useState<"summary" | "history">("summary");
+  const [registeringWatch, setRegisteringWatch] = useState(false);
+  const [registeringMovieWatch, setRegisteringMovieWatch] = useState(false);
+  const [editingMovieViewing, setEditingMovieViewing] = useState<MovieViewing | null>(null);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [dragPoint, setDragPoint] = useState<{ x: number; y: number } | null>(null);
@@ -104,6 +126,8 @@ export default function MediaDetailView({
       ),
     [contentStatus, detail.contents],
   );
+  const quickContent = detail.contents.find((content) => content.status === "watching" && content.canonStatus !== "omitted" && content.canIncrement)
+    ?? (title.nextContent?.canIncrement ? detail.contents.find((content) => content.id === title.nextContent?.id) ?? null : null);
   async function dropOn(targetId: string, sourceId = draggedId) {
     if (!sourceId || sourceId === targetId || contentStatus) return;
     const ids = detail.contents.map((content) => content.id);
@@ -171,6 +195,7 @@ export default function MediaDetailView({
           <div className="media-detail-cover-wrap ui-cover-adjust-host">
             <CoverImage
               alt={`Portada de ${title.name}`}
+              animated={title.animatedCover}
               className="media-detail-cover"
               hasCover={title.hasCover}
               positionX={title.coverPositionX}
@@ -182,22 +207,22 @@ export default function MediaDetailView({
             {!title.archived && title.hasCover && <button aria-label="Ajustar encuadre de portada" className="ui-cover-adjust-button" onClick={() => setPositioningCover(true)} type="button"><Move size={14} /> Ajustar</button>}
           </div>
           <div className="media-detail-heading">
+            {title.suggestedStatus && <div className="media-status-suggestion-row"><button className="media-status-suggestion" disabled={busy} onClick={() => void setTitleStatus(title.suggestedStatus!)} type="button"><Lightbulb size={14} /> Sugerencia: marcar como {statusLabel(title.suggestedStatus)}</button></div>}
             <div className="media-detail-kickers">
               <span>{title.isAnime && title.kind === "movie" ? "Película de anime" : kindLabel(title.kind)}</span>
             </div>
             <h2 id="media-detail-title">{title.name}</h2>
             {title.alternativeTitle && <p>{title.alternativeTitle}</p>}
-            {title.genres.length > 0 && <p>{title.genres.join(", ")}</p>}
-            <div className="media-detail-scores">
-              <QuickScore busy={busy} score={title.score} save={setTitleScore} />
-              {title.kind !== "movie" && (
-                <ScoreValue
-                  label="Media"
-                  score={title.averageContentScore}
-                />
-              )}
-            </div>
-            {title.suggestedStatus && <button className="media-status-suggestion" disabled={busy} onClick={() => void setTitleStatus(title.suggestedStatus!)} type="button"><Lightbulb size={14} /> Sugerencia: marcar como {statusLabel(title.suggestedStatus)}</button>}
+            {title.genres.length > 0 && <div className="media-genre-tags media-detail-genres">{title.genres.map((genre) => <span key={genre}>{genre}</span>)}</div>}
+          </div>
+          <div className="media-detail-scores">
+            <QuickScore busy={busy} score={title.score} save={setTitleScore} />
+            {title.kind !== "movie" && (
+              <ScoreValue
+                label="Media"
+                score={title.averageContentScore}
+              />
+            )}
           </div>
           <div className="media-detail-actions">
             <button aria-label="Ver historial del anime" className="media-icon-button" onClick={() => openHistory(title.id)} title="Ver historial del anime" type="button">
@@ -254,7 +279,6 @@ export default function MediaDetailView({
             <strong>{statusLabel(title.status)}</strong>
           </div>
         </section>
-
         {title.opinion && (
           <section className="media-opinion">
             <span>Opinión general</span>
@@ -263,26 +287,27 @@ export default function MediaDetailView({
         )}
 
         {title.kind === "movie" ? (
-          <section className="media-detail-section">
-            <SectionHeading title="Seguimiento" />
-            <ProgressEditor
-              busy={busy}
-              canIncrement={title.watchedUnits < 1 && title.status !== "dropped" && title.status !== "waitingContent"}
-              current={title.watchedUnits}
-              increment={() => increment("title", title.id)}
-              save={(watched, date) => setProgress("title", title.id, watched, date)}
-              total={1}
-            />
+          <section className="media-anime-movie-tracker">
+            <TrackerDetailTabs onChange={setMoviePanel} value={moviePanel} />
+            {moviePanel === "summary" ? <TrackerMetricGrid metrics={[
+              { label: "Puntuación", value: formatScore(title.score), score: title.score },
+              { label: "Visionados", value: movieViewings.length },
+              { label: "Estado", value: statusLabel(title.status) },
+            ]} /> : <div className="media-anime-movie-history">
+              <header><strong className="tracker-history-count"><History size={17} /> {movieViewings.length} {movieViewings.length === 1 ? "visionado registrado" : "visionados registrados"}</strong>{!title.archived && <div className="media-anime-movie-history-header-actions"><button className="secondary-button" disabled={busy} onClick={() => void addMovieViewing(todayMadrid())} type="button">Registrar hoy</button><button className="primary-button" disabled={busy} onClick={() => setRegisteringMovieWatch(true)} type="button"><Plus size={16} /> Registrar visionado</button></div>}</header>
+              {movieViewings.length === 0 ? <p className="media-muted">No hay visionados registrados.</p> : <div className="media-anime-movie-history-list">{movieViewings.map((viewing, index) => <article key={viewing.id}><CalendarDays size={16} /><div><strong>{index === movieViewings.length - 1 ? "Primer visionado" : `Visionado ${movieViewings.length - index}`}</strong><span>{formatDate(viewing.watchedOn)}</span></div>{!title.archived && <div className="media-anime-movie-history-actions"><button aria-label="Editar fecha del visionado" className="media-icon-button" disabled={busy} onClick={() => setEditingMovieViewing(viewing)} title="Editar" type="button"><Edit3 size={15} /></button><button aria-label="Eliminar visionado" className="media-icon-button danger" disabled={busy} onClick={() => { if (window.confirm("¿Eliminar este visionado del historial?")) void deleteMovieViewing(viewing.id); }} title="Eliminar" type="button"><Trash2 size={15} /></button></div>}</article>)}</div>}
+              <button className="media-progress-history" onClick={() => openHistory(title.id)} type="button"><History size={14} /> Ver historial completo</button>
+            </div>}
           </section>
         ) : (
           <section className="media-detail-section">
-            <div className="media-section-toolbar">
+            <div className="media-section-toolbar media-content-section-toolbar">
               <SectionHeading
-                subtitle={contentStatus ? "El orden se edita sin filtros" : "Arrastra para ajustar el orden recomendado"}
+                subtitle={contentPanel === "history" ? "Tus visionados, agrupados por contenido y fecha" : contentStatus ? "El orden se edita sin filtros" : "Arrastra para ajustar el orden recomendado"}
                 title="Contenidos"
               />
-              <div>
-                <SelectControl>
+              <div className="media-content-section-controls">
+                {contentPanel === "contents" && <SelectControl>
                   <select
                     aria-label="Filtrar contenidos por estado"
                     onChange={(event) => setContentStatus(event.target.value as TrackingStatus | "")}
@@ -293,15 +318,34 @@ export default function MediaDetailView({
                       <option key={status.value} value={status.value}>{status.label}</option>
                     ))}
                   </select>
-                </SelectControl>
-                {!title.archived && (
+                </SelectControl>}
+                {contentPanel === "contents" && !title.archived && (
                   <button className="primary-button" onClick={addContent} type="button">
                     <Plus size={16} /> Añadir contenido
                   </button>
                 )}
               </div>
             </div>
-            {contents.length === 0 ? (
+            <TrackerDetailTabs
+              onChange={(view) => setContentPanel(view === "summary" ? "contents" : "history")}
+              summaryIcon={<ListVideo size={16} />}
+              summaryLabel="Contenidos"
+              value={contentPanel === "contents" ? "summary" : "history"}
+            />
+            {contentPanel === "history" ? (
+              <AnimeHistoryPanel
+                archived={title.archived}
+                busy={busy}
+                contents={detail.contents}
+                openFullHistory={() => openHistory(title.id)}
+                quickAdd={quickContent ? () => increment("content", quickContent.id) : null}
+                quickAddLabel={quickContent?.name ?? null}
+                register={() => setRegisteringWatch(true)}
+                sessions={detail.sessions}
+                updateDates={updateHistoryDates}
+                deleteGroup={deleteHistoryGroup}
+              />
+            ) : contents.length === 0 ? (
               <div className="media-inline-empty">
                 {detail.contents.length === 0
                   ? "Añade la primera temporada, película, OVA o especial."
@@ -317,7 +361,6 @@ export default function MediaDetailView({
                     dragging={draggedId === content.id}
                     dropTarget={dropTarget === content.id}
                     editable={!title.archived}
-                    increment={() => increment("content", content.id)}
                     onPointerCancel={cancelPointerDrag}
                     onPointerDown={(event) => startPointerDrag(event, content.id)}
                     onPointerMove={movePointerDrag}
@@ -325,8 +368,6 @@ export default function MediaDetailView({
                     edit={() => editContent(content)}
                     remove={() => removeContent(content)}
                     omit={() => omitContent(content)}
-                    showHistory={() => openHistory(title.id, content.id)}
-                    setProgress={(watched, date) => setProgress("content", content.id, watched, date)}
                   />
                 ))}
               </div>
@@ -346,6 +387,9 @@ export default function MediaDetailView({
       </article>
     </Modal>
     {positioningCover && <CoverPositionEditor busy={busy} close={() => setPositioningCover(false)} landscape save={setCoverPosition} title={title} />}
+    {registeringWatch && <AnimeWatchForm busy={busy} close={() => setRegisteringWatch(false)} contents={detail.contents} register={(content, watched, date) => setProgress("content", content.id, watched, date)} />}
+    {registeringMovieWatch && <AnimeMovieWatchForm busy={busy} close={() => setRegisteringMovieWatch(false)} register={addMovieViewing} />}
+    {editingMovieViewing && <AnimeMovieHistoryDateForm busy={busy} close={() => setEditingMovieViewing(null)} viewing={editingMovieViewing} save={async (date) => { await editMovieViewing(editingMovieViewing.id, date); setEditingMovieViewing(null); }} />}
     </>
   );
 }
@@ -360,9 +404,6 @@ function ContentRow({
   edit,
   remove,
   omit,
-  showHistory,
-  increment,
-  setProgress,
   onPointerDown,
   onPointerMove,
   onPointerUp,
@@ -377,19 +418,14 @@ function ContentRow({
   edit: () => void;
   remove: () => Promise<void>;
   omit: () => Promise<void>;
-  showHistory: () => void;
-  increment: () => Promise<void>;
-  setProgress: (watched: number, date: string) => Promise<void>;
   onPointerDown: (event: React.PointerEvent) => void;
   onPointerMove: (event: React.PointerEvent) => void;
   onPointerUp: () => void;
   onPointerCancel: () => void;
 }) {
-  const [panel, setPanel] = useState<"information" | "history">("information");
-
   return (
     <article
-      className={`media-content-row panel-${panel}${dragging ? " dragging" : ""}${dropTarget ? " drop-target" : ""}${content.canonStatus === "omitted" ? " omitted" : ""}`}
+      className={`media-content-row${dragging ? " dragging" : ""}${dropTarget ? " drop-target" : ""}${content.canonStatus === "omitted" ? " omitted" : ""}`}
       data-media-content-id={content.id}
     >
       <button
@@ -405,45 +441,23 @@ function ContentRow({
         <GripVertical aria-hidden="true" size={18} />
       </button>
       <div className="media-content-copy">
-        <div className="media-content-card-toolbar">
-          <span className={`media-content-status-label status-${content.status}`}>{statusLabel(content.status)}</span>
-          <div className="media-content-panel-tabs" role="tablist" aria-label={`Vista de ${content.name}`}>
-            <button aria-selected={panel === "information"} className={panel === "information" ? "active" : ""} onClick={() => setPanel("information")} role="tab" type="button">Información</button>
-            <button aria-selected={panel === "history"} className={panel === "history" ? "active" : ""} onClick={() => setPanel("history")} role="tab" type="button">Historial</button>
-          </div>
-          {editable ? <div className="media-content-actions">
+        <div className="media-content-identity"><span className="media-content-order">#{content.position + 1}</span><strong>{conciseContentName(content.name, titleName)}</strong></div>
+        <span className={`media-content-status-label status-${content.status}`}>{statusLabel(content.status)}</span>
+        {editable && <div className="media-content-actions">
             <button aria-label={content.canonStatus === "omitted" ? `Volver a incluir ${content.name} como Canon` : `Omitir ${content.name} del progreso`} className="media-icon-button omit" disabled={busy} onClick={() => void omit()} title={content.canonStatus === "omitted" ? "Volver a incluir como Canon" : "Omitir del progreso"} type="button">{content.canonStatus === "omitted" ? <Eye size={16} /> : <EyeOff size={16} />}</button>
             <button aria-label={`Editar ${content.name}`} className="media-icon-button" onClick={edit} title="Editar" type="button"><Edit3 size={16} /></button>
             <button aria-label={`Eliminar ${content.name}`} className="media-icon-button danger" onClick={() => void remove()} title="Eliminar" type="button"><Trash2 size={16} /></button>
-          </div> : <span aria-hidden="true" className="media-content-actions-placeholder" />}
-        </div>
-        <div className="media-content-identity"><span className="media-content-order">#{content.position + 1}</span><strong>{conciseContentName(content.name, titleName)}</strong></div>
+          </div>}
       </div>
-      {panel === "information" && <div className="media-content-information">
-        <ProgressOverview current={content.watchedEpisodes} total={content.effectiveTotal} />
-        <div className="media-content-summary">
-          <div className="score" style={{ color: scoreColor(content.score) }}><small>Puntuación</small><strong><Star aria-hidden="true" fill={content.score === null ? "none" : "currentColor"} size={13} /> {content.score === null ? "—" : formatScore(content.score)}</strong></div>
-          <div><small>Tipo</small><strong>{contentKindLabel(content.kind)}</strong></div>
-          <div><small>Canonicidad</small><strong className={`canon-${content.canonStatus}`}>{canonLabel(content.canonStatus)}</strong></div>
-          <div><small>Último visionado</small><strong aria-label={content.lastActivityOn ? formatDate(content.lastActivityOn) : "Sin registros"}>{content.lastActivityOn ? formatDate(content.lastActivityOn) : "Sin registros"}</strong></div>
-          <div><small>Estreno</small><strong aria-label={content.releasedOn ? formatDate(content.releasedOn) : "Sin fecha de estreno"}>{content.releasedOn ? <><CalendarDays size={13} /> {formatDate(content.releasedOn)}</> : "\u00a0"}</strong></div>
-        </div>
+      <div className="media-content-information">
+        <div className="media-content-card-meta"><span>{contentKindLabel(content.kind)}</span><span className={`canon-${content.canonStatus}`}>{canonLabel(content.canonStatus)}</span></div>
+        <div className="media-content-card-dates"><span><CalendarDays size={13} /> Estreno {content.releasedOn ? formatDate(content.releasedOn) : "sin fecha"}</span><span><History size={13} /> Último visionado {content.lastActivityOn ? formatDate(content.lastActivityOn) : "sin registros"}</span></div>
         {(content.opinion || content.notes) && <div className="media-content-text">
           {content.opinion && <p>{content.opinion}</p>}
           {content.notes && <p className="media-content-notes">{content.notes}</p>}
         </div>}
-      </div>}
-      {panel === "history" && <div className="media-content-progress">
-        <ProgressEditor
-          busy={busy}
-          canIncrement={content.canIncrement}
-          current={content.watchedEpisodes}
-          increment={increment}
-          save={setProgress}
-          showHistory={showHistory}
-          total={content.effectiveTotal}
-        />
-      </div>}
+        <div className="media-content-card-footer"><div className="media-content-card-progress"><span>{contentProgressLabel(content)}</span><ProgressTrack current={content.watchedEpisodes} total={content.effectiveTotal} /></div><ScoreTile className="media-content-score-tile" score={content.score} /></div>
+      </div>
     </article>
   );
 }
@@ -462,49 +476,97 @@ function conciseContentName(name: string, titleName: string) {
   return result || original;
 }
 
-function ProgressEditor({
-  current,
-  total,
-  canIncrement,
-  busy,
-  increment,
-  save,
-  showHistory,
-}: {
-  current: number;
-  total: number | null;
-  canIncrement: boolean;
-  busy: boolean;
-  increment: () => Promise<void>;
-  save: (watched: number, date: string) => Promise<void>;
-  showHistory?: () => void;
-}) {
-  const [value, setValue] = useState(current.toString());
-  const [date, setDate] = useState(todayMadrid);
-  useEffect(() => setValue(current.toString()), [current]);
-  const hasChanges = value !== "" && Number(value) !== current;
-  return (
-    <div className={`media-progress-editor${showHistory ? " with-history" : ""}`}>
-      <ProgressOverview current={current} total={total} />
-      <div className="media-progress-controls">
-        <label><span>Corregir progreso</span><div className="media-progress-value"><input aria-label="Episodios vistos" disabled={busy} min={0} onChange={(event) => setValue(event.target.value)} step={1} type="number" value={value} /><span>de {total ?? "?"}</span></div></label>
-        <label><span>Fecha del registro</span><input aria-label="Fecha del avance" className="media-progress-date" max={todayMadrid()} onChange={(event) => setDate(event.target.value)} type="date" value={date} /></label>
-        <button aria-label="Registrar una unidad vista" className="media-plus-one" disabled={busy || !canIncrement} onClick={() => void increment()} type="button">Registrar +1</button>
-      </div>
-      <div className="media-progress-actions-row">
-        {showHistory && <button className="media-progress-history" onClick={showHistory} type="button"><History aria-hidden="true" size={13} /> Ver historial completo</button>}
-        <button className="media-save-progress" disabled={busy || !hasChanges} onClick={() => void save(Number(value), date)} type="button">Guardar cambios</button>
-      </div>
-    </div>
-  );
+function contentProgressLabel(content: MediaContent): string {
+  if (content.kind !== "season" && content.effectiveTotal === 1) {
+    return content.watchedEpisodes >= 1 ? "Visto" : "No visto";
+  }
+  return `${content.watchedEpisodes} de ${content.effectiveTotal ?? "?"} episodios`;
 }
 
-function ProgressOverview({ current, total }: { current: number; total: number | null }) {
+function ProgressTrack({ current, total }: { current: number; total: number | null }) {
   const progress = total && total > 0 ? Math.min(100, Math.round((current / total) * 100)) : null;
-  return <div className="media-progress-overview">
-    <div><span>Progreso registrado</span><strong>{current} <small>de {total ?? "?"}</small></strong></div>
-    {progress !== null && <div className="media-progress-track" aria-label={`${progress}% completado`} role="progressbar" aria-valuemax={100} aria-valuemin={0} aria-valuenow={progress}><span style={{ width: `${progress}%` }} /></div>}
+  return progress === null ? null : <div className="media-progress-track" aria-label={`${progress}% completado`} role="progressbar" aria-valuemax={100} aria-valuemin={0} aria-valuenow={progress}><span style={{ width: `${progress}%` }} /></div>;
+}
+
+type WatchGroup = {
+  key: string;
+  content: MediaContent;
+  watchedOn: string;
+  episodes: number[];
+  sessionIds: string[];
+  canDelete: boolean;
+};
+
+function groupWatchSessions(sessions: WatchSession[], contents: MediaContent[]): WatchGroup[] {
+  const contentMap = new Map(contents.map((content) => [content.id, content]));
+  const groups = new Map<string, Omit<WatchGroup, "canDelete">>();
+  sessions.forEach((session) => {
+    if (!session.contentId) return;
+    const content = contentMap.get(session.contentId);
+    if (!content) return;
+    const key = `${session.contentId}:${session.watchedOn}`;
+    const group = groups.get(key) ?? { key, content, watchedOn: session.watchedOn, episodes: [], sessionIds: [] };
+    group.episodes.push(session.episodeNumber);
+    group.sessionIds.push(session.id);
+    groups.set(key, group);
+  });
+  return [...groups.values()].map((group) => {
+    const pairs = group.episodes.map((episode, index) => ({ episode, id: group.sessionIds[index] })).sort((a, b) => b.episode - a.episode);
+    const episodes = pairs.map((pair) => pair.episode).sort((a, b) => a - b);
+    const highest = episodes[episodes.length - 1] ?? 0;
+    const contiguous = episodes.every((episode, index) => index === 0 || episode === episodes[index - 1] + 1);
+    return { ...group, episodes, sessionIds: pairs.map((pair) => pair.id), canDelete: contiguous && highest === group.content.watchedEpisodes };
+  }).sort((a, b) => b.watchedOn.localeCompare(a.watchedOn) || (b.episodes[b.episodes.length - 1] ?? 0) - (a.episodes[a.episodes.length - 1] ?? 0));
+}
+
+function watchGroupLabel(group: WatchGroup) {
+  const first = group.episodes[0];
+  const last = group.episodes[group.episodes.length - 1] ?? first;
+  if (group.content.kind === "season") return `${group.content.name} · ${first === last ? `Episodio ${first}` : `Episodios ${first}–${last}`}`;
+  if (group.content.kind === "movie") return `Película “${group.content.name}” vista`;
+  if (group.content.kind === "ova") return `OVA “${group.content.name}” visto`;
+  return `Especial “${group.content.name}” visto`;
+}
+
+function AnimeHistoryPanel({ archived, busy, contents, sessions, register, quickAdd, quickAddLabel, openFullHistory, updateDates, deleteGroup }: { archived: boolean; busy: boolean; contents: MediaContent[]; sessions: WatchSession[]; register: () => void; quickAdd: (() => Promise<void>) | null; quickAddLabel: string | null; openFullHistory: () => void; updateDates: (ids: string[], date: string) => Promise<boolean>; deleteGroup: (ids: string[]) => Promise<boolean> }) {
+  const groups = useMemo(() => groupWatchSessions(sessions, contents), [contents, sessions]);
+  const [editing, setEditing] = useState<WatchGroup | null>(null);
+  const canRegister = contents.some((content) => content.canonStatus !== "omitted" && content.canIncrement);
+  return <div className="media-anime-history-panel">
+    <header><strong className="tracker-history-count"><History size={17} /> {sessions.length} {sessions.length === 1 ? "episodio registrado" : "episodios registrados"}</strong><div className="media-anime-history-header-actions"><button className="secondary-button" onClick={openFullHistory} type="button"><History size={15} /> Ver historial completo</button>{!archived && quickAdd && <button className="secondary-button media-history-quick-add" disabled={busy} onClick={() => void quickAdd()} title={quickAddLabel ? `Añadir un episodio de ${quickAddLabel}` : "Añadir un episodio"} type="button">+1 episodio</button>}{!archived && <button className="primary-button" disabled={busy || !canRegister} onClick={register} type="button"><Plus size={16} /> Registrar visionado</button>}</div></header>
+    {groups.length === 0 ? <div className="media-inline-empty">Todavía no hay visionados registrados.</div> : <div className="media-anime-history-list">{groups.map((group) => <article key={group.key}><History size={16} /><div><strong>{watchGroupLabel(group)}</strong><span>{formatDate(group.watchedOn)}</span></div>{!archived && <div className="media-anime-history-actions"><button aria-label={`Editar ${watchGroupLabel(group)}`} className="media-icon-button" disabled={busy} onClick={() => setEditing(group)} title="Editar fecha" type="button"><Edit3 size={15} /></button><button aria-label={`Eliminar ${watchGroupLabel(group)}`} className="media-icon-button danger" disabled={busy || !group.canDelete} onClick={() => { if (window.confirm("¿Eliminar este registro y actualizar el progreso?")) void deleteGroup(group.sessionIds); }} title={group.canDelete ? "Eliminar y actualizar progreso" : "Solo se puede retirar el último bloque de cada contenido"} type="button"><Trash2 size={15} /></button></div>}</article>)}</div>}
+    {editing && <AnimeHistoryDateForm busy={busy} close={() => setEditing(null)} group={editing} save={async (date) => { if (await updateDates(editing.sessionIds, date)) setEditing(null); }} />}
   </div>;
+}
+
+function AnimeHistoryDateForm({ group, busy, close, save }: { group: WatchGroup; busy: boolean; close: () => void; save: (date: string) => Promise<void> }) {
+  const [date, setDate] = useState(group.watchedOn);
+  return <Modal className="media-watch-form-dialog" labelledBy="anime-history-date-title" onClose={close}><form className="media-watch-form" onSubmit={(event) => { event.preventDefault(); void save(date); }}><header><div><h2 id="anime-history-date-title">Editar visionado</h2><p>{watchGroupLabel(group)}</p></div><button aria-label="Cerrar" className="media-icon-button" onClick={close} type="button"><X size={18} /></button></header><label>Fecha<SmartDateInput disabled={busy} max={todayMadrid()} onChange={setDate} required value={date} /></label><footer><button className="secondary-button" onClick={close} type="button">Cancelar</button><button className="primary-button" disabled={busy || date === group.watchedOn} type="submit">Guardar</button></footer></form></Modal>;
+}
+
+function AnimeMovieWatchForm({ busy, close, register }: { busy: boolean; close: () => void; register: (date: string) => Promise<boolean> }) {
+  const [date, setDate] = useState(todayMadrid);
+  return <Modal className="media-watch-form-dialog" labelledBy="anime-movie-watch-form-title" onClose={close}><form className="media-watch-form" onSubmit={async (event) => { event.preventDefault(); if (await register(date)) close(); }}><header><div><h2 id="anime-movie-watch-form-title">Registrar visionado</h2><p>Elige cuándo viste la película.</p></div><button aria-label="Cerrar" className="media-icon-button" onClick={close} type="button"><X size={18} /></button></header><label>Fecha del visionado<SmartDateInput disabled={busy} max={todayMadrid()} onChange={setDate} required value={date} /></label><footer><button className="secondary-button" onClick={close} type="button">Cancelar</button><button className="primary-button" disabled={busy || !date} type="submit"><Plus size={16} /> Registrar visionado</button></footer></form></Modal>;
+}
+
+function AnimeMovieHistoryDateForm({ viewing, busy, close, save }: { viewing: MovieViewing; busy: boolean; close: () => void; save: (date: string) => Promise<void> }) {
+  const [date, setDate] = useState(viewing.watchedOn);
+  return <Modal className="media-watch-form-dialog" labelledBy="anime-movie-history-date-title" onClose={close}><form className="media-watch-form" onSubmit={(event) => { event.preventDefault(); void save(date); }}><header><div><h2 id="anime-movie-history-date-title">Editar visionado</h2><p>Corrige la fecha sin alterar el resto de la película.</p></div><button aria-label="Cerrar" className="media-icon-button" onClick={close} type="button"><X size={18} /></button></header><label>Fecha del visionado<SmartDateInput disabled={busy} max={todayMadrid()} onChange={setDate} required value={date} /></label><footer><button className="secondary-button" onClick={close} type="button">Cancelar</button><button className="primary-button" disabled={busy || !date || date === viewing.watchedOn} type="submit">Guardar</button></footer></form></Modal>;
+}
+
+function AnimeWatchForm({ contents, busy, close, register }: { contents: MediaContent[]; busy: boolean; close: () => void; register: (content: MediaContent, watched: number, date: string) => Promise<boolean> }) {
+  const available = useMemo(() => contents.filter((content) => content.canonStatus !== "omitted" && content.canIncrement), [contents]);
+  const [contentId, setContentId] = useState(available[0]?.id ?? "");
+  const [quantity, setQuantity] = useState("1");
+  const [date, setDate] = useState(todayMadrid);
+  const content = available.find((item) => item.id === contentId) ?? null;
+  const remaining = content?.effectiveTotal === null || content?.effectiveTotal === undefined ? null : Math.max(0, content.effectiveTotal - content.watchedEpisodes);
+  const amount = Number(quantity);
+  const valid = Boolean(content && Number.isInteger(amount) && amount > 0 && (remaining === null || amount <= remaining));
+  const next = content ? content.watchedEpisodes + amount : 0;
+  const singleUnit = content && content.kind !== "season" && remaining === 1;
+  const preview = content ? singleUnit ? `Se registrará “${content.name}” como visto.` : amount === 1 ? `Se registrará el episodio ${next} de ${content.name}.` : `Se registrarán los episodios ${content.watchedEpisodes + 1}–${next} de ${content.name}.` : "Elige un contenido para continuar.";
+  return <Modal className="media-watch-form-dialog" labelledBy="anime-watch-form-title" onClose={close}><form className="media-watch-form" onSubmit={async (event) => { event.preventDefault(); if (content && valid && await register(content, next, date)) close(); }}><header><div><h2 id="anime-watch-form-title">Registrar visionado</h2><p>Añade varios episodios en una sola entrada visual.</p></div><button aria-label="Cerrar" className="media-icon-button" onClick={close} type="button"><X size={18} /></button></header>{available.length === 0 ? <p className="media-muted">No quedan contenidos disponibles para avanzar.</p> : <><label>Contenido<SelectControl><select disabled={busy} onChange={(event) => { setContentId(event.target.value); setQuantity("1"); }} value={contentId}>{available.map((item) => <option key={item.id} value={item.id}>{item.name} ({item.watchedEpisodes} de {item.effectiveTotal ?? "?"})</option>)}</select></SelectControl></label><div className="media-watch-form-grid">{!singleUnit && <label>Episodios vistos<input disabled={busy} max={remaining ?? undefined} min={1} onChange={(event) => setQuantity(event.target.value)} required step={1} type="number" value={quantity} /></label>}<label>Fecha<SmartDateInput disabled={busy} max={todayMadrid()} onChange={setDate} required value={date} /></label></div><div className="media-watch-preview"><span>Después del registro</span><strong>{preview}</strong>{content && <small>El progreso quedará en {next} de {content.effectiveTotal ?? "?"}.</small>}</div></>}<footer><button className="secondary-button" onClick={close} type="button">Cancelar</button><button className="primary-button" disabled={busy || !valid} type="submit"><Plus size={16} /> Registrar visionado</button></footer></form></Modal>;
 }
 
 function QuickScore({ score, busy, save }: { score: number | null; busy: boolean; save: (score: number | null) => Promise<void> }) {
@@ -539,9 +601,9 @@ function QuickScore({ score, busy, save }: { score: number | null; busy: boolean
     if (changed) await save(parsed);
   }
   return (
-    <label className={`media-quick-score score-${scoreTone(visualScore)}`} style={{ color: scoreColor(visualScore) }}>
+    <label className="media-quick-score">
       <span>Tu puntuación</span>
-      <div>
+      <div className={`media-detail-editable-score ui-score-tile${visualScore === null ? " unrated" : ""}`} style={visualScore === null ? undefined : { backgroundColor: scoreColor(visualScore), borderColor: scoreColor(visualScore) }}>
         <input
           aria-invalid={!valid}
           aria-label="Tu puntuación"
@@ -557,11 +619,9 @@ function QuickScore({ score, busy, save }: { score: number | null; busy: boolean
           }}
           placeholder="—"
           step={0.1}
-          style={{ color: scoreColor(visualScore) }}
           type="number"
           value={value}
         />
-        <strong>/ 10</strong>
       </div>
     </label>
   );
@@ -575,9 +635,9 @@ function ScoreValue({
   score: number | null;
 }) {
   return (
-    <div className={`media-score-card score-${scoreTone(score)}`} style={{ borderColor: scoreColor(score) }}>
+    <div className="media-score-card">
       <span>{label}</span>
-      <strong style={{ color: scoreColor(score) }}>{formatScore(score)}</strong>
+      <ScoreTile score={score} />
     </div>
   );
 }

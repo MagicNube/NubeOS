@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { ImagePlus, Star, Trash2, X } from "lucide-react";
 import Modal from "../ui/Modal";
 import SelectControl from "../ui/SelectControl";
+import SmartDateInput from "../ui/SmartDateInput";
 import { notifyCoverChanged } from "../ui/coverRefresh";
 import { pastedCoverAsJpeg } from "../ui/pastedCover";
 import type {
@@ -21,11 +22,16 @@ import {
   canonStatuses,
   contentKinds,
   scoreColor,
-  todayMadrid,
   trackingStatuses,
 } from "./presentation";
 
 const parseScore = (value: string) => value ? Number(value.replace(",", ".")) : null;
+const animeGenres = [
+  "Acción", "Aventura", "Comedia", "Drama", "Fantasía", "Ciencia ficción",
+  "Romance", "Misterio", "Terror", "Deportes", "Escolar", "Slice of Life",
+  "Sobrenatural", "Psicológico", "Thriller", "Mecha", "Música", "Histórico",
+  "Ecchi", "Isekai", "Otro",
+];
 
 export function MediaTitleForm({
   detail,
@@ -48,7 +54,7 @@ export function MediaTitleForm({
   const [alternativeTitle, setAlternativeTitle] = useState(
     title?.alternativeTitle ?? "",
   );
-  const [genres, setGenres] = useState(title?.genres.join(", ") ?? "");
+  const [genres, setGenres] = useState<string[]>(title?.genres ?? []);
   const [kind, setKind] = useState<MediaKind>(initialKind);
   const [status, setStatus] = useState<TrackingStatus>(
     title?.status ?? "pending",
@@ -57,8 +63,8 @@ export function MediaTitleForm({
   const [opinion, setOpinion] = useState(title?.opinion ?? "");
   const [favorite, setFavorite] = useState(title?.favorite ?? false);
   const [isAnime, setIsAnime] = useState(title?.isAnime ?? area === "anime");
-  const [startedOn, setStartedOn] = useState(title?.startedOn ?? "");
-  const [finishedOn, setFinishedOn] = useState(title?.finishedOn ?? "");
+  const startedOn = title?.startedOn ?? "";
+  const finishedOn = title?.finishedOn ?? "";
   const [currentSeason, setCurrentSeason] = useState(title?.currentSeason?.toString() ?? "");
   const [currentEpisode, setCurrentEpisode] = useState(title?.currentEpisode?.toString() ?? "");
   const [cover, setCover] = useState<PendingCover | null>(null);
@@ -67,7 +73,7 @@ export function MediaTitleForm({
   const [coverError, setCoverError] = useState<string | null>(null);
   const initialFingerprint = useMemo(() => JSON.stringify({
     name: title?.name ?? "", alternativeTitle: title?.alternativeTitle ?? "",
-    genres: title?.genres.join(", ") ?? "", kind: initialKind,
+    genres: title?.genres ?? [], kind: initialKind,
     status: title?.status ?? "pending", score: title?.score?.toString() ?? "",
     opinion: title?.opinion ?? "", favorite: title?.favorite ?? false,
     isAnime: title?.isAnime ?? area === "anime", startedOn: title?.startedOn ?? "",
@@ -87,6 +93,8 @@ export function MediaTitleForm({
       if (cover) await mediaApi.discardCover(cover.token).catch(() => undefined);
       setCover(selected);
       setRemoveCover(false);
+    } catch (reason) {
+      setCoverError(mediaErrorMessage(reason));
     } finally {
       setCoverBusy(false);
     }
@@ -125,10 +133,7 @@ export function MediaTitleForm({
           void save({
             name,
             alternativeTitle: alternativeTitle.trim() || null,
-            genres: genres
-              .split(",")
-              .map((genre) => genre.trim())
-              .filter(Boolean),
+            genres,
             primaryStudio: null,
             kind,
             isAnime,
@@ -165,10 +170,7 @@ export function MediaTitleForm({
                 Título alternativo (opcional)
                 <input maxLength={150} onChange={(event) => setAlternativeTitle(event.target.value)} placeholder={area === "anime" ? "Título alternativo del anime" : area === "series" ? "Título alternativo de la serie" : "Título alternativo de la película"} value={alternativeTitle} />
               </label>
-              {area === "anime" && <label className="media-field media-field-wide">
-                Géneros (separados por comas)
-                <input maxLength={500} onChange={(event) => setGenres(event.target.value)} placeholder="Acción, Comedia, Fantasía" value={genres} />
-              </label>}
+              {area === "anime" && <div className="media-genre-field media-field-wide"><span>Géneros</span><div>{[...new Set([...animeGenres, ...genres])].map((genre) => <button className={genres.includes(genre) ? "active" : ""} key={genre} onClick={() => setGenres((current) => current.includes(genre) ? current.filter((item) => item !== genre) : [...current, genre])} type="button">{genre}</button>)}</div></div>}
               {area === "anime" && <label className="media-field">
                 Formato
                 <SelectControl><select disabled={Boolean(detail?.contents.length)} onChange={(event) => setKind(event.target.value as MediaKind)} value={kind}><option value="anime">Serie o franquicia</option><option value="movie">Película independiente</option></select></SelectControl>
@@ -188,10 +190,7 @@ export function MediaTitleForm({
               {area === "series" && <>
                 <label className="media-field">Temporada actual (opcional)<input min={1} onChange={(event) => setCurrentSeason(event.target.value)} placeholder="Ej. 2" step={1} type="number" value={currentSeason} /></label>
                 <label className="media-field">Episodio actual (opcional)<input min={1} onChange={(event) => setCurrentEpisode(event.target.value)} placeholder="Ej. 5" step={1} type="number" value={currentEpisode} /></label>
-                <label className="media-field">Fecha de inicio (opcional)<input max={todayMadrid()} onChange={(event) => setStartedOn(event.target.value)} type="date" value={startedOn} /></label>
-                <label className="media-field">Fecha de finalización (opcional)<input max={todayMadrid()} onChange={(event) => { setFinishedOn(event.target.value); if (event.target.value) setStatus("completed"); }} type="date" value={finishedOn} /></label>
               </>}
-              {area === "anime" && kind === "movie" && <label className="media-field">Fecha de visionado (opcional)<input max={todayMadrid()} onChange={(event) => { setFinishedOn(event.target.value); if (event.target.value) setStatus("completed"); }} type="date" value={finishedOn} /></label>}
               {area === "movies" && title && <label className="media-check-field media-field-wide"><input checked={isAnime} onChange={(event) => setIsAnime(event.target.checked)} type="checkbox" />Mover esta película a Anime</label>}
             </div>
           </FormSection>
@@ -331,7 +330,7 @@ export function MediaContentForm({
                 Canonicidad
                 <SelectControl><select onChange={(event) => setCanonStatus(event.target.value as typeof canonStatus)} value={canonStatus}>{canonStatuses.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></SelectControl>
               </label>
-              <label className="media-field">Fecha de estreno (opcional)<input onChange={(event) => setReleasedOn(event.target.value)} type="date" value={releasedOn} /></label>
+              <label className="media-field">Fecha de estreno (opcional)<SmartDateInput onChange={setReleasedOn} value={releasedOn} /></label>
             </div>
           </FormSection>
 

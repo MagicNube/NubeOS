@@ -14,8 +14,10 @@
 .reading-view-heading p { margin: 0; color: #8e8791; font-size: 14px; }
 .reading-error { display: flex; justify-content: space-between; gap: 12px; padding: 10px 13px; margin-bottom: 16px; border: 1px solid #713b49; border-radius: 8px; color: #fecdd3; background: rgba(127, 29, 29, .18); font-size: 13px; }
 .reading-error button { display: grid; place-items: center; padding: 0; border: 0; color: inherit; background: transparent; cursor: pointer; }
-.reading-filters { display: grid; grid-template-columns: minmax(240px, 1.3fr) repeat(3, minmax(150px, .7fr)) 43px; gap: 10px; margin-bottom: 22px; }
-.reading-filters.without-favorite { grid-template-columns: minmax(240px, 1.3fr) repeat(3, minmax(150px, .7fr)); }
+.reading-filters { display: flex; flex-wrap: wrap; align-items: stretch; gap: 10px; margin-bottom: 22px; }
+.reading-filters > .reading-search { flex: 2 1 300px; }
+.reading-filters > .ui-select { flex: 1 1 185px; min-width: 175px; }
+.reading-filters > .ui-select:has(select[aria-label^="Ordenar"]) { flex-basis: 235px; }
 .reading-search { display: flex; align-items: center; gap: 10px; min-height: 43px; padding: 0 13px; border: 1px solid #39363b; border-radius: 8px; color: #77717b; background: #151416; }
 .reading-search input, .reading-filters select, .reading-form-modal input, .reading-form-modal select, .reading-form-modal textarea { width: 100%; border: 1px solid #39363b; border-radius: 8px; outline: 0; color: #f2eff3; background: #151416; font: inherit; font-size: var(--ui-control-font-size); }
 .reading-search input { min-width: 0; border: 0; background: transparent; }
@@ -45,7 +47,7 @@
 .reading-status.status-paused { border-color: #426686; color: #bfdbfe; background: rgba(30, 64, 175, .25); }
 .reading-status.status-abandoned { border-color: #7f3948; color: #fecdd3; background: rgba(127, 29, 29, .28); }
 .reading-genres { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 18px; }
-.reading-genres span { padding: 4px 7px; border-radius: 5px; color: #bdb5c2; background: #242126; font-size: 10px; }
+.reading-genres span { padding: 4px 8px; border: 1px solid #3d3741; border-radius: 6px; color: #bdb5c2; background: #242126; font-size: var(--ui-tag-font-size); line-height: 1.2; }
 .reading-card-footer { display: flex; align-items: end; justify-content: space-between; gap: 12px; margin-top: auto; padding-top: 18px; }
 .reading-card-dates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; min-width: 0; }
 .reading-card-dates > div { display: grid; gap: 4px; min-width: 0; }
@@ -64,7 +66,8 @@
 .reading-form-header h2, .reading-detail-header h2 { margin: 0; font-size: 23px; }
 .reading-form-header p, .reading-detail-header p { margin: 5px 0 0; color: #8c858e; font-size: 12px; }
 .reading-icon-action { display: grid; place-items: center; width: 38px; height: 38px; padding: 0; border: 1px solid #3a363c; border-radius: 8px; color: #aaa3ad; background: #1b191c; cursor: pointer; }
-.reading-icon-action:hover { border-color: #8b5cf6; color: #fff; }
+.reading-icon-action:hover, .reading-icon-action:focus-visible { border-color: #8b5cf6; color: #f5f3ff; background: rgba(139, 92, 246, .16); }
+.reading-favorite-action.active { border-color: #765bb0; color: #c4b5fd; background: rgba(139, 92, 246, .12); }
 .reading-form-modal fieldset { padding: 0; margin: 22px 0 0; border: 0; }
 .reading-form-modal legend { width: 100%; padding-bottom: 8px; margin-bottom: 12px; border-bottom: 1px solid #2f2c31; color: #a78bfa; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
 .reading-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
@@ -123,13 +126,9 @@
 .reading-run-modal .reading-form-grid { margin-top: 22px; }
 .reading-run-modal label { display: grid; min-width: 0; gap: 8px; color: #aaa3ac; font-size: 12px; font-weight: 650; }
 .reading-run-modal input { box-sizing: border-box; width: 100%; min-width: 0; min-height: 43px; padding: 0 12px; border: 1px solid #39363b; border-radius: 8px; outline: 0; color: #f2eff3; background: #151416; font: inherit; font-size: var(--ui-control-font-size); color-scheme: dark; }
-.reading-run-modal input[type="date"]::-webkit-datetime-edit,
-.reading-run-modal input[type="date"]::-webkit-datetime-edit-fields-wrapper,
-.reading-run-modal input[type="date"]::-webkit-datetime-edit-text,
-.reading-run-modal input[type="date"]::-webkit-datetime-edit-day-field,
-.reading-run-modal input[type="date"]::-webkit-datetime-edit-month-field,
-.reading-run-modal input[type="date"]::-webkit-datetime-edit-year-field { color: #f2eff3; -webkit-text-fill-color: #f2eff3; }
 .reading-run-modal input:focus { border-color: #8b5cf6; box-shadow: 0 0 0 2px rgba(139, 92, 246, .14); }
+.reading-run-modal label.tracker-run-completion { display: inline-flex; align-items: center; width: fit-content; min-height: 34px; padding: 7px 10px; gap: 8px; }
+.reading-run-modal label.tracker-run-completion input[type="checkbox"] { flex: 0 0 16px; width: 16px; height: 16px; min-height: 0; padding: 0; margin: 0; border-radius: 4px; box-shadow: none; accent-color: #8b5cf6; }
 
 @media (max-width: 1180px) {
   .reading-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }

@@ -3,14 +3,29 @@ use std::fmt;
 use chrono::NaiveDate;
 use uuid::Uuid;
 
-const ALLOWED_GENRES: [&str; 10] = [
+const ALLOWED_GENRES: [&str; 25] = [
     "Fantasía",
     "Ciencia ficción",
+    "Ficción contemporánea",
+    "Ficción literaria",
+    "Realismo mágico",
+    "Distopía",
     "Romance",
     "Misterio y suspense",
+    "Policíaca y crimen",
     "Terror",
     "Aventura",
     "Novela histórica",
+    "Clásicos",
+    "Juvenil",
+    "Cuentos",
+    "Poesía",
+    "Teatro",
+    "Humor",
+    "Ensayo",
+    "Biografía y memorias",
+    "Filosofía",
+    "No ficción",
     "Desarrollo personal",
     "Psicología",
     "Otro",
@@ -208,7 +223,7 @@ impl Book {
             || !zoom.is_finite()
             || !(0.0..=100.0).contains(&x)
             || !(0.0..=100.0).contains(&y)
-            || !(1.0..=2.0).contains(&zoom)
+            || !(0.25..=3.0).contains(&zoom)
         {
             return Err(ReadingError::InvalidCoverCrop);
         }
@@ -226,6 +241,7 @@ pub struct ReadingRun {
     pub book_id: BookId,
     pub started_on: Option<NaiveDate>,
     pub finished_on: Option<NaiveDate>,
+    pub completed: bool,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -235,14 +251,17 @@ impl ReadingRun {
         book_id: BookId,
         started_on: Option<NaiveDate>,
         finished_on: Option<NaiveDate>,
+        completed: bool,
         now: String,
     ) -> Result<Self, ReadingError> {
         validate_run_dates(started_on, finished_on)?;
+        validate_run_completion(finished_on, completed)?;
         Ok(Self {
             id: ReadingRunId::generate(),
             book_id,
             started_on,
             finished_on,
+            completed,
             created_at: now.clone(),
             updated_at: now,
         })
@@ -251,14 +270,24 @@ impl ReadingRun {
         &mut self,
         started_on: Option<NaiveDate>,
         finished_on: Option<NaiveDate>,
+        completed: bool,
         now: String,
     ) -> Result<(), ReadingError> {
         validate_run_dates(started_on, finished_on)?;
+        validate_run_completion(finished_on, completed)?;
         self.started_on = started_on;
         self.finished_on = finished_on;
+        self.completed = completed;
         self.updated_at = now;
         Ok(())
     }
+}
+
+fn validate_run_completion(end: Option<NaiveDate>, completed: bool) -> Result<(), ReadingError> {
+    if completed && end.is_none() {
+        return Err(ReadingError::CompletedRunWithoutEnd);
+    }
+    Ok(())
 }
 
 fn validate_run_dates(
@@ -310,6 +339,7 @@ pub enum ReadingError {
     InvalidCover,
     InvalidCoverCrop,
     MissingRunDate,
+    CompletedRunWithoutEnd,
 }
 
 impl fmt::Display for ReadingError {
@@ -327,6 +357,7 @@ impl fmt::Display for ReadingError {
             Self::InvalidCover => "La portada guardada no es válida.",
             Self::InvalidCoverCrop => "El encuadre de la portada no es válido.",
             Self::MissingRunDate => "La fecha de inicio de la lectura es obligatoria.",
+            Self::CompletedRunWithoutEnd => "Una lectura terminada necesita fecha final.",
         })
     }
 }
@@ -378,10 +409,22 @@ mod tests {
                 BookId::generate(),
                 None,
                 NaiveDate::from_ymd_opt(2026, 8, 2),
+                false,
                 "now".into(),
             )
             .unwrap_err(),
             ReadingError::MissingRunDate
+        );
+        assert_eq!(
+            ReadingRun::new(
+                BookId::generate(),
+                NaiveDate::from_ymd_opt(2026, 8, 1),
+                None,
+                true,
+                "now".into(),
+            )
+            .unwrap_err(),
+            ReadingError::CompletedRunWithoutEnd
         );
     }
 
@@ -403,5 +446,8 @@ mod tests {
                 .unwrap_err(),
             ReadingError::InvalidCoverCrop
         );
+        book.change_cover_crop(50.0, 50.0, 0.75, "later".into())
+            .unwrap();
+        assert_eq!(book.cover_zoom, 0.75);
     }
 }

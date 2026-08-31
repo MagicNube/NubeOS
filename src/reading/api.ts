@@ -30,9 +30,9 @@ export type ReadingBookInput = Omit<ReadingBook, "id" | "archived" | "updatedAt"
   coverToken?: string | null;
   removeCover?: boolean;
 };
-export type ReadingRun = { id: string; bookId: string; startedOn: string | null; finishedOn: string | null };
+export type ReadingRun = { id: string; bookId: string; startedOn: string | null; finishedOn: string | null; completed: boolean };
 export type ReadingDetail = ReadingBook & { runs: ReadingRun[] };
-export type ReadingRunInput = { startedOn: string | null; finishedOn: string | null };
+export type ReadingRunInput = { startedOn: string | null; finishedOn: string | null; completed: boolean };
 export type ReadingHistoryEntry = { run: ReadingRun; bookTitle: string; bookAuthor: string };
 
 export type PendingReadingCover = { token: string; originalName: string; mimeType: string; sizeBytes: number };

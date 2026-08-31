@@ -43,6 +43,7 @@ export type MediaTitle = {
   favorite: boolean;
   archived: boolean;
   hasCover: boolean;
+  animatedCover: boolean;
   coverPositionX: number;
   coverPositionY: number;
   coverZoom: number;
@@ -94,6 +95,7 @@ export type WatchSession = {
   canDelete: boolean;
 };
 export type MovieViewing = { id: string; titleId: string; watchedOn: string };
+export type SeriesRun = { id: string; titleId: string; startedOn: string; finishedOn: string | null };
 
 export type MediaHistoryEntry = {
   id: string;
@@ -228,13 +230,21 @@ export const mediaApi = {
     invoke<void>("discard_pending_media_cover", { token }),
   readCover: (titleId: string) =>
     invoke<ArrayBuffer>("read_media_cover", { titleId }),
-  statistics: (input: { area?: MediaArea | null; studio?: string | null; minimumScore?: number | null; completedYear?: number | null }) =>
+  readCoverThumbnail: (titleId: string) =>
+    invoke<ArrayBuffer>("read_media_cover_thumbnail", { titleId }),
+  saveCoverThumbnail: (titleId: string, bytes: number[]) =>
+    invoke<void>("save_media_cover_thumbnail", { titleId, bytes }),
+  statistics: (input: { area?: MediaArea | null; kind?: MediaKind | null; studio?: string | null; minimumScore?: number | null; completedYear?: number | null }) =>
     invoke<MediaStatistics>("get_media_statistics", { input }),
   listStudios: () => invoke<string[]>("list_media_studios"),
   movieViewings: (titleId?: string | null) => invoke<MovieViewing[]>("list_movie_viewings", { titleId: titleId ?? null }),
   createMovieViewing: (titleId: string, watchedOn: string) => invoke<MovieViewing[]>("create_movie_viewing", { titleId, watchedOn }),
   updateMovieViewing: (viewingId: string, watchedOn: string) => invoke<MovieViewing[]>("update_movie_viewing", { viewingId, watchedOn }),
   deleteMovieViewing: (viewingId: string) => invoke<MovieViewing[]>("delete_movie_viewing", { viewingId }),
+  seriesRuns: (titleId?: string | null) => invoke<SeriesRun[]>("list_series_runs", { titleId: titleId ?? null }),
+  createSeriesRun: (titleId: string, startedOn: string, finishedOn: string | null) => invoke<SeriesRun[]>("create_series_run", { titleId, startedOn, finishedOn }),
+  updateSeriesRun: (runId: string, startedOn: string, finishedOn: string | null) => invoke<SeriesRun[]>("update_series_run", { runId, startedOn, finishedOn }),
+  deleteSeriesRun: (runId: string) => invoke<SeriesRun[]>("delete_series_run", { runId }),
   history: (input: {
     area?: MediaArea | null;
     year?: number | null;

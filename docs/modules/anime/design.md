@@ -10,11 +10,11 @@ Anime franquicia 1 ─── N MediaContent 1 ─── N WatchSession
 Película anime    1 ─────────────────────── N WatchSession
 ```
 
-Una franquicia usa `MediaTitle(kind = anime, is_anime = true)`. Una película anime independiente usa `MediaTitle(kind = movie, is_anime = true)`. Una película vinculada continúa siendo `MediaContent(kind = movie)`.
+Una franquicia usa `MediaTitle(kind = anime, is_anime = true)`. Una película anime independiente usa `MediaTitle(kind = movie, is_anime = true)` y persiste sus visionados repetibles en `media_movie_viewings`. Una película vinculada continúa siendo `MediaContent(kind = movie)`.
 
 `MediaTitle` incorpora `catalog_number` y `genres`. El número es una identidad visual secuencial distinta del UUID técnico. `MediaContent` incorpora `started_on` y `notes`; `notes` conserva información objetiva y `opinion` la valoración personal.
 
-`WatchSession` representa una unidad vista, no un delta visual. Para un contenido guarda el número de episodio; para una película directa representa su única unidad. El progreso anterior a esta versión puede existir sin sesiones y se conserva como línea base sin inventar fechas.
+`WatchSession` representa una unidad vista de los contenidos de una franquicia, no un delta visual, y guarda su número de episodio. Las películas independientes usan `MovieViewing`, una entrada autónoma por visionado. El progreso anterior a esta versión puede existir sin sesiones y se conserva como línea base sin inventar fechas.
 
 ## Responsabilidades
 
@@ -45,7 +45,7 @@ Una franquicia usa `MediaTitle(kind = anime, is_anime = true)`. Una película an
 - Los formularios comparan su borrador normalizado con el valor inicial y confirman el cierre si existen cambios.
 - Anime no presenta ni solicita estudios de animación. Las columnas heredadas permanecen únicamente por compatibilidad con la persistencia audiovisual compartida.
 - Solo el estreno permanece editable como metadato del contenido. La primera y última actividad se calculan para presentación desde el historial persistido.
-- La Biblioteca mantiene dos minivistas efímeras en React: `Anime` muestra únicamente franquicias y `Películas Anime` únicamente películas independientes. No se crea otra entidad ni otro módulo.
+- La Biblioteca mantiene dos minivistas efímeras en React: `Anime` muestra únicamente franquicias y `Películas` únicamente películas independientes. Ambas parten de una única consulta y se filtran localmente, sin otra carga al alternarlas. No se crea otra entidad ni otro módulo.
 - El número de catálogo se asigna solo si `kind = anime`. Los números existentes de las franquicias son inmutables; una película nunca participa en el orden ni en el Top de anime.
 - `Mis top anime` se calcula sobre franquicias puntuadas y React limita la presentación a 5, 10 o 25 elementos según una preferencia visual local.
 - Favorito se modifica con una estrella en la cabecera mediante el mismo caso de uso de actualización; el formulario deja de presentar una casilla secundaria.
@@ -68,7 +68,7 @@ Una franquicia usa `MediaTitle(kind = anime, is_anime = true)`. Una película an
 - La estrella de Biblioteca es una acción superpuesta y hermana del botón que abre la tarjeta, evitando botones anidados. Persiste mediante el caso de uso existente y recarga la colección actual.
 - `StatusIconSelector` es un componente controlado reutilizado por la cabecera del anime y por cada contenido. Sus seis colores activos se definen con selectores de igual especificidad y cada icono expone tooltip visual, `title`, `aria-label` y `aria-pressed`.
 - La tarjeta distribuye identidad, clasificación, estado, progreso y acciones en columnas distintas. Tipo, canonicidad, último visionado y estreno usan una pequeña rejilla etiquetada.
-- `ProgressEditor` mantiene progreso, fecha y `+1` en la primera fila. En las tarjetas, `Guardar cambios` se alinea bajo el contador y `Ver historial` bajo la fecha; el guardado comunica su disponibilidad mediante el estado desactivado.
+- El registro de progreso vive en un único formulario de historial para toda la franquicia. El formulario elige contenido, fecha y cantidad, y delega en la operación persistente que crea una sesión por episodio.
 - La cabecera usa botones de icono con nombre accesible y tooltip para Historial, Favorito, Editar, Archivar y Cerrar. Solo muestra Tu puntuación y Media con el mismo tamaño; el estado textual ocupa la tercera celda del resumen inferior, junto a Progreso y Contenidos.
 - La identidad de cada contenido ocupa todo el ancho disponible junto a una puntuación alineada arriba. Debajo, Tipo, Canonicidad, Último visionado y Estreno forman una rejilla fluida de metadatos. La fecha de actividad se recibe calculada desde Rust y nunca se inventa. El acceso a Historial pertenece al bloque de seguimiento inferior.
 - `AnimeWorkspace` es dueño de la navegación efímera hacia Historial. Una operación `openHistory(titleId, contentId?)` cierra el detalle, activa la vista principal Historial, selecciona el anime y aplica opcionalmente el contenido.
@@ -88,20 +88,21 @@ La migración 0014 añade el número de catálogo, géneros serializados como JS
 
 La siguiente migración amplía las puntuaciones a 0–10, admite `image/gif` y añade el número de episodio a las sesiones nuevas. Las sesiones históricas con delta se conservan como legado legible; no se crean fechas ficticias para el progreso importado.
 
+La migración 0032 repara las películas Anime que heredaron progreso implícito del estado `Terminado`. Si conservaban una fecha explícita, crea la sesión histórica equivalente; si no existía fecha ni sesión, restablece únicamente el progreso para permitir registrar el primer visionado sin inventar actividad. La migración 0033 traslada después esas sesiones directas a `media_movie_viewings`, evitando duplicados y habilitando revisionados independientes. El estado manual se conserva.
+
 La carga desde Notion se ejecuta con una herramienta puntual fuera de las migraciones. Trabaja en una transacción, requiere una biblioteca Anime vacía, fija la secuencia en el mayor número importado y se elimina al terminar. El CSV y los datos personales no forman parte del repositorio.
 
 ## Decisiones aplazadas
 
 - Comprobar con uso real si una película vinculada necesita portada propia.
-- Modelar revisualizaciones o rutas alternativas solo cuando exista un caso real.
+- Modelar revisualizaciones de contenidos vinculados o rutas alternativas solo cuando exista un caso real; las películas independientes ya admiten revisionados.
 - El cambio entre Anime y Películas Anime conserva el contenido anterior durante la carga, lo atenúa y lo sustituye de una vez cuando llega la nueva colección; nunca aplica la ordenación nueva sobre datos antiguos.
-- Cada tarjeta de contenido tiene dos vistas locales. `Información` contiene puntuación, tipo, canonicidad, último visionado, estreno, opinión, estado y acciones secundarias. `Historial` contiene progreso, fecha, `+1`, guardado manual y acceso al historial global ya filtrado.
-- `Información` presenta puntuación, estado textual y metadatos mediante una rejilla-resumen común. Las acciones secundarias ocupan la esquina superior derecha y no comparten espacio con el resumen.
-- `Historial` distribuye el seguimiento en tres niveles: resumen de progreso, controles etiquetados para corrección/fecha/avance y acciones finales de guardado e historial global. No usa `space-between` para desplazar el bloque al fondo.
-- Las pestañas `Información` e `Historial` permanecen centradas en una barra superior propia. Las acciones ocupan su extremo derecho y el título comienza en una segunda línea independiente.
-- `Información` comienza con el mismo resumen de progreso que `Historial` y coloca debajo la rejilla de datos. El estado deja de ser una acción rápida de tarjeta y se modifica deliberadamente desde Editar.
+- Las tarjetas de contenido son resúmenes estables: identidad, estado, tipo, canonicidad, estreno, última actividad, progreso y puntuación. No contienen formularios ni pestañas propias.
+- La puntuación ocupa una celda compacta inspirada en SeriesGraph: fondo según el tramo de nota, cifra blanca y ausencia de estrellas para no confundirla con Favorito.
+- Las pestañas globales `Contenidos` e `Historial` permanecen centradas en la barra de sección. La primera muestra la cuadrícula ordenada; la segunda agrupa sesiones por contenido y fecha.
+- Historial imita la jerarquía de Lectura: contador, acceso al historial completo, avance rápido del siguiente contenido, registro múltiple y lista compacta. Cada bloque puede corregir su fecha y el bloque más reciente de cada contenido puede retirarse.
 - `cover_position_x` y `cover_position_y` guardan porcentajes entre 0 y 100 en `media_titles`. React permite arrastrar la portada dentro de un marco de la misma proporción que la vista actual y Rust valida y persiste la posición.
-- El estado del contenido se muestra como texto dentro del resumen de Información. Su modificación continúa en el formulario para no convertir de nuevo la tarjeta en un panel de controles rápidos.
+- El estado del contenido se muestra inmediatamente debajo del título. Su modificación continúa en el formulario para no convertir de nuevo la tarjeta en un panel de controles rápidos.
 - El estado textual ocupa el extremo superior izquierdo de la barra de navegación. El resumen inferior reserva una zona destacada a la puntuación y distribuye Tipo, Canonicidad, Último visionado y Estreno en dos filas, evitando una única tira de datos.
 
 - Historial presenta `Ver historial completo` a la izquierda y la confirmación manual a la derecha; el avance inmediato se denomina `Registrar +1` sin duplicar el signo mediante un icono.
@@ -118,3 +119,20 @@ La carga desde Notion se ejecuta con una herramienta puntual fuera de las migrac
 - Biblioteca, En curso, detalle y editor utilizan marcos 16:9 para franquicias y películas Anime.
 - La cuadrícula de Biblioteca presenta tres columnas normales para dar a cada portada suficiente anchura.
 - El encuadre y zoom persistidos siguen compartiendo el editor audiovisual existente; no se crea almacenamiento adicional.
+- El editor compartido separa la imagen fuente del resultado: el punto focal se puede elegir sobre la imagen completa y el marco final aplica posición y zoom persistidos.
+- Las portadas GIF muestran una insignia discreta mientras están congeladas; al reproducirse mediante `hover` o foco la insignia desaparece.
+- La primera reproducción genera y guarda una miniatura JPEG privada junto a la portada. Las cargas posteriores solicitan primero esa miniatura; el GIF original se lee solo al interactuar y una caché LRU conserva como máximo cuatro animaciones completas.
+
+## Navegación y estadísticas refinadas
+
+- El detalle mantiene una sola selección `Contenidos / Historial`; no existen pestañas ni controles de progreso repetidos dentro de las tarjetas.
+- La sugerencia de estado global pertenece al bloque central de identidad, centrada sobre el tipo y el título, y requiere confirmación explícita.
+- El registro central muestra el progreso persistido del contenido elegido, limita la cantidad al total conocido y anticipa el rango de episodios que se creará.
+- La consulta estadística acepta un ámbito opcional (`Anime`, `Película` o ambos) y aplica ese filtro en Rust antes de calcular totales, medias y rankings.
+- Una película Anime independiente presenta historial repetible y resumen sin mostrar un contador unitario que siempre sería `1 de 1`.
+- Su cabecera de Historial separa la acción rápida `Registrar hoy` de `Registrar visionado`, que abre un formulario fechado. Las entradas usan una lista compacta con acciones de edición y eliminación en `hover` o foco, igual que los historiales de los trackers simples.
+- La barra de contenidos usa tres columnas simétricas: título, selector global centrado y controles. En anchuras reducidas se apilan sin perder el centrado del selector.
+- Los géneros de tarjeta conservan ancho intrínseco y se agrupan desde la izquierda; nunca heredan la distribución espaciada del pie de progreso y puntuación.
+- La caja de puntuación de colección reutiliza las dimensiones de Lectura y el formateador compartido devuelve `—` para cualquier nota ausente.
+- La cabecera del detalle se divide en cuatro zonas reales: portada horizontal, identidad, puntuaciones y acciones. Las puntuaciones no viven debajo del título; el resumen de Progreso, Contenidos y Estado ocupa una segunda fila completa e independiente.
+- En anchuras intermedias, puntuaciones y acciones pasan a filas completas bajo portada e identidad. En móvil, las cuatro zonas se apilan sin deformar el marco 16:9.

@@ -1,4 +1,5 @@
-use chrono::{NaiveDate, Utc};
+use chrono::{Datelike, NaiveDate, Utc};
+use chrono_tz::Europe::Madrid;
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 
@@ -61,6 +62,8 @@ pub struct ListReadingBooksInputDto {
 pub struct ReadingRunInputDto {
     pub started_on: Option<String>,
     pub finished_on: Option<String>,
+    #[serde(default)]
+    pub completed: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -98,6 +101,7 @@ pub struct ReadingRunDto {
     pub book_id: String,
     pub started_on: Option<String>,
     pub finished_on: Option<String>,
+    pub completed: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -279,6 +283,7 @@ pub fn start_reading_run(
         ReadingRunInputDto {
             started_on: Some(started_on),
             finished_on: None,
+            completed: false,
         },
     )
 }
@@ -294,6 +299,7 @@ pub fn create_reading_run(
         id.clone(),
         parse_date(input.started_on)?,
         parse_date(input.finished_on)?,
+        input.completed,
         Utc::now().to_rfc3339(),
     )
     .map_err(|error| error.to_string())?;
@@ -332,6 +338,7 @@ pub fn finish_reading_run(
     run.update(
         run.started_on,
         parse_date(Some(finished_on))?,
+        true,
         Utc::now().to_rfc3339(),
     )
     .map_err(|error| error.to_string())?;
@@ -361,6 +368,7 @@ pub fn update_reading_run(
     run.update(
         parse_date(input.started_on)?,
         parse_date(input.finished_on)?,
+        input.completed,
         Utc::now().to_rfc3339(),
     )
     .map_err(|error| error.to_string())?;
@@ -774,13 +782,22 @@ impl TryFrom<ReadingBookInputDto> for BookDraft {
 }
 
 fn parse_date(value: Option<String>) -> Result<Option<NaiveDate>, String> {
-    value
+    let date = value
         .filter(|value| !value.trim().is_empty())
         .map(|value| {
             NaiveDate::parse_from_str(&value, "%Y-%m-%d")
                 .map_err(|_| "La fecha no es válida.".to_owned())
         })
-        .transpose()
+        .transpose()?;
+    if date.is_some_and(|value| value > madrid_today()) {
+        return Err("No se puede registrar una lectura futura.".to_owned());
+    }
+    Ok(date)
+}
+
+fn madrid_today() -> NaiveDate {
+    let now = Utc::now().with_timezone(&Madrid);
+    NaiveDate::from_ymd_opt(now.year(), now.month(), now.day()).expect("fecha de chrono válida")
 }
 
 impl From<ReadingStatusDto> for ReadingStatus {
@@ -837,6 +854,18 @@ impl From<ReadingRun> for ReadingRunDto {
             book_id: run.book_id.as_str().into(),
             started_on: run.started_on.map(|date| date.to_string()),
             finished_on: run.finished_on.map(|date| date.to_string()),
+            completed: run.completed,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_date;
+
+    #[test]
+    fn history_dates_reject_the_future() {
+        assert!(parse_date(Some("2000-01-01".into())).is_ok());
+        assert!(parse_date(Some("9999-01-01".into())).is_err());
     }
 }

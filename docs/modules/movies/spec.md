@@ -14,6 +14,7 @@ Mantener un tracker independiente y de baja fricción para películas convencion
 - Marcar una película como vista o volver a verla desde su detalle. Solo vuelve a Pendiente cuando deja de tener visionados registrados.
 - Registrar una sesión de visionado con la fecha elegida al marcarla como vista.
 - Registrar varios visionados de la misma película sin sobrescribir fechas anteriores.
+- Las fechas aceptan escritura local `dd/mm/aaaa`; un año de dos cifras se interpreta en el siglo XXI antes de validarse y persistirse.
 - Consultar, corregir y retirar visionados desde Historial.
 - Buscar, filtrar, archivar, restaurar y eliminar definitivamente.
 - Consultar estadísticas filtradas por año de finalización y puntuación mínima.

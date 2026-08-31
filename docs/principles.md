@@ -1,7 +1,7 @@
 # Principios de NubeOS
 
 - Estado: Aprobada por Nube
-- Última actualización: 2026-08-22
+- Última actualización: 2026-08-30
 
 Estos principios guían las decisiones cotidianas del proyecto. Una excepción debe ser explícita, acotada y justificada; si afecta a la arquitectura, requiere una ADR.
 
@@ -51,6 +51,7 @@ Estos principios guían las decisiones cotidianas del proyecto. Una excepción d
 - Los campos de búsqueda y filtrado usan los controles compartidos y una tipografía base de `14 px`. Un módulo no reduce su tamaño de texto ni altera su altura de forma independiente.
 - La escala tipográfica común distingue título de módulo, título de sección, título de tarjeta, texto de control y texto secundario mediante tokens globales. Los módulos no redefinen esos niveles sin una necesidad documentada.
 - En escritorio con puntero, editar, omitir y otras acciones secundarias de una tarjeta aparecen al pasar el cursor o al entrar con foco. En dispositivos sin `hover` permanecen visibles; los estados persistentes, como un favorito activo, no se ocultan.
+- Los botones iconográficos no destructivos de Anime, Lectura, Videojuegos, Películas y Series comparten borde, fondo y texto morados en `hover` y `focus-visible`; las acciones destructivas conservan su aviso rojo.
 - Todas las áreas desplazables reutilizan un scrollbar oscuro con acento morado y contraste suficiente; ningún módulo depende del estilo claro predeterminado del sistema.
 - Los formularios modales avisan antes de cerrar mediante botón, fondo o tecla Escape cuando contienen cambios sin guardar.
 - En una cabecera de colección, la acción secundaria `Archivo` se coloca inmediatamente antes de la acción principal de creación. En los módulos de entretenimiento ambas aparecen a la derecha de la cabecera de cada vista, junto a los filtros, y no en la barra superior de pestañas.
@@ -61,12 +62,25 @@ Estos principios guían las decisiones cotidianas del proyecto. Una excepción d
 - Todos los formularios de entretenimiento incluyen el mismo selector de favorito con estrella y utilizan ejemplos propios de su módulo; nunca reutilizan referencias de anime para libros, videojuegos, series o películas.
 - Los formularios principales de entretenimiento organizan sus campos mediante las secciones `Identificación`, `Seguimiento`, `Opinión` y `Portada`; cada módulo conserva únicamente los campos que necesita.
 - En las tarjetas de entretenimiento, el estado se presenta fuera de la imagen y la ordenación seleccionada se conserva entre sesiones; las fechas de inicio y finalización pueden ordenarse en ambos sentidos.
+- Las fechas resumidas de los trackers reutilizan la jerarquía de Lectura: etiqueta breve en mayúsculas y valor legible debajo; cuando existen inicio y fin se muestran en dos columnas equivalentes.
+- Los cinco trackers de entretenimiento reutilizan `--ui-card-title-font-size` para el título de sus tarjetas. Anime, Lectura y Videojuegos comparten además la misma escala tipográfica y un contenedor de puntuación de `58 × 48 px`; la ausencia de nota se representa siempre mediante `—`.
+- Todas las puntuaciones mostradas reutilizan la celda SeriesGraph compartida: texto blanco centrado, fondo determinado por el tramo de nota y estado vacío discontinuo. Formularios y controles de edición pueden conservar geometría propia, pero no inventan otra escala cromática.
+- Las etiquetas de género de Anime y Lectura reutilizan `--ui-tag-font-size` a `11 px`, padding `4 × 8 px`, borde y radio comunes. El espacio disponible puede limitar cuántas se muestran, pero no reducir su legibilidad.
 - Los títulos alternativos se conservan para búsqueda y detalle, pero no se muestran en las tarjetas de colección.
 - Los estados equivalentes conservan el mismo color en todos los trackers: completado en verde, actividad en morado, pausa en azul y abandono en rojo; las etiquetas generales no pueden sobrescribir sus colores.
 - Los trackers simples separan el detalle en `Resumen` e `Historial`. El resumen mantiene el orden puntuación, número de registros y estado; el historial concentra recorridos repetibles y sus acciones. Anime puede conservar una composición propia por su jerarquía de contenidos.
 - Los historiales de recorridos comparten cabecera compacta, número de registros y acciones a la derecha; lectura y videojuegos exigen fecha inicial y mantienen la fecha final opcional.
+- En Lectura y Videojuegos, cerrar un periodo y terminar la obra son datos distintos: una fecha final puede representar un abandono temporal y debe poder marcarse como `Sin terminar`.
 - La gestión de portadas utiliza siempre una acción iconográfica de papelera para retirarlas. Elegir o pegar otra imagen sustituye la anterior sin pasos intermedios y actualiza inmediatamente todas sus vistas abiertas.
 - Ajustar una portada permanece oculto hasta pasar el cursor por la imagen o alcanzar su botón mediante teclado; nunca recibe automáticamente el foco inicial de un modal.
+- El editor de encuadre muestra simultáneamente la imagen completa y el resultado final. El usuario puede elegir el punto focal sobre la imagen completa y afinar posición y zoom comprobando qué zona quedará realmente visible.
+- Las imágenes GIF se identifican mientras están detenidas y ocultan esa indicación durante la reproducción al pasar el cursor.
+- Las bibliotecas no descargan de entrada cada GIF completo: usan una miniatura estática persistente, cargan la animación al interactuar y limitan la caché de animaciones recientes.
+- Las barras de búsqueda y filtros de Media son flexibles: preservan una búsqueda amplia, permiten que los selectores salten de línea y nunca recortan el valor de ordenación para forzar una sola fila.
+- Las fechas editables de Media aceptan `dd/mm/aaaa` y años de dos cifras, que se normalizan al siglo XXI antes de persistir el valor ISO validado.
+- Los vocabularios reutilizables, como autores o géneros, recuperan valores existentes o presentan una selección visual; no obligan a reescribir datos repetidos ni a separar opciones mediante comas.
+- Una inferencia de estado nunca modifica silenciosamente una entidad: la interfaz propone el cambio y permite conservar el estado actual sin descartar el nuevo registro histórico.
+- Las inferencias de estado usan el diálogo compartido de NubeOS con las acciones explícitas `Mantener` y `Cambiar`; no dependen de confirmaciones nativas del WebView.
 - En Archivo, restaurar y eliminar definitivamente usan el componente compartido de dos botones iconográficos: flecha circular y papelera. Las acciones aparecen con hover o foco, y permanecen disponibles mediante teclado y en dispositivos sin hover.
 - La zona compartida contiene únicamente presentación y accesibilidad. Los textos, borradores, validaciones y decisiones de negocio siguen perteneciendo al módulo correspondiente.
 

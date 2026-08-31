@@ -2,15 +2,15 @@ import { invoke } from "@tauri-apps/api/core";
 
 export type GameStatus = "pending" | "playing" | "paused" | "completed" | "abandoned";
 export type Game = {
-  id: string; name: string; status: GameStatus; score: number | null; opinion: string | null;
+  id: string; name: string; genres: string[]; status: GameStatus; score: number | null; opinion: string | null;
   favorite: boolean; archived: boolean; updatedAt: string; hasCover: boolean;
   completedRuns: number; hasOpenRun: boolean;
   coverPositionX: number; coverPositionY: number; coverZoom: number;
 };
-export type GameRun = { id: string; gameId: string; startedOn: string | null; finishedOn: string | null };
+export type GameRun = { id: string; gameId: string; startedOn: string | null; finishedOn: string | null; completed: boolean };
 export type GameDetail = Game & { runs: GameRun[] };
-export type GameInput = Pick<Game, "name" | "status" | "score" | "opinion" | "favorite"> & { coverToken?: string | null; removeCover?: boolean };
-export type GameRunInput = { startedOn: string | null; finishedOn: string | null };
+export type GameInput = Pick<Game, "name" | "genres" | "status" | "score" | "opinion" | "favorite"> & { coverToken?: string | null; removeCover?: boolean };
+export type GameRunInput = { startedOn: string | null; finishedOn: string | null; completed: boolean };
 export type GameHistoryEntry = { run: GameRun; gameName: string };
 export type GameStatistics = {
   activeGames: number; playingGames: number; completedGames: number; replayedGames: number;

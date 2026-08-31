@@ -232,7 +232,6 @@ pub fn build_statistics(aggregates: &[MediaAggregate]) -> MediaStatistics {
     ];
     let mut top_titles: Vec<_> = active
         .iter()
-        .filter(|aggregate| aggregate.title.kind == MediaKind::Anime)
         .filter_map(|aggregate| {
             effective_title_score(aggregate).map(|score| {
                 (
@@ -465,7 +464,7 @@ mod tests {
     }
 
     #[test]
-    fn anime_top_keeps_all_franchises_and_excludes_independent_movies() {
+    fn ranking_keeps_every_scoped_title_with_a_score() {
         let mut aggregates: Vec<_> = (0..6)
             .map(|index| {
                 let mut franchise = title(MediaKind::Anime);
@@ -490,11 +489,11 @@ mod tests {
 
         let statistics = build_statistics(&aggregates);
 
-        assert_eq!(statistics.top_titles.len(), 6);
+        assert_eq!(statistics.top_titles.len(), 7);
         assert!(statistics
             .top_titles
             .iter()
-            .all(|(_, name, _)| name != "Película independiente"));
+            .any(|(_, name, _)| name == "Película independiente"));
     }
 
     #[test]
