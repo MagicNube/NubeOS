@@ -86,3 +86,10 @@
 - Alcance: conservar la transición de anchura tanto al contraer como al expandir la barra lateral y sustituir la marca con degradado por la opción A plana, con fondo morado sólido y N blanca.
 - Restricciones: los textos desaparecen progresivamente sin alterar la posición vertical de los destinos; `prefers-reduced-motion` continúa desactivando la transición.
 - Verificación: alternar repetidamente ambos estados de la barra, revisar el icono a tamaños pequeños y generar el bundle NSIS de producción.
+
+## T-I13 — Reparar el inicio automático en Windows
+
+- Estado: Implementada; comprobación tras reinicio pendiente de Nube.
+- Alcance: registrar la ruta real del ejecutable instalado en el inicio del usuario cada vez que se abre una build de producción.
+- Restricciones: no registrar ejecutables de desarrollo, no mostrar una consola auxiliar y no impedir la apertura de NubeOS si Windows rechaza la actualización.
+- Verificación: instalar y abrir la build, comprobar `HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run` y reiniciar Windows.

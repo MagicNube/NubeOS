@@ -72,6 +72,44 @@ use reading::commands::{
 };
 use reading::cover::ReadingCoverStore;
 
+#[cfg(all(target_os = "windows", not(debug_assertions)))]
+fn ensure_startup_registration() -> Result<(), String> {
+    use std::os::windows::process::CommandExt;
+
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    let executable = std::env::current_exe()
+        .map_err(|error| format!("unable to resolve the NubeOS executable: {error}"))?;
+    let startup_command = format!("\"{}\"", executable.display());
+    let status = std::process::Command::new("reg.exe")
+        .args([
+            "add",
+            r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run",
+            "/v",
+            "NubeOS",
+            "/t",
+            "REG_SZ",
+            "/d",
+        ])
+        .arg(startup_command)
+        .args(["/f"])
+        .creation_flags(CREATE_NO_WINDOW)
+        .status()
+        .map_err(|error| format!("unable to register NubeOS at startup: {error}"))?;
+
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!(
+            "unable to register NubeOS at startup: reg.exe exited with {status}"
+        ))
+    }
+}
+
+#[cfg(any(not(target_os = "windows"), debug_assertions))]
+fn ensure_startup_registration() -> Result<(), String> {
+    Ok(())
+}
+
 /// Coloca la ventana principal en una pantalla secundaria cuando existe y, en
 /// cualquier caso, inicia NubeOS maximizado pero conserva el modo ventana.
 ///
@@ -104,6 +142,10 @@ fn configure_main_window(window: &WebviewWindow) {
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
+            if let Err(error) = ensure_startup_registration() {
+                eprintln!("{error}");
+            }
+
             if let Some(window) = app.get_webview_window("main") {
                 configure_main_window(&window);
             }

@@ -110,3 +110,9 @@ Una vista aislada de Vite puede montar el mismo componente React con datos ficti
 - El diálogo compartido admite una alternativa recomendada y devuelve la elección, no escribe datos. Contiene el foco y restaura el control anterior; Escape equivale a Mantener.
 - Compartir un enum entre títulos y contenidos no implica compartir todas sus opciones: un estado exclusivo requiere validación de dominio, restricción SQLite y listas de selección por contexto. La prueba de migración debe partir de un esquema anterior con filas, no solo de una base vacía.
 - La jerarquía visual del progreso puede cambiar sin tocar el contrato Tauri: porcentaje y contador comparten una fila con alineación de línea base y salto flexible; los avisos de total desconocido se renderizan encima, mientras que la disponibilidad futura acompaña al estado en una fila compartida. Para anclar el pie abajo no basta con su margen automático: la tarjeta y el botón que contiene su cuerpo deben ocupar la altura disponible. Las filas de cabecera deben neutralizar ese margen y padding heredados para no generar espacios inesperados. Biblioteca y En curso reutilizan los mismos componentes y los valores derivados por Rust.
+
+### Inicio automático de una aplicación Tauri en Windows
+
+- El Administrador de tareas puede conservar un acceso de inicio obsoleto aunque su destino ya no exista. La presencia visual de la entrada no garantiza que Windows tenga un comando ejecutable.
+- Una build de producción puede resolver su ubicación estable con `std::env::current_exe` y registrar esa ruta entre comillas en `HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run`. Las builds de desarrollo se excluyen para no guardar una ruta temporal de `target/debug`.
+- `reg.exe` se ejecuta con `CREATE_NO_WINDOW` para evitar una consola fugaz. Un fallo se registra, pero no bloquea la apertura ni el acceso a los datos locales de NubeOS.
