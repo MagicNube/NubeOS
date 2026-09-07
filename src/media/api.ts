@@ -8,7 +8,8 @@ export type TrackingStatus =
   | "paused"
   | "completed"
   | "dropped"
-  | "waitingContent";
+  | "waitingContent"
+  | "toResume";
 export type ContentKind = "season" | "movie" | "ova" | "special";
 export type CanonStatus = "canon" | "recommended" | "optional" | "omitted";
 export type ProgressTarget = "title" | "content";
@@ -18,6 +19,9 @@ export type MediaProgress = {
   total: number | null;
   totalIncomplete: boolean;
   percentage: number | null;
+  knownPercentage?: number | null;
+  upcomingCount: number;
+  availableCompleted: boolean;
 };
 
 export type NextContent = {
@@ -68,6 +72,7 @@ export type MediaContent = {
   name: string;
   kind: ContentKind;
   status: TrackingStatus;
+  suggestedStatus: TrackingStatus | null;
   canonStatus: CanonStatus;
   totalEpisodes: number | null;
   effectiveTotal: number | null;
@@ -82,6 +87,7 @@ export type MediaContent = {
   position: number;
   canIncrement: boolean;
   firstActivityOn: string | null;
+  canRewatch: boolean;
   lastActivityOn: string | null;
 };
 
@@ -93,6 +99,20 @@ export type WatchSession = {
   episodeNumber: number;
   source: "quickAdd" | "manualAdjustment";
   canDelete: boolean;
+  registrationId: string;
+  isRewatch: boolean;
+  isChronologicalRewatch: boolean;
+  runId: string | null;
+};
+export type ContentRunStatus = "inProgress" | "completed" | "interrupted";
+export type ContentRun = {
+  id: string; contentId: string; ordinal: number; status: ContentRunStatus;
+  isProgressRun: boolean; firstOn: string; lastOn: string; watched: number;
+  nextEpisode: number | null; canComplete: boolean;
+};
+export type ContentRunRegistration = {
+  contentId: string; runId: string | null; firstEpisode: number; lastEpisode: number;
+  watchedOn: string; status: ContentRunStatus;
 };
 export type MovieViewing = { id: string; titleId: string; watchedOn: string };
 export type SeriesRun = { id: string; titleId: string; startedOn: string; finishedOn: string | null };
@@ -108,12 +128,14 @@ export type MediaHistoryEntry = {
   watchedOn: string;
   episodeNumber: number;
   canDelete: boolean;
+  releasedOn: string | null;
 };
 
 export type MediaDetail = {
   title: MediaTitle;
   contents: MediaContent[];
   sessions: WatchSession[];
+  runs: ContentRun[];
 };
 
 export type MediaTitleInput = {
@@ -218,6 +240,13 @@ export const mediaApi = {
     invoke<MediaDetail>("increment_media_progress", {
       input: { targetType, targetId, watchedOn },
     }),
+  registerContentRewatch: (contentId: string, episodes: number, watchedOn: string) =>
+    invoke<MediaDetail>("register_media_content_rewatch", {
+      input: { contentId, episodes, watchedOn },
+    }),
+  registerContentRun: (input: ContentRunRegistration) => invoke<MediaDetail>("register_media_content_run", { input }),
+  setContentRunStatus: (contentId: string, runId: string, status: ContentRunStatus) =>
+    invoke<MediaDetail>("set_media_content_run_status", { input: { contentId, runId, status } }),
   archive: (titleId: string) =>
     invoke<void>("archive_media_title", { titleId }),
   restore: (titleId: string) =>
@@ -255,6 +284,10 @@ export const mediaApi = {
   }) => invoke<MediaHistoryEntry[]>("list_media_history", { input }),
   updateHistoryDate: (sessionId: string, watchedOn: string) =>
     invoke<void>("update_media_history_date", { sessionId, watchedOn }),
+  updateContentRegistration: (registrationId: string, contentId: string, episodes: number, watchedOn: string, firstEpisode?: number) =>
+    invoke<MediaDetail>("update_media_content_registration", {
+      input: { registrationId, contentId, episodes, watchedOn, firstEpisode },
+    }),
   deleteHistoryEntry: (sessionId: string) =>
     invoke<void>("delete_media_history_entry", { sessionId }),
 };

@@ -94,6 +94,18 @@ pub fn apply_migrations(connection: &mut Connection) -> rusqlite_migration::Resu
         M::up(include_str!(
             "../../migrations/0033_add_anime_movie_rewatches.sql"
         )),
+        M::up(include_str!(
+            "../../migrations/0034_allow_hundredth_media_scores.sql"
+        )),
+        M::up(include_str!(
+            "../../migrations/0035_add_anime_content_rewatches.sql"
+        )),
+        M::up(include_str!(
+            "../../migrations/0036_add_anime_to_resume.sql"
+        )),
+        M::up(include_str!(
+            "../../migrations/0037_add_anime_content_runs.sql"
+        )),
     ])
     .to_latest(connection)
 }

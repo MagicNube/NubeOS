@@ -1,6 +1,7 @@
-import { BarChart3, CalendarDays, ChartNoAxesColumnIncreasing, Compass, ListFilter, Trophy } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, BarChart3, CalendarDays, ChartNoAxesColumnIncreasing, Compass, ListFilter, Trophy } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
+import Modal from "./Modal";
 import ScoreTile from "./ScoreTile";
 import SelectControl from "./SelectControl";
 import "./ui.css";
@@ -14,6 +15,7 @@ export type MediaStatItem = {
   score: number | null;
   favorite: boolean;
   genres: string[];
+  totalUnits?: number | null;
   startedOn?: string | null;
   finishedOn?: string | null;
 };
@@ -32,6 +34,8 @@ type StatsView = "summary" | "rankings" | "explore" | "evolution" | "calendar";
 type RankingMode = "best" | "worst" | "favorites" | "repeated" | "sessions";
 type DateBasis = "start" | "finish";
 type CalendarMode = "activity" | "periods" | "both";
+type ExploreDimension = "genre" | "year" | "status";
+type EvolutionPanel = "activity" | "comparison" | "scores";
 
 type PersistedFilters = {
   genre: string;
@@ -50,7 +54,7 @@ function loadFilters(key: string): PersistedFilters {
   catch { return defaultFilters; }
 }
 
-function scoreText(score: number | null) { return score === null ? "—" : score.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 }); }
+function scoreText(score: number | null) { return score === null ? "—" : score.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 2 }); }
 function average(values: number[]) { return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null; }
 function dateYear(value?: string | null) { return value ? value.slice(0, 4) : ""; }
 function sessionDate(session: MediaStatSession, basis: DateBasis) { return basis === "start" ? session.startedOn ?? session.activityOn : session.finishedOn ?? session.activityOn; }
@@ -67,6 +71,8 @@ export default function MediaStatisticsDashboard({
   showUnscored,
   calendarPeriods = false,
   extraFilters,
+  refined = false,
+  refinedAnime = false,
 }: {
   storageKey: string;
   noun: string;
@@ -78,10 +84,16 @@ export default function MediaStatisticsDashboard({
   showUnscored?: () => void;
   calendarPeriods?: boolean;
   extraFilters?: ReactNode;
+  refined?: boolean;
+  refinedAnime?: boolean;
 }) {
+  const refinedLayout = refined || refinedAnime;
+  const [exploreGenre, setExploreGenre] = useState<string | null>(null);
   const [view, setView] = useState<StatsView>("summary");
   const [filters, setFiltersState] = useState<PersistedFilters>(() => loadFilters(storageKey));
   const [rankingMode, setRankingMode] = useState<RankingMode>("best");
+  const [exploreDimension, setExploreDimension] = useState<ExploreDimension>("genre");
+  const [evolutionPanel, setEvolutionPanel] = useState<EvolutionPanel>("activity");
   const [limit, setLimit] = useState<string>(() => {
     const stored = localStorage.getItem(`${storageKey}.topLimit`);
     return stored && ["5", "10", "15", "25", "all"].includes(stored) ? stored : "5";
@@ -138,18 +150,20 @@ export default function MediaStatisticsDashboard({
   const scopedSessions = useMemo(() => filteredSessions.filter((session) => filteredIds.has(session.itemId)), [filteredIds, filteredSessions]);
   const sessionCounts = useMemo(() => {
     const counts = new Map<string, number>();
-    scopedSessions.forEach((session) => counts.set(session.itemId, (counts.get(session.itemId) ?? 0) + 1));
+    scopedSessions.forEach((session) => counts.set(session.itemId, (counts.get(session.itemId) ?? 0) + (session.units ?? 1)));
     return counts;
   }, [scopedSessions]);
   const scored = filteredItems.filter((item) => item.score !== null);
   const unscored = filteredItems.length - scored.length;
   const repeated = filteredItems.filter((item) => (sessionCounts.get(item.id) ?? 0) >= 2).length;
   const statusGroups = useMemo(() => groupItems(filteredItems, (item) => item.statusLabel), [filteredItems]);
-  const genreGroups = useMemo(() => groupGenres(filteredItems, sessionCounts), [filteredItems, sessionCounts]);
+  const genreGroups = useMemo(() => groupGenres(filteredItems, sessionCounts).filter((group) => !filters.genre || group.label === filters.genre), [filteredItems, sessionCounts, filters.genre]);
   const yearGroups = useMemo(() => groupYears(filteredItems, scopedSessions, filters.dateBasis), [filteredItems, scopedSessions, filters.dateBasis]);
   const favoriteCount = filteredItems.filter((item) => item.favorite).length;
   const averageScore = average(scored.map((item) => item.score!));
   const completionCount = scopedSessions.filter((session) => session.completed !== false && Boolean(session.finishedOn ?? session.activityOn)).length;
+  const activeItemCount = filteredItems.filter((item) => (sessionCounts.get(item.id) ?? 0) > 0).length;
+  const completedItemCount = filteredItems.filter((item) => item.status === "completed").length;
 
   const ranked = useMemo(() => {
     let source = [...filteredItems];
@@ -167,7 +181,7 @@ export default function MediaStatisticsDashboard({
   const activity = useMemo(() => monthlyActivity(scopedSessions, calendarYear, filters.dateBasis), [calendarYear, filters.dateBasis, scopedSessions]);
   const comparison = useMemo(() => compareYear ? monthlyActivity(scopedSessions, compareYear, filters.dateBasis) : null, [compareYear, filters.dateBasis, scopedSessions]);
 
-  return <section className="media-stats-dashboard">
+  return <section className={`media-stats-dashboard${refinedLayout ? " media-stats-refined" : ""}`}>
     <nav aria-label="Secciones de estadísticas" className="media-stats-tabs">
       <StatsTab active={view === "summary"} icon={BarChart3} label="Resumen" onClick={() => setView("summary")} />
       <StatsTab active={view === "rankings"} icon={Trophy} label="Rankings" onClick={() => setView("rankings")} />
@@ -188,9 +202,9 @@ export default function MediaStatisticsDashboard({
       <div className="media-stats-hero-grid">
         <Metric label={noun} value={filteredItems.length} />
         <Metric label="Puntuación media" score={averageScore} value={scoreText(averageScore)} />
-        <Metric label={unitLabel} value={scopedSessions.length} />
-        <Metric label="Terminaciones" value={completionCount} />
-        <Metric label="Repetidas" value={repeatable ? repeated : "—"} />
+        <Metric label={refinedAnime && unitLabel === "Episodios" ? "Episodios vistos" : unitLabel} value={scopedSessions.reduce((total, session) => total + (session.units ?? 1), 0)} />
+        <Metric label={refinedAnime ? "Con actividad" : "Terminaciones"} value={refinedAnime ? activeItemCount : completionCount} />
+        <Metric label={refinedAnime ? "Terminados" : "Repetidas"} value={refinedAnime ? completedItemCount : repeatable ? repeated : "—"} />
         <Metric label="Favoritas" value={favoriteCount} />
       </div>
       {unscored > 0 && <DataNote count={unscored} onClick={showUnscored} prefix="Tienes" suffix="en esta selección." />}
@@ -214,28 +228,38 @@ export default function MediaStatisticsDashboard({
     </>}
 
     {view === "explore" && <>
-      <div className="media-stats-date-controls"><span>Calcular años por</span><div className="media-stats-segmented"><button className={filters.dateBasis === "start" ? "active" : ""} onClick={() => setFilters({ dateBasis: "start" })} type="button">Inicio</button><button className={filters.dateBasis === "finish" ? "active" : ""} onClick={() => setFilters({ dateBasis: "finish" })} type="button">Finalización</button></div><label><span>Desde</span><SelectControl><select onChange={(event) => setFilters({ from: event.target.value })} value={filters.from}><option value="">Siempre</option>{availableYears.map((year) => <option key={year}>{year}</option>)}</select></SelectControl></label><label><span>Hasta</span><SelectControl><select onChange={(event) => setFilters({ to: event.target.value })} value={filters.to}><option value="">Ahora</option>{availableYears.map((year) => <option key={year}>{year}</option>)}</select></SelectControl></label></div>
-      <div className="media-stats-explore-grid">
-        <StatsTable title="Por género" rows={genreGroups} onSelect={(value) => setFilters({ genre: value })} />
-        <StatsTable title={`Por año de ${filters.dateBasis === "start" ? "inicio" : "finalización"}`} rows={yearGroups} />
-        <StatsTable title="Por estado" rows={statusGroups.map((group) => ({ ...group, average: average(filteredItems.filter((item) => item.statusLabel === group.label && item.score !== null).map((item) => item.score!)), sessions: filteredItems.filter((item) => item.statusLabel === group.label).reduce((sum, item) => sum + (sessionCounts.get(item.id) ?? 0), 0) }))} />
-      </div>
+      {refinedLayout ? <>
+        <SectionSwitcher ariaLabel="Agrupar exploración" options={[{ id: "genre", label: "Género" }, { id: "year", label: "Año" }, { id: "status", label: "Estado" }]} setValue={(value) => setExploreDimension(value as ExploreDimension)} value={exploreDimension} />
+        {exploreDimension === "year" && <div className="media-stats-date-controls media-stats-compact-date-controls"><span>Agrupar por</span><div className="media-stats-segmented"><button className={filters.dateBasis === "start" ? "active" : ""} onClick={() => setFilters({ dateBasis: "start" })} type="button">Inicio</button><button className={filters.dateBasis === "finish" ? "active" : ""} onClick={() => setFilters({ dateBasis: "finish" })} type="button">Finalización</button></div><label><span>Desde</span><SelectControl><select onChange={(event) => setFilters({ from: event.target.value })} value={filters.from}><option value="">Siempre</option>{availableYears.map((year) => <option key={year}>{year}</option>)}</select></SelectControl></label><label><span>Hasta</span><SelectControl><select onChange={(event) => setFilters({ to: event.target.value })} value={filters.to}><option value="">Ahora</option>{availableYears.map((year) => <option key={year}>{year}</option>)}</select></SelectControl></label></div>}
+        <div className="media-stats-explore-single">
+          {exploreDimension === "genre" && <StatsTable sortable unitLabel={unitLabel} title="Por género" rows={genreGroups} onSelect={setExploreGenre} />}
+          {exploreDimension === "year" && <StatsTable sortable unitLabel={unitLabel} title={`Por año de ${filters.dateBasis === "start" ? "inicio" : "finalización"}`} rows={yearGroups} />}
+          {exploreDimension === "status" && <StatsTable sortable unitLabel={unitLabel} title="Por estado" rows={statusGroups.map((group) => ({ ...group, average: average(filteredItems.filter((item) => item.statusLabel === group.label && item.score !== null).map((item) => item.score!)), sessions: filteredItems.filter((item) => item.statusLabel === group.label).reduce((sum, item) => sum + (sessionCounts.get(item.id) ?? 0), 0) }))} />}
+        </div>
+      </> : <>
+        {unitLabel === "Episodios" && <p className="media-stats-data-note">Episodios vistos según el historial, incluidos revisionados. Una obra multigénero aporta sus episodios a cada género; no sumes las filas como un total único.</p>}
+        <div className="media-stats-date-controls"><span>Calcular años por</span><div className="media-stats-segmented"><button className={filters.dateBasis === "start" ? "active" : ""} onClick={() => setFilters({ dateBasis: "start" })} type="button">Inicio</button><button className={filters.dateBasis === "finish" ? "active" : ""} onClick={() => setFilters({ dateBasis: "finish" })} type="button">Finalización</button></div><label><span>Desde</span><SelectControl><select onChange={(event) => setFilters({ from: event.target.value })} value={filters.from}><option value="">Siempre</option>{availableYears.map((year) => <option key={year}>{year}</option>)}</select></SelectControl></label><label><span>Hasta</span><SelectControl><select onChange={(event) => setFilters({ to: event.target.value })} value={filters.to}><option value="">Ahora</option>{availableYears.map((year) => <option key={year}>{year}</option>)}</select></SelectControl></label></div>
+        <div className="media-stats-explore-grid"><StatsTable unitLabel={unitLabel} title="Por género" rows={genreGroups} onSelect={(value) => { setFilters({ genre: value }); setExploreGenre(value); }} /><StatsTable unitLabel={unitLabel} title={`Por año de ${filters.dateBasis === "start" ? "inicio" : "finalización"}`} rows={yearGroups} /><StatsTable unitLabel={unitLabel} title="Por estado" rows={statusGroups.map((group) => ({ ...group, average: average(filteredItems.filter((item) => item.statusLabel === group.label && item.score !== null).map((item) => item.score!)), sessions: filteredItems.filter((item) => item.statusLabel === group.label).reduce((sum, item) => sum + (sessionCounts.get(item.id) ?? 0), 0) }))} /></div>
+      </>}
     </>}
 
     {view === "evolution" && <>
-      <div className="media-stats-date-controls"><span>Actividad registrada por</span><div className="media-stats-segmented"><button className={filters.dateBasis === "start" ? "active" : ""} onClick={() => setFilters({ dateBasis: "start" })} type="button">Inicio</button><button className={filters.dateBasis === "finish" ? "active" : ""} onClick={() => setFilters({ dateBasis: "finish" })} type="button">Finalización</button></div><label><span>Año principal</span><SelectControl><select onChange={(event) => setCalendarYear(event.target.value)} value={calendarYear}>{availableYears.length ? availableYears.map((year) => <option key={year}>{year}</option>) : <option>{calendarYear}</option>}</select></SelectControl></label><label><span>Comparar con</span><SelectControl><select onChange={(event) => setCompareYear(event.target.value)} value={compareYear}><option value="">Sin comparación</option>{availableYears.filter((year) => year !== calendarYear).map((year) => <option key={year}>{year}</option>)}</select></SelectControl></label></div>
-      <MonthlyChart primary={activity} primaryYear={calendarYear} comparison={comparison} comparisonYear={compareYear} />
-      <div className="media-stats-summary-grid"><YearComparison items={filteredItems} sessions={scopedSessions} year={calendarYear} compareYear={compareYear} /><ScoreByYear items={filteredItems} /></div>
+      {refinedLayout && <SectionSwitcher ariaLabel="Vista de evolución" options={[{ id: "activity", label: "Actividad mensual" }, { id: "comparison", label: "Comparación anual" }, { id: "scores", label: "Puntuaciones" }]} setValue={(value) => setEvolutionPanel(value as EvolutionPanel)} value={evolutionPanel} />}
+      {(!refinedLayout || evolutionPanel !== "scores") && <div className="media-stats-date-controls"><span>{refinedLayout && evolutionPanel === "comparison" ? "Años comparados" : "Actividad registrada por"}</span>{(!refinedLayout || evolutionPanel === "activity") && <div className="media-stats-segmented"><button className={filters.dateBasis === "start" ? "active" : ""} onClick={() => setFilters({ dateBasis: "start" })} type="button">Inicio</button><button className={filters.dateBasis === "finish" ? "active" : ""} onClick={() => setFilters({ dateBasis: "finish" })} type="button">Finalización</button></div>}<label><span>Año principal</span><SelectControl><select onChange={(event) => setCalendarYear(event.target.value)} value={calendarYear}>{availableYears.length ? availableYears.map((year) => <option key={year}>{year}</option>) : <option>{calendarYear}</option>}</select></SelectControl></label><label><span>Comparar con</span><SelectControl><select onChange={(event) => setCompareYear(event.target.value)} value={compareYear}><option value="">Sin comparación</option>{availableYears.filter((year) => year !== calendarYear).map((year) => <option key={year}>{year}</option>)}</select></SelectControl></label></div>}
+      {(!refinedLayout || evolutionPanel === "activity") && <MonthlyChart primary={activity} primaryYear={calendarYear} comparison={comparison} comparisonYear={compareYear} />}
+      {refinedLayout ? <>{evolutionPanel === "comparison" && <YearComparison items={filteredItems} sessions={scopedSessions} year={calendarYear} compareYear={compareYear} />}{evolutionPanel === "scores" && <ScoreByYear items={filteredItems} />}</> : <div className="media-stats-summary-grid"><YearComparison items={filteredItems} sessions={scopedSessions} year={calendarYear} compareYear={compareYear} /><ScoreByYear items={filteredItems} /></div>}
     </>}
 
     {view === "calendar" && <>
-      <div className="media-stats-date-controls"><span>Días activos e intensidad</span>{calendarPeriods && <div aria-label="Representación del calendario" className="media-stats-segmented"><button className={calendarMode === "activity" ? "active" : ""} onClick={() => setCalendarMode("activity")} type="button">Actividad</button><button className={calendarMode === "periods" ? "active" : ""} onClick={() => setCalendarMode("periods")} type="button">Periodos</button><button className={calendarMode === "both" ? "active" : ""} onClick={() => setCalendarMode("both")} type="button">Ambas</button></div>}<label><span>Año</span><SelectControl><select onChange={(event) => setCalendarYear(event.target.value)} value={calendarYear}>{availableYears.length ? availableYears.map((year) => <option key={year}>{year}</option>) : <option>{calendarYear}</option>}</select></SelectControl></label></div>
-      <ActivityCalendar items={filteredItems} mode={calendarPeriods ? calendarMode : "activity"} sessions={scopedSessions} year={calendarYear} />
+      <div className={`media-stats-date-controls${refinedLayout ? " media-stats-calendar-controls" : ""}`}><span>{refinedLayout ? "Año del calendario" : "Días activos e intensidad"}</span>{calendarPeriods && <div aria-label="Representación del calendario" className="media-stats-segmented"><button className={calendarMode === "activity" ? "active" : ""} onClick={() => setCalendarMode("activity")} type="button">Actividad</button><button className={calendarMode === "periods" ? "active" : ""} onClick={() => setCalendarMode("periods")} type="button">Periodos</button><button className={calendarMode === "both" ? "active" : ""} onClick={() => setCalendarMode("both")} type="button">Ambas</button></div>}<label><span>Año</span><SelectControl><select onChange={(event) => setCalendarYear(event.target.value)} value={calendarYear}>{availableYears.length ? availableYears.map((year) => <option key={year}>{year}</option>) : <option>{calendarYear}</option>}</select></SelectControl></label></div>
+      <ActivityCalendar emphasized={refinedLayout} items={filteredItems} mode={calendarPeriods ? calendarMode : "activity"} sessions={scopedSessions} year={calendarYear} />
     </>}
+    {exploreGenre && <Modal className="media-genre-results-dialog" labelledBy="genre-results-title" onClose={() => setExploreGenre(null)}><header><h2 id="genre-results-title">{exploreGenre}</h2><button className="secondary-button" onClick={() => setExploreGenre(null)} type="button">Volver</button></header><p>{filteredItems.filter((item) => item.genres.includes(exploreGenre)).length} obras con los filtros actuales</p><div className="media-genre-results">{filteredItems.filter((item) => item.genres.includes(exploreGenre)).map((item) => <button type="button" key={item.id} disabled={!openItem} onClick={() => { setExploreGenre(null); openItem?.(item.id); }}><div><strong>{item.name}</strong><span>{item.statusLabel}{refinedAnime && unitLabel === "Episodios" && item.totalUnits !== undefined ? ` · ${item.totalUnits === null ? "Episodios por confirmar" : `${item.totalUnits} ${item.totalUnits === 1 ? "episodio" : "episodios"}`}` : ""}</span></div><ScoreTile score={item.score} /></button>)}</div></Modal>}
   </section>;
 }
 
 function StatsTab({ active, icon: Icon, label, onClick }: { active: boolean; icon: typeof Trophy; label: string; onClick: () => void }) { return <button className={active ? "active" : ""} onClick={onClick} type="button"><Icon size={16} />{label}</button>; }
+function SectionSwitcher({ ariaLabel, options, value, setValue }: { ariaLabel: string; options: { id: string; label: string }[]; value: string; setValue: (value: string) => void }) { return <div aria-label={ariaLabel} className="media-stats-section-switcher" role="tablist">{options.map((option) => <button aria-selected={value === option.id} className={value === option.id ? "active" : ""} key={option.id} onClick={() => setValue(option.id)} role="tab" type="button">{option.label}</button>)}</div>; }
 function DataNote({ count, prefix, suffix, onClick }: { count: number; prefix: string; suffix?: string; onClick?: () => void }) {
   const content = <><ListFilter size={15} /> {prefix} <strong>{count}</strong> {count === 1 ? "obra sin puntuar" : "obras sin puntuar"}{suffix ? ` ${suffix}` : "."}</>;
   return onClick
@@ -247,7 +271,7 @@ function tieBreak(left: MediaStatItem, right: MediaStatItem, counts: Map<string,
 
 function groupItems(items: MediaStatItem[], key: (item: MediaStatItem) => string) { const values = new Map<string, number>(); items.forEach((item) => values.set(key(item), (values.get(key(item)) ?? 0) + 1)); return [...values].map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, "es")); }
 function groupGenres(items: MediaStatItem[], counts: Map<string, number>) { const values = new Map<string, MediaStatItem[]>(); items.forEach((item) => item.genres.forEach((genre) => values.set(genre, [...(values.get(genre) ?? []), item]))); return [...values].map(([label, grouped]) => ({ label, count: grouped.length, average: average(grouped.filter((item) => item.score !== null).map((item) => item.score!)), sessions: grouped.reduce((sum, item) => sum + (counts.get(item.id) ?? 0), 0), warning: grouped.length < 3 })).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, "es")); }
-function groupYears(items: MediaStatItem[], sessions: MediaStatSession[], basis: DateBasis) { const values = new Map<string, MediaStatItem[]>(); items.forEach((item) => { const year = dateYear(itemDate(item, basis)); if (year) values.set(year, [...(values.get(year) ?? []), item]); }); return [...values].map(([label, grouped]) => ({ label, count: grouped.length, average: average(grouped.filter((item) => item.score !== null).map((item) => item.score!)), sessions: sessions.filter((session) => dateYear(sessionDate(session, basis)) === label).length })).sort((a, b) => b.label.localeCompare(a.label)); }
+function groupYears(items: MediaStatItem[], sessions: MediaStatSession[], basis: DateBasis) { const values = new Map<string, MediaStatItem[]>(); items.forEach((item) => { const year = dateYear(itemDate(item, basis)); if (year) values.set(year, [...(values.get(year) ?? []), item]); }); return [...values].map(([label, grouped]) => ({ label, count: grouped.length, average: average(grouped.filter((item) => item.score !== null).map((item) => item.score!)), sessions: sessions.filter((session) => dateYear(sessionDate(session, basis)) === label).reduce((sum, session) => sum + (session.units ?? 1), 0) })).sort((a, b) => b.label.localeCompare(a.label)); }
 
 function Distribution({ title, groups, total }: { title: string; groups: { label: string; count: number }[]; total: number }) { return <section className="media-stats-panel"><h3>{title}</h3>{groups.length ? <div className="media-stats-bars">{groups.map((group) => <div key={group.label}><span>{group.label}</span><div><i style={{ width: `${total ? Math.max(4, group.count / total * 100) : 0}%` }} /></div><strong>{group.count}</strong></div>)}</div> : <p>Sin datos todavía.</p>}</section>; }
 function ScoreDistribution({ items }: { items: MediaStatItem[] }) { const ranges = [{ label: "0 – 4,9", min: 0, max: 4.9 }, { label: "5 – 5,9", min: 5, max: 5.9 }, { label: "6 – 6,9", min: 6, max: 6.9 }, { label: "7 – 7,9", min: 7, max: 7.9 }, { label: "8 – 8,9", min: 8, max: 8.9 }, { label: "9 – 10", min: 9, max: 10 }]; const groups = ranges.map((range) => ({ label: range.label, count: items.filter((item) => item.score !== null && item.score >= range.min && item.score <= range.max).length })); return <Distribution groups={groups} title="Distribución de puntuaciones" total={Math.max(1, items.filter((item) => item.score !== null).length)} />; }
@@ -255,14 +279,33 @@ function ScoreDistribution({ items }: { items: MediaStatItem[] }) { const ranges
 function CompactRanking({ title, items, sessionCounts, showSessions, openItem }: { title: string; items: MediaStatItem[]; sessionCounts: Map<string, number>; showSessions?: boolean; openItem?: (id: string) => void }) { return <section className="media-stats-panel media-stats-ranking"><h3>{title}</h3>{items.length ? <ol>{items.map((item, index) => <li key={item.id}><span>#{index + 1}</span><button disabled={!openItem} onClick={() => openItem?.(item.id)} type="button"><strong>{item.name}</strong>{item.detail && <small>{item.detail}</small>}</button>{showSessions ? <b>{sessionCounts.get(item.id) ?? 0} sesiones</b> : <ScoreTile score={item.score} />}</li>)}</ol> : <p>No hay resultados con estos filtros.</p>}</section>; }
 
 type TableRow = { label: string; count: number; average?: number | null; sessions?: number; warning?: boolean };
-function StatsTable({ title, rows, onSelect }: { title: string; rows: TableRow[]; onSelect?: (value: string) => void }) { return <section className="media-stats-panel media-stats-table"><h3>{title}</h3><div className="media-stats-table-head"><span>Grupo</span><span>Obras</span><span>Media</span><span>Sesiones</span></div>{rows.length ? rows.map((row) => <button disabled={!onSelect} key={row.label} onClick={() => onSelect?.(row.label)} type="button"><span>{row.label}{row.warning && <small title="Media basada en menos de tres obras">Muestra pequeña</small>}</span><strong>{row.count}</strong><ScoreTile className="media-stats-table-score" score={row.average ?? null} /><span>{row.sessions ?? "—"}</span></button>) : <p>Sin datos todavía.</p>}</section>; }
+type TableSortKey = "count" | "sessions" | "average";
+function StatsTable({ title, rows, onSelect, unitLabel, sortable = false }: { unitLabel: string; title: string; rows: TableRow[]; onSelect?: (value: string) => void; sortable?: boolean }) {
+  const [sort, setSort] = useState<{ key: TableSortKey; direction: "asc" | "desc" }>({ key: "count", direction: "desc" });
+  const sortedRows = useMemo(() => {
+    if (!sortable) return rows;
+    return [...rows].sort((left, right) => {
+      const leftValue = sort.key === "count" ? left.count : sort.key === "sessions" ? left.sessions ?? 0 : left.average;
+      const rightValue = sort.key === "count" ? right.count : sort.key === "sessions" ? right.sessions ?? 0 : right.average;
+      if (leftValue == null || rightValue == null) {
+        if (leftValue == null && rightValue == null) return left.label.localeCompare(right.label, "es");
+        return leftValue == null ? 1 : -1;
+      }
+      const difference = leftValue - rightValue;
+      return (sort.direction === "asc" ? difference : -difference) || left.label.localeCompare(right.label, "es");
+    });
+  }, [rows, sort, sortable]);
+  const changeSort = (key: TableSortKey) => setSort((current) => current.key === key ? { key, direction: current.direction === "desc" ? "asc" : "desc" } : { key, direction: "desc" });
+  const SortIcon = ({ column }: { column: TableSortKey }) => sort.key === column ? sort.direction === "desc" ? <ArrowDown size={12} /> : <ArrowUp size={12} /> : <ArrowUpDown size={12} />;
+  return <section className="media-stats-panel media-stats-table"><h3>{title}</h3><div className={`media-stats-table-head${sortable ? " sortable" : ""}`}><span>Grupo</span>{sortable ? <><button aria-label={`Ordenar por obras`} className={sort.key === "count" ? "active" : ""} onClick={() => changeSort("count")} type="button">Obras <SortIcon column="count" /></button><button aria-label={`Ordenar por ${unitLabel}`} className={sort.key === "sessions" ? "active" : ""} onClick={() => changeSort("sessions")} type="button">{unitLabel} <SortIcon column="sessions" /></button><button aria-label="Ordenar por media" className={sort.key === "average" ? "active" : ""} onClick={() => changeSort("average")} type="button">Media <SortIcon column="average" /></button></> : <><span>Obras</span><span>{unitLabel}</span><span>Media</span></>}</div>{sortedRows.length ? sortedRows.map((row) => <button disabled={!onSelect} key={row.label} onClick={() => onSelect?.(row.label)} type="button"><span>{row.label}{row.warning && <small title="Media basada en menos de tres obras">Muestra pequeña</small>}</span><strong>{row.count}</strong><span>{row.sessions ?? "—"}</span><ScoreTile className="media-stats-table-score" score={row.average ?? null} /></button>) : <p>Sin datos todavía.</p>}</section>;
+}
 
 function monthlyActivity(sessions: MediaStatSession[], year: string, basis: DateBasis) { return Array.from({ length: 12 }, (_, month) => sessions.filter((session) => sessionDate(session, basis)?.startsWith(`${year}-${String(month + 1).padStart(2, "0")}`)).reduce((sum, session) => sum + (session.units ?? 1), 0)); }
 function MonthlyChart({ primary, primaryYear, comparison, comparisonYear }: { primary: number[]; primaryYear: string; comparison: number[] | null; comparisonYear: string }) { const max = Math.max(1, ...primary, ...(comparison ?? [])); const middle = Math.ceil(max / 2); const months = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]; return <section className="media-stats-panel media-stats-monthly"><header><div><i />{primaryYear}</div>{comparison && <div><i />{comparisonYear}</div>}</header><div className="media-stats-chart-body"><div className="media-stats-y-axis"><span>{max}</span><span>{middle}</span><span>0</span></div><div className="media-stats-month-grid">{months.map((month, index) => <div key={month} title={`${month} ${primaryYear}: ${primary[index]} actividades${comparison ? ` · ${comparisonYear}: ${comparison[index]}` : ""}`}><div><i style={{ height: `${primary[index] / max * 100}%` }} />{comparison && <b style={{ height: `${comparison[index] / max * 100}%` }} />}</div><span>{month}</span></div>)}</div></div></section>; }
 function YearComparison({ items, sessions, year, compareYear }: { items: MediaStatItem[]; sessions: MediaStatSession[]; year: string; compareYear: string }) { const values = (target: string) => ({ starts: items.filter((item) => dateYear(item.startedOn) === target).length, finishes: items.filter((item) => dateYear(item.finishedOn) === target).length, sessions: sessions.filter((session) => [session.activityOn, session.startedOn, session.finishedOn].some((date) => dateYear(date) === target)).length }); const primary = values(year), compare = compareYear ? values(compareYear) : null; return <section className="media-stats-panel"><h3>Comparación anual</h3><div className="media-stats-year-cards">{[["Iniciadas", primary.starts, compare?.starts], ["Finalizadas", primary.finishes, compare?.finishes], ["Sesiones", primary.sessions, compare?.sessions]].map(([label, value, other]) => <div key={String(label)}><span>{label}</span><strong>{value}</strong>{other !== undefined && <small>{compareYear}: {other}</small>}</div>)}</div></section>; }
 function ScoreByYear({ items }: { items: MediaStatItem[] }) { const years = [...new Set(items.map((item) => dateYear(item.finishedOn)).filter(Boolean))].sort(); const rows = years.map((year) => ({ year, value: average(items.filter((item) => dateYear(item.finishedOn) === year && item.score !== null).map((item) => item.score!)), count: items.filter((item) => dateYear(item.finishedOn) === year && item.score !== null).length })); return <section className="media-stats-panel"><h3>Puntuación por año de finalización</h3>{rows.length ? <div className="media-stats-score-years">{rows.map((row) => <div key={row.year}><span>{row.year}</span><ScoreTile score={row.value} /><small>{row.count} notas</small></div>)}</div> : <p>Faltan fechas de finalización para dibujar esta evolución.</p>}</section>; }
 type CalendarEvent = { item: string; kind: "start" | "finish" | "activity" | "period"; units: number };
-function ActivityCalendar({ items, sessions, year, mode }: { items: MediaStatItem[]; sessions: MediaStatSession[]; year: string; mode: CalendarMode }) {
+function ActivityCalendar({ items, sessions, year, mode, emphasized = false }: { items: MediaStatItem[]; sessions: MediaStatSession[]; year: string; mode: CalendarMode; emphasized?: boolean }) {
   const names = new Map(items.map((item) => [item.id, item.name]));
   const values = new Map<string, CalendarEvent[]>();
   const add = (date: string | null | undefined, event: CalendarEvent) => { if (date?.startsWith(year)) values.set(date, [...(values.get(date) ?? []), event]); };
@@ -293,10 +336,12 @@ function ActivityCalendar({ items, sessions, year, mode }: { items: MediaStatIte
   const hasFinishes = intervalSessions.some((session) => Boolean(session.finishedOn));
   const hasEstimatedPeriods = intervalSessions.some((session) => Boolean(session.startedOn));
   const hasMixedDates = [...values.values()].some((events) => new Set(events.filter((event) => event.kind !== "period").map((event) => event.kind)).size > 1);
-  return <section className="media-stats-panel media-stats-calendar"><header><h3>{mode === "periods" ? "Periodos" : "Actividad"} de {year}</h3><span>{values.size} días representados{mode !== "periods" ? ` · ${exactTotal} acciones` : ""}</span></header><div className="media-stats-calendar-legend">{mode !== "periods" && <>{hasStarts && <span><i data-kind="start" /> Inicio</span>}{hasFinishes && <span><i data-kind="finish" /> Finalización</span>}{hasPointActivity && <span title="Registro con una única fecha, como un episodio o una película vistos"><i data-kind="activity" /> Actividad puntual</span>}</>}{mode !== "activity" && hasEstimatedPeriods && <span><i data-kind="period" /> Periodo estimado</span>}{mode !== "periods" && hasMixedDates && <span><i data-kind="mixed" /> Varias</span>}</div><div className="media-stats-calendar-months">{monthNames.map((name, month) => {
+  return <section className={`media-stats-panel media-stats-calendar${emphasized ? " emphasized" : ""}`}><header><h3>{mode === "periods" ? "Periodos" : "Actividad"} de {year}</h3><span>{values.size} días representados{mode !== "periods" ? ` · ${exactTotal} acciones` : ""}</span></header><div className="media-stats-calendar-legend">{mode !== "periods" && <>{hasStarts && <span><i data-kind="start" /> Inicio</span>}{hasFinishes && <span><i data-kind="finish" /> Finalización</span>}{hasPointActivity && <span title="Registro con una única fecha, como un episodio o una película vistos"><i data-kind="activity" /> Actividad puntual</span>}</>}{mode !== "activity" && hasEstimatedPeriods && <span><i data-kind="period" /> Periodo estimado</span>}{mode !== "periods" && hasMixedDates && <span><i data-kind="mixed" /> Varias</span>}</div><div className="media-stats-calendar-months">{monthNames.map((name, month) => {
     const daysInMonth = new Date(Number(year), month + 1, 0).getDate();
     const firstWeekday = (new Date(Number(year), month, 1).getDay() + 6) % 7;
-    return <section key={name}><h4>{name}</h4><div className="media-stats-calendar-weekdays"><span>L</span><span>M</span><span>X</span><span>J</span><span>V</span><span>S</span><span>D</span></div><div className="media-stats-calendar-month">{Array.from({ length: daysInMonth }, (_, day) => {
+    const monthPrefix = `${year}-${String(month + 1).padStart(2, "0")}`;
+    const monthActivity = [...values.entries()].filter(([date]) => date.startsWith(monthPrefix)).reduce((sum, [, events]) => sum + events.reduce((eventSum, event) => eventSum + event.units, 0), 0);
+    return <section key={name}><h4><span>{name}</span>{emphasized && <small>{monthActivity} {monthActivity === 1 ? "acción" : "acciones"}</small>}</h4><div className="media-stats-calendar-weekdays"><span>L</span><span>M</span><span>X</span><span>J</span><span>V</span><span>S</span><span>D</span></div><div className="media-stats-calendar-month">{Array.from({ length: daysInMonth }, (_, day) => {
       const date = `${year}-${String(month + 1).padStart(2, "0")}-${String(day + 1).padStart(2, "0")}`;
       const events = values.get(date) ?? [];
       const count = events.reduce((sum, event) => sum + event.units, 0);

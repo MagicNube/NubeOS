@@ -1,7 +1,7 @@
 # TODO de NubeOS
 
 - Estado: Lista operativa activa
-- Última actualización: 2026-08-24
+- Última actualización: 2026-09-04
 
 ## Propósito
 
@@ -21,12 +21,8 @@ No sustituye al roadmap, las specs, los diseños ni las tareas de cada módulo. 
 
 ### Revisiones abiertas
 
-- [ ] **TODO-001 — Modificar visualmente las tarjetas de contenidos de Anime.** Terminar de ajustar su distribución antes de cerrar el módulo.
-- [ ] **TODO-002 — Terminar de revisar el bloque audiovisual.** Probar Anime, Series y Películas con datos reales, aprobar sus documentos y cerrar el Hito 7.
-- [ ] **TODO-003 — Terminar de revisar Lectura.** Validar formularios, filtros, ordenación, tarjetas, portadas y Archivo; después aprobar sus documentos y cerrar el Hito 8.
-- [ ] **TODO-008 — Revisar Videojuegos.** Probar la vertical implementada con datos reales y cerrar su comprobación visual.
-- [ ] **TODO-009 — Revisar geometría y estadísticas de trackers.** Validar portadas, las cinco subvistas estadísticas, filtros persistentes, rankings, tablas, gráficas y calendarios con datos reales.
 - [ ] **TODO-010 — Diseñar un Wrapped global MEDIA.** Resumir Anime, Lectura, Videojuegos, Películas y Series sin mezclar sus escalas; queda fuera de la versión 1.0 por decisión de Nube.
+- [ ] **TODO-011 — Instalar y validar la candidata 0.1.0 actual.** Crear copia preventiva, ejecutar el instalador NSIS generado el 2026-09-03 y comprobar la migración 0037, los recorridos Anime y las sugerencias de estado con los datos reales.
 
 ### Módulos pendientes
 
@@ -35,4 +31,4 @@ No sustituye al roadmap, las specs, los diseños ni las tareas de cada módulo. 
 
 ### Revisión de alcance
 
-- [ ] **TODO-006 — Revisar si falta algún módulo.** Auditar las necesidades reales cubiertas por NubeOS antes de diseñar la pantalla de Inicio y decidir si hace falta otra área funcional.
+- [ ] **TODO-006 — Revisar si falta algún módulo.** Auditar las necesidades reales ya cubiertas por NubeOS antes de diseñar Finanzas, Proyectos u otra área funcional.

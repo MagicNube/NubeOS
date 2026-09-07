@@ -11,6 +11,11 @@ const focusableSelector = [
   "[tabindex]:not([tabindex='-1'])",
 ].join(",");
 
+function modalControls(dialog: HTMLElement) {
+  return Array.from(dialog.querySelectorAll<HTMLElement>(focusableSelector))
+    .filter((element) => !element.hasAttribute("data-focus-guard") && element.tabIndex >= 0 && element.getClientRects().length > 0);
+}
+
 export default function Modal({
   children,
   className = "",
@@ -30,9 +35,8 @@ export default function Modal({
     const previousFocus = document.activeElement as HTMLElement | null;
     const dialog = dialogRef.current;
     const requestedFocus = dialog?.querySelector<HTMLElement>("[autofocus]");
-    const firstFocusable = Array.from(
-      dialog?.querySelectorAll<HTMLElement>(focusableSelector) ?? [],
-    ).find((element) => !element.classList.contains("ui-cover-adjust-button"));
+    const firstFocusable = (dialog ? modalControls(dialog) : [])
+      .find((element) => !element.classList.contains("ui-cover-adjust-button"));
     (initialFocus === "dialog" ? dialog : requestedFocus ?? firstFocusable ?? dialog)?.focus();
     return () => previousFocus?.focus();
   }, []);
@@ -51,23 +55,16 @@ export default function Modal({
       onClose();
       return;
     }
-    if (event.key !== "Tab") return;
-    const focusable = Array.from(
-      event.currentTarget.querySelectorAll<HTMLElement>(focusableSelector),
-    );
-    if (!focusable.length) {
-      event.preventDefault();
-      return;
-    }
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first.focus();
-    }
+    // Native date inputs have several Tab stops within one DOM input.
+    // Boundary guards wrap only after those segments have been traversed.
+  }
+
+  function wrapFocus(edge: "first" | "last") {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    const controls = modalControls(dialog);
+    (edge === "first" ? controls[0] : controls[controls.length - 1])?.focus();
+    if (!controls.length) dialog.focus();
   }
 
   return (
@@ -86,7 +83,9 @@ export default function Modal({
         role="dialog"
         tabIndex={-1}
       >
+        <span className="ui-focus-guard" data-focus-guard="" onFocus={() => wrapFocus("last")} tabIndex={0} />
         {children}
+        <span className="ui-focus-guard" data-focus-guard="" onFocus={() => wrapFocus("first")} tabIndex={0} />
       </section>
     </div>
   );

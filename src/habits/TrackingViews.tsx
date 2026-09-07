@@ -57,29 +57,29 @@ export function DayView({
     <div className="habit-day-view">
       <section
         aria-label={`${completed} de ${total} actividades completadas hoy`}
-        className="habit-day-progress"
+        className="habit-day-hero"
       >
-        <div className="habit-day-progress-icon" aria-hidden="true">
-          <CheckCircle2 size={22} />
-        </div>
-        <div className="habit-day-progress-copy">
-          <span>Progreso de hoy</span>
-          <strong>
-            {completed} <small>de {total} completadas</small>
-          </strong>
-        </div>
-        <b>{percentage}%</b>
-        <div className="habit-day-progress-track" aria-hidden="true">
-          <span style={{ width: `${percentage}%` }} />
-        </div>
-      </section>
-      <div className="habit-view-heading">
-        <div>
+        <div className="habit-day-date">
           <p className="section-kicker">TU DÍA</p>
           <h2>Hoy</h2>
           <p>{formatLongDate(overview.start)}</p>
         </div>
-      </div>
+        <div className="habit-day-progress-main">
+          <div className="habit-day-progress-icon" aria-hidden="true">
+            <CheckCircle2 size={22} />
+          </div>
+          <div className="habit-day-progress-copy">
+            <span>Progreso de hoy</span>
+            <strong>
+              {completed} <small>de {total} completadas</small>
+            </strong>
+          </div>
+        </div>
+        <b className="habit-day-percentage">{percentage}%</b>
+        <div className="habit-day-progress-track" aria-hidden="true">
+          <span style={{ width: `${percentage}%` }} />
+        </div>
+      </section>
       {overview.rows.length === 0 ? (
         <HabitsEmpty />
       ) : (

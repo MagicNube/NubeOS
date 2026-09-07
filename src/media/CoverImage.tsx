@@ -43,6 +43,12 @@ function cachedAnimatedCover(key: string, titleId: string) {
   return load;
 }
 
+function discardBrokenAnimatedCover(key: string, url: string) {
+  if (animatedCoverCache.get(key) !== url) return;
+  animatedCoverCache.delete(key);
+  URL.revokeObjectURL(url);
+}
+
 async function thumbnailFromGif(url: string) {
   const response = await fetch(url);
   const bitmap = await createImageBitmap(await response.blob());
@@ -185,10 +191,28 @@ export default function CoverImage({
     return () => { alive = false; };
   }, [animated, animatedUrl, cacheKey, hasCover, playing, posterUrl, titleId]);
 
-  const visibleUrl = animated && playing && animatedUrl ? animatedUrl : posterUrl;
+  useEffect(() => {
+    if (!playing) setAnimatedUrl(null);
+  }, [playing]);
+
+  const showingAnimation = Boolean(animated && playing && animatedUrl);
+  const visibleUrl = showingAnimation ? animatedUrl : posterUrl;
   return (
     <div ref={coverRef} className={`media-cover ${className}`.trim()} onBlur={() => setPlaying(false)} onFocus={() => setPlaying(true)} onMouseEnter={() => setPlaying(true)} onMouseLeave={() => setPlaying(false)}>
-      {visibleUrl ? <img alt={alt} src={visibleUrl} style={{ objectPosition: `${positionX}% ${positionY}%`, transform: `scale(${zoom})`, transformOrigin: `${positionX}% ${positionY}%` }} /> : <Clapperboard aria-hidden="true" />}
+      {visibleUrl ? <img
+        alt={alt}
+        onError={() => {
+          if (showingAnimation && animatedUrl) {
+            discardBrokenAnimatedCover(cacheKey, animatedUrl);
+            setAnimatedUrl(null);
+            setPlaying(false);
+          } else {
+            setPosterUrl(null);
+          }
+        }}
+        src={visibleUrl}
+        style={{ objectPosition: `${positionX}% ${positionY}%`, transform: `scale(${zoom})`, transformOrigin: `${positionX}% ${positionY}%` }}
+      /> : <Clapperboard aria-hidden="true" />}
       {animated && !playing && <span className="media-gif-badge">GIF</span>}
     </div>
   );

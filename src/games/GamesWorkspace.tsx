@@ -1,7 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ReactNode } from "react";
 import { Archive, BarChart3, CalendarDays, Edit3, Gamepad2, History, ImagePlus, Library, Move, Plus, RotateCcw, Search, Star, Trash2, X } from "lucide-react";
 import ArchiveItemActions from "../ui/ArchiveItemActions";
+import FilterDisclosure from "../ui/FilterDisclosure";
+import FilterBuilder from "../ui/FilterBuilder";
+import MultiSelectControl from "../ui/MultiSelectControl";
+import { useAppView } from "../ui/AppViewContext";
+import { readDefaultSort, saveDefaultSort } from "../ui/sortPreference";
 import CoverCropEditor from "../ui/CoverCropEditor";
 import FavoriteFilter from "../ui/FavoriteFilter";
 import Modal from "../ui/Modal";
@@ -22,6 +26,8 @@ import "./games.css";
 
 type View = "library" | "playing" | "history" | "statistics";
 type Sort = "updated" | "title" | "score" | "startAsc" | "startDesc" | "finishAsc" | "finishDesc";
+const gameSorts: readonly Sort[] = ["title", "updated", "score", "startDesc", "startAsc", "finishDesc", "finishAsc"];
+const gameSortStorageKey = "nubeos.games.sort.default.v3";
 const emptyInput: GameInput = { name: "", genres: [], status: "pending", score: null, opinion: null, favorite: false, coverToken: null, removeCover: false };
 const gameGenres = ["Acción", "Aventura", "RPG", "Estrategia", "Simulación", "Deportes", "Carreras", "Plataformas", "Puzles", "Terror", "Shooter", "Metroidvania", "Roguelike", "Novela visual", "Otro"];
 
@@ -47,12 +53,19 @@ export default function GamesWorkspace() {
   const [archived, setArchived] = useState(false);
   const [librarySearch, setLibrarySearch] = useState("");
   const [playingSearch, setPlayingSearch] = useState("");
-  const [libraryStatus, setLibraryStatus] = useState<GameStatus | "">("");
-  const [playingStatus, setPlayingStatus] = useState<GameStatus | "">("");
-  const [libraryScore, setLibraryScore] = useState<"" | "unscored">("");
+  const [libraryStatuses, setLibraryStatuses] = useState<GameStatus[]>([]);
+  const [playingStatuses, setPlayingStatuses] = useState<GameStatus[]>([]);
+  const [libraryScore, setLibraryScore] = useState<"" | "scored" | "unscored">("");
+  const [genreFilter, setGenreFilter] = useState("");
+  const [scoreMinimum, setScoreMinimum] = useState("");
+  const [scoreMaximum, setScoreMaximum] = useState("");
+  const [startedYear, setStartedYear] = useState("");
+  const [finishedYear, setFinishedYear] = useState("");
+  const [runCount, setRunCount] = useState<"" | "none" | "one" | "multiple" | "incomplete">("");
   const [favorites, setFavorites] = useState(false);
-  const [sort, setSort] = useState<Sort>(() => (localStorage.getItem("nubeos.games.sort") as Sort) || "updated");
-  useEffect(() => { localStorage.setItem("nubeos.games.sort", sort); }, [sort]);
+  const [collectionPanel, setCollectionPanel] = useState<"filters" | "sort" | null>(null);
+  const [defaultSort, setDefaultSort] = useState<Sort>(() => readDefaultSort(gameSortStorageKey, "title", gameSorts));
+  const [sort, setSort] = useState<Sort>(() => readDefaultSort(gameSortStorageKey, "title", gameSorts));
   const [historyGame, setHistoryGame] = useState("");
   const [historyYear, setHistoryYear] = useState("");
   const [selected, setSelected] = useState<GameDetail | null>(null);
@@ -64,9 +77,15 @@ export default function GamesWorkspace() {
   const requestId = useRef(0);
   const playingFilters = view === "playing";
   const search = playingFilters ? playingSearch : librarySearch;
-  const status = playingFilters ? playingStatus : libraryStatus;
+  const statuses = playingFilters ? playingStatuses : libraryStatuses;
   const setSearch = playingFilters ? setPlayingSearch : setLibrarySearch;
-  const setStatus = playingFilters ? setPlayingStatus : setLibraryStatus;
+  const setStatuses = playingFilters ? setPlayingStatuses : setLibraryStatuses;
+  const historyByGame = useMemo(() => {
+    const entries = new Map<string, GameHistoryEntry[]>();
+    allHistory.forEach((entry) => entries.set(entry.run.gameId, [...(entries.get(entry.run.gameId) ?? []), entry]));
+    return entries;
+  }, [allHistory]);
+  const genreOptions = useMemo(() => [...new Set(games.flatMap((game) => game.genres))].sort((a, b) => a.localeCompare(b, "es")), [games]);
 
   const load = useCallback(async (showLoading = false) => {
     const id = ++requestId.current; if (showLoading) setLoading(true);
@@ -88,21 +107,28 @@ export default function GamesWorkspace() {
   const visible = useMemo(() => {
     const query = search.trim().toLocaleLowerCase("es");
     return games.filter((game) => (view !== "playing" || game.status === "playing" || game.status === "paused")
-      && (!query || game.name.toLocaleLowerCase("es").includes(query)) && (!status || game.status === status)
-      && (view !== "library" || !libraryScore || game.score === null) && (!favorites || game.favorite))
+      && (!query || game.name.toLocaleLowerCase("es").includes(query)) && (statuses.length === 0 || statuses.includes(game.status))
+      && (!genreFilter || game.genres.includes(genreFilter))
+      && (!libraryScore || (libraryScore === "unscored" ? game.score === null : game.score !== null))
+      && (!scoreMinimum || (game.score !== null && game.score >= Number(scoreMinimum)))
+      && (!scoreMaximum || (game.score !== null && game.score <= Number(scoreMaximum)))
+      && (!startedYear || historyByGame.get(game.id)?.some((entry) => entry.run.startedOn?.startsWith(startedYear)))
+      && (!finishedYear || historyByGame.get(game.id)?.some((entry) => entry.run.finishedOn?.startsWith(finishedYear)))
+      && (!runCount || (() => { const runs = historyByGame.get(game.id) ?? []; return runCount === "none" ? runs.length === 0 : runCount === "one" ? runs.length === 1 : runCount === "multiple" ? runs.length >= 2 : runs.some((entry) => entry.run.finishedOn !== null && !entry.run.completed); })())
+      && (!favorites || game.favorite))
       .sort((a, b) => {
         if (sort === "title") return a.name.localeCompare(b.name, "es");
         if (sort === "score") return (b.score ?? -1) - (a.score ?? -1) || a.name.localeCompare(b.name, "es");
         if (sort.startsWith("start") || sort.startsWith("finish")) {
           const value = (id: string) => allHistory.filter((entry) => entry.run.gameId === id).map((entry) => sort.startsWith("start") ? entry.run.startedOn : entry.run.finishedOn).filter((date): date is string => date !== null).sort().reverse()[0];
           const left = value(a.id), right = value(b.id);
-          if (!left) return right ? 1 : 0;
+          if (!left) return right ? 1 : a.name.localeCompare(b.name, "es");
           if (!right) return -1;
-          return sort.endsWith("Asc") ? left.localeCompare(right) : right.localeCompare(left);
+          return (sort.endsWith("Asc") ? left.localeCompare(right) : right.localeCompare(left)) || a.name.localeCompare(b.name, "es");
         }
-        return b.updatedAt.localeCompare(a.updatedAt);
+        return b.updatedAt.localeCompare(a.updatedAt) || a.name.localeCompare(b.name, "es");
       });
-  }, [allHistory, favorites, games, libraryScore, search, sort, status, view]);
+  }, [allHistory, favorites, finishedYear, games, genreFilter, historyByGame, libraryScore, runCount, scoreMaximum, scoreMinimum, search, sort, startedYear, statuses, view]);
 
   async function action(operation: () => Promise<unknown>) {
     setBusy(true); try { await operation(); setError(null); await load(false); return true; }
@@ -117,30 +143,54 @@ export default function GamesWorkspace() {
     }
     return detail;
   }
-  function toggleArchive() { setArchived((value) => !value); setSelected(null); setLibrarySearch(""); setLibraryStatus(""); setLibraryScore(""); setFavorites(false); setView("library"); }
+  function toggleArchive() { setArchived((value) => !value); setSelected(null); setLibrarySearch(""); setLibraryStatuses([]); setPlayingStatuses([]); setLibraryScore(""); setGenreFilter(""); setScoreMinimum(""); setScoreMaximum(""); setStartedYear(""); setFinishedYear(""); setRunCount(""); setFavorites(false); setView("library"); }
   const collectionActions = <div className="games-header-actions">
     <button className="games-text-action" onClick={toggleArchive} type="button">{archived ? <RotateCcw size={16} /> : <Archive size={16} />}{archived ? "Volver" : "Archivo"}</button>
     {!archived && <button className="primary-button" onClick={() => setForm("new")} type="button"><Plus size={17} /> Añadir videojuego</button>}
   </div>;
+  const pageTitle = archived
+    ? "Archivo"
+    : view === "playing"
+      ? "Jugando"
+      : view === "history"
+        ? "Historial"
+        : view === "statistics"
+          ? "Estadísticas"
+          : "Biblioteca";
+  useAppView(pageTitle);
+  const activeFilterCount = Number(statuses.length > 0) + Number(Boolean(libraryScore)) + Number(Boolean(genreFilter))
+    + Number(Boolean(scoreMinimum)) + Number(Boolean(scoreMaximum)) + Number(Boolean(startedYear))
+    + Number(Boolean(finishedYear)) + Number(Boolean(runCount));
 
   return <section className="games-workspace">
-    <div className="games-toolbar">
-      <nav aria-label="Vistas de Videojuegos" className="games-tabs">
-        <Tab active={view === "library"} icon={Library} label="Biblioteca" onClick={() => { setView("library"); setArchived(false); }} />
-        <Tab active={view === "playing"} icon={Gamepad2} label="Jugando" onClick={() => { setView("playing"); setArchived(false); }} />
-        <Tab active={view === "history"} icon={History} label="Historial" onClick={() => { setView("history"); setArchived(false); }} />
-        <Tab active={view === "statistics"} icon={BarChart3} label="Estadísticas" onClick={() => { setView("statistics"); setArchived(false); }} />
-      </nav>
-    </div>
+    <header className="entertainment-page-header">
+      <h1 className="entertainment-module-title">Videojuegos</h1>
+      <div className="entertainment-navigation-row">
+        <nav aria-label="Vistas de Videojuegos" className="games-tabs">
+          <Tab active={!archived && view === "library"} icon={Library} label="Biblioteca" onClick={() => { setView("library"); setArchived(false); }} />
+          <Tab active={!archived && view === "playing"} icon={Gamepad2} label="Jugando" onClick={() => { setView("playing"); setArchived(false); }} />
+          <Tab active={!archived && view === "history"} icon={History} label="Historial" onClick={() => { setView("history"); setArchived(false); }} />
+          <Tab active={!archived && view === "statistics"} icon={BarChart3} label="Estadísticas" onClick={() => { setView("statistics"); setArchived(false); }} />
+        </nav>
+        {collectionActions}
+      </div>
+    </header>
     {error && <div className="games-error" role="alert"><span>{error}</span><button aria-label="Cerrar error" onClick={() => setError(null)} type="button"><X size={15} /></button></div>}
-    {view === "statistics" && !archived ? <Statistics actions={collectionActions} entries={allHistory} games={games} open={(id) => void openGame(id)} showUnscored={() => { setLibraryScore("unscored"); setView("library"); setArchived(false); }} /> : view === "history" && !archived ? <HistoryView actions={collectionActions} entries={history} games={games} years={historyYears} gameId={historyGame} year={historyYear} setGameId={setHistoryGame} setYear={setHistoryYear} edit={(entry) => setRunForm({ gameId: entry.run.gameId, run: entry.run })} remove={(entry) => { if (window.confirm(`¿Eliminar esta partida de “${entry.gameName}”?`)) void action(async () => { const game = await gamesApi.get(entry.run.gameId); await mutateRunKeepingChoice(game, () => gamesApi.deleteRun(entry.run.id)); }); }} /> : <>
-      <div className="games-collection-heading"><header className="games-view-heading"><span>{archived ? "ARCHIVO" : view === "playing" ? "EN CURSO" : "TU COLECCIÓN"}</span><h2>{archived ? "Videojuegos archivados" : view === "playing" ? "Jugando" : "Biblioteca"}</h2><p>{archived ? "Restaura o elimina definitivamente." : view === "playing" ? "Tus partidas activas y pausadas." : "Todo lo que quieres jugar, has jugado o quieres recordar."}</p></header>{collectionActions}</div>
+    {view === "statistics" && !archived ? <Statistics entries={allHistory} games={games} open={(id) => void openGame(id)} showUnscored={() => { setLibraryScore("unscored"); setView("library"); setArchived(false); }} /> : view === "history" && !archived ? <HistoryView entries={history} games={games} years={historyYears} gameId={historyGame} year={historyYear} setGameId={setHistoryGame} setYear={setHistoryYear} edit={(entry) => setRunForm({ gameId: entry.run.gameId, run: entry.run })} remove={(entry) => { if (window.confirm(`¿Eliminar esta partida de “${entry.gameName}”?`)) void action(async () => { const game = await gamesApi.get(entry.run.gameId); await mutateRunKeepingChoice(game, () => gamesApi.deleteRun(entry.run.id)); }); }} /> : <>
       <div className={`games-filters${view !== "library" || archived ? " without-favorite" : ""}`}>
         <label className="games-search"><Search size={17} /><input onChange={(e) => setSearch(e.target.value)} placeholder="Buscar videojuegos" value={search} /></label>
-        <SelectControl><select aria-label="Filtrar por estado" onChange={(e) => setStatus(e.target.value as GameStatus | "")} value={status}><option value="">{view === "playing" ? "Jugando y en pausa" : "Todos los estados"}</option>{gameStatuses.filter((item) => view !== "playing" || item.value === "playing" || item.value === "paused").map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></SelectControl>
-        {view === "library" && <SelectControl><select aria-label="Filtrar por puntuación" onChange={(event) => setLibraryScore(event.target.value as "" | "unscored")} value={libraryScore}><option value="">Todas las puntuaciones</option><option value="unscored">Sin puntuar</option></select></SelectControl>}
-        <SelectControl><select aria-label="Ordenar videojuegos" onChange={(e) => setSort(e.target.value as Sort)} value={sort}><option value="updated">Actualizados recientemente</option><option value="title">Título (A–Z)</option><option value="score">Mejor puntuación</option><option value="startDesc">Inicio (más reciente)</option><option value="startAsc">Inicio (más antiguo)</option><option value="finishDesc">Finalización (más reciente)</option><option value="finishAsc">Finalización (más antigua)</option></select></SelectControl>
         {view === "library" && !archived && <FavoriteFilter active={favorites} onChange={setFavorites} />}
+        <FilterDisclosure change={setCollectionPanel} controlsId="games-library-filters" count={activeFilterCount} open={collectionPanel} sortActive={sort !== "title"} />
+        {collectionPanel && <FilterBuilder id="games-library-filters" mode={collectionPanel} filters={[
+          { id: "status", label: "Estado", active: statuses.length > 0, clear: () => setStatuses([]), control: <MultiSelectControl label={view === "playing" ? "Jugando y en pausa" : "Todos los estados"} onChange={setStatuses} options={gameStatuses.filter((item) => view !== "playing" || item.value === "playing" || item.value === "paused")} value={statuses} /> },
+          { id: "genre", label: "Género", active: Boolean(genreFilter), clear: () => setGenreFilter(""), control: <SelectControl><select aria-label="Filtrar por género" onChange={(event) => setGenreFilter(event.target.value)} value={genreFilter}><option value="">Todos los géneros</option>{genreOptions.map((genre) => <option key={genre}>{genre}</option>)}</select></SelectControl> },
+          { id: "score", label: "Puntuación", active: Boolean(libraryScore), clear: () => setLibraryScore(""), control: <SelectControl><select aria-label="Filtrar por disponibilidad de puntuación" onChange={(event) => setLibraryScore(event.target.value as "" | "scored" | "unscored")} value={libraryScore}><option value="">Todas las puntuaciones</option><option value="scored">Solo puntuadas</option><option value="unscored">Sin puntuar</option></select></SelectControl> },
+          { id: "score-min", label: "Puntuación mínima", active: Boolean(scoreMinimum), clear: () => setScoreMinimum(""), control: <SelectControl><select aria-label="Puntuación mínima" onChange={(event) => setScoreMinimum(event.target.value)} value={scoreMinimum}><option value="">Cualquiera</option>{[5,6,7,8,9].map((value) => <option key={value} value={value}>{value} o más</option>)}</select></SelectControl> },
+          { id: "score-max", label: "Puntuación máxima", active: Boolean(scoreMaximum), clear: () => setScoreMaximum(""), control: <SelectControl><select aria-label="Puntuación máxima" onChange={(event) => setScoreMaximum(event.target.value)} value={scoreMaximum}><option value="">Cualquiera</option>{[5,6,7,8,9].map((value) => <option key={value} value={value}>{value} o menos</option>)}</select></SelectControl> },
+          { id: "start-year", label: "Año de inicio", active: Boolean(startedYear), clear: () => setStartedYear(""), control: <SelectControl><select aria-label="Filtrar por año de inicio" onChange={(event) => setStartedYear(event.target.value)} value={startedYear}><option value="">Cualquier año</option>{historyYears.map((year) => <option key={year}>{year}</option>)}</select></SelectControl> },
+          { id: "finish-year", label: "Año de finalización", active: Boolean(finishedYear), clear: () => setFinishedYear(""), control: <SelectControl><select aria-label="Filtrar por año de finalización" onChange={(event) => setFinishedYear(event.target.value)} value={finishedYear}><option value="">Cualquier año</option>{historyYears.map((year) => <option key={year}>{year}</option>)}</select></SelectControl> },
+          { id: "runs", label: "Número de partidas", active: Boolean(runCount), clear: () => setRunCount(""), control: <SelectControl><select aria-label="Filtrar por número de partidas" onChange={(event) => setRunCount(event.target.value as "" | "none" | "one" | "multiple" | "incomplete")} value={runCount}><option value="">Cualquier cantidad</option><option value="none">Sin partidas</option><option value="one">Jugado una vez</option><option value="multiple">Jugado dos o más veces</option><option value="incomplete">Con partidas sin terminar</option></select></SelectControl> },
+        ]} sortControl={<SelectControl><select aria-label="Ordenar videojuegos" onChange={(e) => setSort(e.target.value as Sort)} value={sort}><option value="title">Título (A–Z)</option><option value="updated">Actualizados recientemente</option><option value="score">Mejor puntuación</option><option value="startDesc">Inicio (más reciente)</option><option value="startAsc">Inicio (más antiguo)</option><option value="finishDesc">Finalización (más reciente)</option><option value="finishAsc">Finalización (más antigua)</option></select></SelectControl>} sortPreference={{ isDefault: sort === defaultSort, isFallback: sort === "title", save: () => { saveDefaultSort(gameSortStorageKey, sort); setDefaultSort(sort); } }} />}
       </div>
       {loading ? <Empty text="Cargando videojuegos…" /> : visible.length === 0 ? <Empty text={archived ? "El Archivo está vacío." : view === "playing" ? "No tienes ninguna partida activa." : "Todavía no has añadido ningún videojuego."} /> : <div className="games-grid">{visible.map((game) => <GameCard key={game.id} game={game} lastRun={allHistory.find((entry) => entry.run.gameId === game.id)?.run} archived={archived} busy={busy} open={() => void openGame(game.id)} favorite={() => void action(() => gamesApi.favorite(game.id, !game.favorite))} restore={() => void action(() => gamesApi.restore(game.id))} remove={() => { if (window.confirm(`¿Eliminar definitivamente “${game.name}”?`)) void action(() => gamesApi.delete(game.id)); }} />)}</div>}
     </>}
@@ -151,7 +201,7 @@ export default function GamesWorkspace() {
   </section>;
 }
 
-function Tab({ active, icon: Icon, label, onClick }: { active: boolean; icon: typeof Library; label: string; onClick: () => void }) { return <button className={active ? "active" : ""} onClick={onClick} type="button"><Icon size={16} />{label}</button>; }
+function Tab({ active, icon: Icon, label, onClick }: { active: boolean; icon: typeof Library; label: string; onClick: () => void }) { return <button aria-current={active ? "page" : undefined} className={active ? "active" : ""} onClick={onClick} type="button"><Icon aria-hidden="true" size={16} />{label}</button>; }
 function Empty({ text }: { text: string }) { return <div className="games-empty"><Gamepad2 size={30} /><strong>{text}</strong></div>; }
 
 function GameCard({ game, lastRun, archived, busy, open, favorite, restore, remove }: { game: Game; lastRun?: GameRun; archived: boolean; busy: boolean; open: () => void; favorite: () => void; restore: () => void; remove: () => void }) {
@@ -191,11 +241,12 @@ function RunForm({ run, busy, close, save }: { run: GameRun | null; busy: boolea
   return <Modal className="game-run-modal" labelledBy="game-run-title" onClose={requestClose}><form onSubmit={async (event) => { event.preventDefault(); if (await save(draft)) close(); }}><header><div><h2 id="game-run-title">{run ? "Editar partida" : "Registrar partida"}</h2><p>La fecha final cierra el periodo; no implica necesariamente terminar el juego.</p></div><button aria-label="Cerrar" className="game-icon-action" onClick={requestClose} type="button"><X size={18} /></button></header><div className="game-form-grid"><label>Fecha de inicio<SmartDateInput max={today()} onChange={(value) => setDraft({ ...draft, startedOn: value || null })} required value={draft.startedOn ?? ""} /></label><label>Fecha final (opcional)<SmartDateInput max={today()} min={draft.startedOn ?? undefined} onChange={(value) => { const finishedOn = value || null; setDraft({ ...draft, finishedOn, completed: Boolean(finishedOn) }); }} value={draft.finishedOn ?? ""} /></label></div>{draft.finishedOn && <label className="tracker-run-completion" title="El periodo quedará cerrado y se sugerirá marcar el juego como Pausado."><input checked={!draft.completed} onChange={(e) => setDraft({ ...draft, completed: !e.target.checked })} type="checkbox" /><span>No terminé el videojuego</span></label>}<footer><button className="secondary-button" onClick={requestClose} type="button">Cancelar</button><button className="primary-button" disabled={busy || !draft.startedOn} type="submit">Guardar</button></footer></form></Modal>;
 }
 
-function HistoryView({ actions, entries, games, years, gameId, year, setGameId, setYear, edit, remove }: { actions: ReactNode; entries: GameHistoryEntry[]; games: Game[]; years: string[]; gameId: string; year: string; setGameId: (value: string) => void; setYear: (value: string) => void; edit: (entry: GameHistoryEntry) => void; remove: (entry: GameHistoryEntry) => void }) {
-  return <div><div className="games-collection-heading"><header className="games-view-heading"><span>TU HISTORIAL</span><h2>Partidas</h2><p>Primeras partidas y rejugadas, sin sobrescribir las anteriores.</p></header>{actions}</div><div className="game-history-filters"><SelectControl><select aria-label="Filtrar por videojuego" onChange={(e) => setGameId(e.target.value)} value={gameId}><option value="">Todos los videojuegos</option>{games.map((game) => <option key={game.id} value={game.id}>{game.name}</option>)}</select></SelectControl><SelectControl><select aria-label="Filtrar por año" onChange={(e) => setYear(e.target.value)} value={year}><option value="">Todos los años</option>{years.map((item) => <option key={item}>{item}</option>)}</select></SelectControl></div>{entries.length === 0 ? <Empty text="Todavía no hay partidas en el historial." /> : <div className="game-history-list">{entries.map((entry) => <article key={entry.run.id}><CalendarDays size={18} /><div><strong>{entry.gameName}{entry.run.finishedOn && !entry.run.completed && <span className="tracker-run-incomplete">Sin terminar</span>}</strong><span>{formatGameDate(entry.run.startedOn)} → {entry.run.finishedOn ? formatGameDate(entry.run.finishedOn) : "En curso"}</span></div><div><button aria-label="Editar" className="game-icon-action" onClick={() => edit(entry)} title="Editar" type="button"><Edit3 size={15} /></button><button aria-label="Eliminar" className="game-icon-action danger" onClick={() => remove(entry)} title="Eliminar" type="button"><Trash2 size={15} /></button></div></article>)}</div>}</div>;
+function HistoryView({ entries, games, years, gameId, year, setGameId, setYear, edit, remove }: { entries: GameHistoryEntry[]; games: Game[]; years: string[]; gameId: string; year: string; setGameId: (value: string) => void; setYear: (value: string) => void; edit: (entry: GameHistoryEntry) => void; remove: (entry: GameHistoryEntry) => void }) {
+  return <div><div className="game-history-filters"><SelectControl><select aria-label="Filtrar por videojuego" onChange={(e) => setGameId(e.target.value)} value={gameId}><option value="">Todos los videojuegos</option>{games.map((game) => <option key={game.id} value={game.id}>{game.name}</option>)}</select></SelectControl><SelectControl><select aria-label="Filtrar por año" onChange={(e) => setYear(e.target.value)} value={year}><option value="">Todos los años</option>{years.map((item) => <option key={item}>{item}</option>)}</select></SelectControl></div>{entries.length === 0 ? <Empty text="Todavía no hay partidas en el historial." /> : <div className="game-history-list">{entries.map((entry) => <article key={entry.run.id}><CalendarDays size={18} /><div><strong>{entry.gameName}{entry.run.finishedOn && !entry.run.completed && <span className="tracker-run-incomplete">Sin terminar</span>}</strong><span>{formatGameDate(entry.run.startedOn)} → {entry.run.finishedOn ? formatGameDate(entry.run.finishedOn) : "En curso"}</span></div><div><button aria-label="Editar" className="game-icon-action" onClick={() => edit(entry)} title="Editar" type="button"><Edit3 size={15} /></button><button aria-label="Eliminar" className="game-icon-action danger" onClick={() => remove(entry)} title="Eliminar" type="button"><Trash2 size={15} /></button></div></article>)}</div>}</div>;
 }
 
-function Statistics({ actions, entries, games, open, showUnscored }: { actions: ReactNode; entries: GameHistoryEntry[]; games: Game[]; open: (id: string) => void; showUnscored: () => void }) { return <div><div className="games-collection-heading"><header className="games-view-heading"><span>TU BIBLIOTECA</span><h2>Estadísticas</h2><p>Partidas, rejugadas y evolución de tus gustos.</p></header>{actions}</div><MediaStatisticsDashboard
+function Statistics({ entries, games, open, showUnscored }: { entries: GameHistoryEntry[]; games: Game[]; open: (id: string) => void; showUnscored: () => void }) { return <div><MediaStatisticsDashboard
+  refined
   items={games.map((game) => { const runs = entries.filter((entry) => entry.run.gameId === game.id).map((entry) => entry.run); const starts = runs.map((run) => run.startedOn).filter((date): date is string => Boolean(date)).sort(); const finishes = runs.filter((run) => run.completed).map((run) => run.finishedOn).filter((date): date is string => Boolean(date)).sort(); return { id: game.id, name: game.name, status: game.status, statusLabel: gameStatusLabel(game.status), score: game.score, favorite: game.favorite, genres: game.genres, startedOn: starts[0] ?? null, finishedOn: finishes[finishes.length - 1] ?? null }; })}
   noun="Videojuegos"
   openItem={open}

@@ -1,5 +1,7 @@
 # Spec — Proyectos
 
+- Estado: Plantilla sin definir; no sometida a aprobación
+
 ## Objetivo
 
 <!-- Resultado que debe conseguir el usuario. -->

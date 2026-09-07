@@ -2,6 +2,18 @@
 
 Este documento recoge conceptos de Tauri incorporados de forma consciente al proyecto.
 
+## Barra de título personalizada
+
+- **Qué es:** una ventana con `decorations: false` oculta el marco visual nativo y deja que React dibuje la superficie superior y sus controles.
+- **Por qué se usa en NubeOS:** evita repetir el icono de la aplicación y permite una barra superior neutra, plana y coherente con el resto de la interfaz.
+- **Límite de responsabilidad:** React presenta los botones y la región de arrastre; Tauri sigue ejecutando minimizar, maximizar o restaurar y cerrar mediante permisos limitados a la ventana principal.
+- **Implicaciones de seguridad:** la capability concede únicamente las acciones de ventana necesarias. El resto de APIs de ventana no se habilita por este cambio.
+- **Ejemplo pequeño:** la superficie vacía llama a `getCurrentWindow().startDragging()` al pulsar y a `toggleMaximize()` con doble clic. Declarar la capability en `app.security.capabilities` evita depender de su descubrimiento implícito.
+
+## Comparar una presentación sin reconstruir la aplicación
+
+Una vista aislada de Vite puede montar el mismo componente React con datos ficticios y alternar sus variantes. Así se revisa barra frente a anillo sin abrir SQLite ni generar un instalador. El porcentaje sigue llegando del contrato Rust; el SVG solo lo representa con `pathLength="100"`. La variante de prueba no cambia por sí sola la seleccionada en la aplicación.
+
 ## Plantilla de nota
 
 ### Concepto
@@ -75,3 +87,26 @@ Este documento recoge conceptos de Tauri incorporados de forma consciente al pro
 - **Límite de responsabilidad:** Rust valida la identidad del título y guarda o lee la miniatura en una carpeta privada predecible; React genera el primer fotograma, solicita el GIF completo solo al interactuar y limita su caché de URLs.
 - **Implicaciones de seguridad:** la interfaz nunca aporta rutas, la miniatura debe ser JPEG y tiene un máximo de 1 MB. El borrado definitivo elimina original y derivado.
 - **Ejemplo pequeño:** `read_media_cover_thumbnail` devuelve bytes por IPC; si todavía no existe, React la genera una vez y `save_media_cover_thumbnail` la persiste para las siguientes visitas.
+
+### Fechas y foco en WebView2
+
+- Un `input type="date"` tiene segmentos internos que no son controles DOM independientes. Atrapar Tab al llegar al primer/último input puede impedir pasar de día a mes o año.
+- Los guardas de foco en los extremos del modal permiten recorrer los segmentos antes de volver al principio. Se excluyen del foco inicial, junto a controles invisibles y con tabulación negativa.
+- Para un resaltado morado fiable, Media usa tres inputs numéricos de presentación con `::selection` y conserva el calendario de un input date nativo auxiliar. El borrador parcial no se pierde y el año se normaliza al confirmar el segmento, no con un temporizador.
+- Esto no mueve reglas de persistencia al navegador: Rust sigue rechazando fechas inválidas, futuras o anteriores al estreno cuando corresponda.
+
+### Disponibilidad y sugerencias de estado
+
+- Una propuesta derivada y un cambio persistido son distintos: confirmar el estado del contenido no actualiza por sí mismo el anime. El flujo debe consultar la propuesta del título devuelta por Rust y pedir otra confirmación si sigue Pendiente. Las pruebas de orquestación pueden ejecutar el módulo real con diálogos y comandos simulados, comprobando que Mantener no escribe y no descarta el progreso registrado.
+
+- `Marcar todo` es un atajo de borrador, no un registro: usa el límite ya calculado (restantes o total del revisionado), permite deshacerlo y nunca inventa episodios si el total es desconocido. La casilla tiene dimensiones explícitas para no heredar el tamaño de los inputs de texto.
+
+- El estado manual y el progreso registrado son independientes: `Terminado` con 0/13 puede representar un visionado pasado todavía sin historial. `canRewatch`, derivado en Rust, evita que el formulario envíe ese primer registro al comando de revisionado. La misma capacidad se valida al guardar.
+- Un error del backend debe mostrarse dentro del modal que inició la operación, no solo en el workspace que queda tapado. El estreno junto al selector ayuda a entender los límites de fecha antes de guardar.
+
+- Un estado de contenido futuro y una fecha desconocida no son lo mismo. Rust calcula el progreso disponible excluyendo únicamente Omitido y Por salir, y entrega por separado cuántos contenidos futuros quedan.
+- `availableCompleted` exige al menos un contenido disponible; evita concluir que un anime vacío o solo anunciado está terminado. La sugerencia no modifica la entidad persistida.
+- La interfaz detecta la transición tras un incremento y pide una decisión. Mantener conserva tanto el estado manual como el nuevo historial; una edición de fecha o un revisionado no dispara de nuevo el aviso.
+- El diálogo compartido admite una alternativa recomendada y devuelve la elección, no escribe datos. Contiene el foco y restaura el control anterior; Escape equivale a Mantener.
+- Compartir un enum entre títulos y contenidos no implica compartir todas sus opciones: un estado exclusivo requiere validación de dominio, restricción SQLite y listas de selección por contexto. La prueba de migración debe partir de un esquema anterior con filas, no solo de una base vacía.
+- La jerarquía visual del progreso puede cambiar sin tocar el contrato Tauri: porcentaje y contador comparten una fila con alineación de línea base y salto flexible; los avisos de total desconocido se renderizan encima, mientras que la disponibilidad futura acompaña al estado en una fila compartida. Para anclar el pie abajo no basta con su margen automático: la tarjeta y el botón que contiene su cuerpo deben ocupar la altura disponible. Las filas de cabecera deben neutralizar ese margen y padding heredados para no generar espacios inesperados. Biblioteca y En curso reutilizan los mismos componentes y los valores derivados por Rust.

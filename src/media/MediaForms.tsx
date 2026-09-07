@@ -23,6 +23,9 @@ import {
   contentKinds,
   scoreColor,
   trackingStatuses,
+  animeTrackingStatuses,
+  statusHelp,
+  contentTrackingStatuses,
 } from "./presentation";
 
 const parseScore = (value: string) => value ? Number(value.replace(",", ".")) : null;
@@ -173,7 +176,7 @@ export function MediaTitleForm({
               {area === "anime" && <div className="media-genre-field media-field-wide"><span>Géneros</span><div>{[...new Set([...animeGenres, ...genres])].map((genre) => <button className={genres.includes(genre) ? "active" : ""} key={genre} onClick={() => setGenres((current) => current.includes(genre) ? current.filter((item) => item !== genre) : [...current, genre])} type="button">{genre}</button>)}</div></div>}
               {area === "anime" && <label className="media-field">
                 Formato
-                <SelectControl><select disabled={Boolean(detail?.contents.length)} onChange={(event) => setKind(event.target.value as MediaKind)} value={kind}><option value="anime">Serie o franquicia</option><option value="movie">Película independiente</option></select></SelectControl>
+                <SelectControl><select disabled={Boolean(detail?.contents.length)} onChange={(event) => { const next = event.target.value as MediaKind; setKind(next); if (next !== "anime" && status === "toResume") setStatus("pending"); }} value={kind}><option value="anime">Serie o franquicia</option><option value="movie">Película independiente</option></select></SelectControl>
                 {Boolean(detail?.contents.length) && <small>El formato no puede cambiarse mientras existan contenidos asociados.</small>}
               </label>}
             </div>
@@ -183,7 +186,7 @@ export function MediaTitleForm({
             <div className="media-form-grid">
               {area !== "movies" && <label className="media-field">
                 Estado
-                <SelectControl><select onChange={(event) => setStatus(event.target.value as TrackingStatus)} value={status}>{trackingStatuses.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></SelectControl>
+                <SelectControl><select aria-label="Estado" aria-describedby={statusHelp(status) ? "anime-status-help" : undefined} title={statusHelp(status)} onChange={(event) => setStatus(event.target.value as TrackingStatus)} value={status}>{(kind === "anime" ? animeTrackingStatuses : trackingStatuses).map((item) => <option key={item.value} title={statusHelp(item.value)} value={item.value}>{item.label}</option>)}</select></SelectControl>{statusHelp(status) && <small className="media-muted" id="anime-status-help">{statusHelp(status)}</small>}
               </label>}
               <ScoreField score={score} setScore={setScore} />
               <div className="media-field"><span>Favorito</span><button aria-pressed={favorite} className={`media-form-favorite${favorite ? " active" : ""}`} onClick={() => setFavorite(!favorite)} type="button"><Star fill={favorite ? "currentColor" : "none"} size={18} /> {favorite ? "En favoritos" : "Añadir a favoritos"}</button></div>
@@ -313,7 +316,8 @@ export function MediaContentForm({
             <div className="media-form-grid media-form-grid-three">
               <label className="media-field">
                 Estado
-                <SelectControl><select onChange={(event) => setStatus(event.target.value as TrackingStatus)} value={status}>{trackingStatuses.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></SelectControl>
+                <SelectControl><select onChange={(event) => setStatus(event.target.value as TrackingStatus)} value={status}>{contentTrackingStatuses.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></SelectControl>
+                {status === "waitingContent" && <small>No cuenta en el progreso disponible.</small>}
               </label>
               <label className="media-field">
                 Episodios totales (opcional)
@@ -355,19 +359,21 @@ export function MediaContentForm({
 
 function ScoreField({ score, setScore }: { score: string; setScore: (value: string) => void }) {
   const parsed = parseScore(score);
-  const visualScore = parsed !== null && Number.isFinite(parsed) ? parsed : null;
+  const valid = parsed === null || (Number.isFinite(parsed) && parsed >= 0 && parsed <= 10);
+  const visualScore = valid ? parsed : null;
   return (
-    <label className="media-field media-score-field" style={{ color: scoreColor(visualScore) }}>
+    <label className={`media-field media-score-field${valid ? "" : " invalid"}`} style={{ color: scoreColor(visualScore) }}>
       <span>Puntuación (opcional)</span>
       <span className="media-score-input">
         <input
+          aria-invalid={!valid}
           aria-label="Puntuación"
           inputMode="decimal"
           max={10}
           min={0}
           onChange={(event) => setScore(event.target.value)}
           placeholder="—"
-          step={0.1}
+          step={0.01}
           style={{ color: scoreColor(visualScore) }}
           type="number"
           value={score}

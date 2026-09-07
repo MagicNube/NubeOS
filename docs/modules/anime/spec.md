@@ -1,7 +1,8 @@
 # Spec — Anime
 
-- Estado: Implementación completada; comprobación manual pendiente
-- Última actualización: 2026-08-22
+- Estado: Aprobado por Nube (módulo cerrado)
+- Última actualización: 2026-09-04
+- Aprobación de cierre: Nube, 2026-09-04. Cierre del alcance implementado; los trabajos futuros y las verificaciones de instalación no se consideran realizados por esta aprobación.
 
 ## Objetivo
 
@@ -19,12 +20,20 @@ Mantener una biblioteca dedicada de anime que permita seguir franquicias complej
 - Puntuación y opinión del anime y de cada contenido.
 - Número de catálogo estable y visible para saber cuántos animes forman la biblioteca.
 - Géneros del anime, fecha de estreno y notas informativas de cada contenido.
-- Puntuaciones entre 0 y 10 con precisión máxima de una décima, introducidas manualmente.
+- Puntuaciones entre 0 y 10 con precisión máxima de dos decimales, introducidas manualmente.
 - Portada, favorito, búsqueda, filtros, Archivo y borrado definitivo confirmado.
 - Ordenar la biblioteca por número de catálogo, valoración efectiva o título.
 - Omitir un contenido mediante una acción rápida para excluirlo del progreso y de las medias.
 - Consultar un historial global por año, mes, anime y contenido, con orden cronológico configurable.
+- Leer cada entrada del historial con episodio, contenido y anime en el título, la fecha del visionado debajo y el estreno como contexto secundario a la derecha.
 - Editar la fecha de una entrada del historial y retirar únicamente el último episodio registrado de cada contenido.
+- Registrar revisionados de contenidos ya completados como instancias independientes, editables y eliminables, sin alterar su progreso principal.
+- La etiqueta visible Revisionado corresponde a episodios ya registrados en una fecha anterior del mismo contenido, no al orden de introducción. Un bloque antiguo añadido después puede ser el primer visionado; la etiqueta de los posteriores se recalcula al crear, editar o eliminar sesiones. Dos bloques de episodios distintos no implican un revisionado. En el mismo día se conserva un desempate estable, priorizando el registro base.
+- Un estado manual Terminado con episodios pendientes no activa el revisionado: el registro añade progreso normal. Al abrir el formulario se prioriza un contenido que admite avanzar, frente a los ya completos.
+- Crear o editar un visionado de contenido muestra su estreno junto a la fecha (o indica que se desconoce), impide fechas anteriores y presenta los fallos dentro del formulario abierto.
+- Bajo Episodios vistos, Marcar todo rellena únicamente los episodios restantes; en un revisionado rellena el total. La casilla no registra nada hasta confirmar, se desactiva si el total es desconocido y permite recuperar la cantidad previa al desmarcar.
+- Editar tanto la fecha como el número de episodios de una instancia, sin permitir cantidades superiores al total del contenido.
+- Modificar la puntuación de un contenido desde su propia tarjeta, sin abrir el formulario completo.
 - En películas Anime independientes, elegir entre registrar inmediatamente con la fecha de hoy o abrir un formulario para indicar otra fecha; cada visionado ofrece edición y eliminación desde el detalle.
 - Usar portadas JPEG, PNG, WebP o GIF animado.
 - Cargar inicialmente una miniatura JPEG de las portadas GIF, solicitar la animación completa al interactuar y conservar una caché limitada de las últimas animaciones reproducidas.
@@ -55,20 +64,40 @@ Mantener una biblioteca dedicada de anime que permita seguir franquicias complej
 
 ## Reglas
 
+- Cada contenido dispone de recorridos independientes con registros de intervalos y fechas. Continuar sugiere el primer episodio pendiente del recorrido; Nuevo recorrido permite elegir libremente el primer episodio sin reinterpretar una pausa como un reinicio. Los rangos son editables y no se solapan dentro del mismo recorrido.
+- Un recorrido puede estar En curso, Terminado o Interrumpido. Sus cambios no modifican el estado global del anime. Terminado exige todos los episodios si el total se conoce. El progreso principal se conserva separado de los revisionados.
+- Los registros heredados mantienen sus fechas, episodios y permisos: el progreso original forma un recorrido base y cada bloque adicional forma uno independiente. No se unen recorridos automáticamente por proximidad de fechas.
+
+- Variante seleccionada para revisión: porcentaje principal en morado y contador de episodios secundario en gris a su derecha, siempre anclados en la esquina inferior izquierda. El contenido por salir aparece a la derecha del estado sobre el título, como texto gris sin cápsula, solo cuando existe. Los avisos de total desconocido quedan encima del progreso. Sin barra, círculo ni cápsula. Conserva el cálculo y el tratamiento de totales desconocidos.
+
+- Biblioteca y En curso muestran porcentaje destacado junto al contador y puntuación separada a la derecha. Sin total conocido se muestra `—` en lugar de un porcentaje inventado.
+- Ante totales parciales, el porcentaje se calcula únicamente sobre los contenidos de total conocido y se etiqueta `del total conocido`; no significa que la franquicia esté completa. Omitidos, Por salir y revisionados no incrementan el porcentaje.
+- Estreno significa primera disponibilidad legal en España, en cine, televisión, edición doméstica o plataforma, también subtitulada. Se usa la fecha civil de España peninsular; no se sustituye por el estreno japonés ni por una fecha de doblaje posterior.
+
 - Solo una serie o franquicia Anime admite contenidos.
 - Una película anime independiente no admite contenidos y conserva cada visionado o revisionado como una entrada histórica independiente.
 - El estado de una película anime independiente es manual y nunca crea por sí solo un visionado. Su fecha de visionado se registra únicamente desde Historial.
 - Los contenidos omitidos no reducen el progreso agregado.
+- El estado Esperando contenido se presenta como `Por salir` en los contenidos. Estos no suman episodios al progreso disponible ni bloquean su finalización; se muestra su cantidad por separado. Pendiente sigue contando aunque no tenga fecha de estreno.
+- Al completar todo lo disponible y quedar contenidos Por salir, el aviso permite elegir Esperando contenido (recomendado), Terminado o Mantener el estado del anime. Ninguna opción altera el historial ni los contenidos futuros. Sin contenidos disponibles no se considera que se haya terminado el anime.
+- La disponibilidad se cambia manualmente: pasar de Por salir a Pendiente vuelve a incluir sus episodios. No se deduce de la fecha ni se programa un cambio automático.
 - Si existen contenidos con total desconocido, el progreso conserva la suma conocida: `130 de 150 + ?`. Si ningún total es conocido, se muestra `X de ?`.
 - Anime nunca lista títulos de Series o Películas convencionales.
 - Los datos existentes clasificados como Anime permanecen en esta biblioteca tras la migración.
 - El estado global continúa siendo manual hasta aprobar reglas automáticas específicas.
 - Las sugerencias de estado son informativas: nunca guardan un cambio sin una acción explícita del usuario.
+- El último contenido marcado se determina por el orden recomendado, excluyendo Omitidos, Pendientes y Por salir. Si está Abandonado o En pausa, se sugiere ese estado antes de inferir Viendo por episodios antiguos. Si hay actividad en un contenido posterior, prevalece esa nueva actividad.
+- Todos los contenidos disponibles Pendientes y sin progreso sugieren Pendiente; tener únicamente contenidos Por salir sugiere Esperando contenido. Si aún hay contenido disponible en curso, los futuros no ocultan esa actividad. Se mantienen las reglas de cierre completo y Por retomar.
+- Cambiar el estado, inclusión, orden o conjunto de contenidos muestra la propuesta con Mantener/Cambiar. Editar solo nombres, notas, fechas o puntuaciones no repite el aviso. Mantener conserva el contenido modificado sin cambiar el estado del anime.
+- Un anime Pendiente con progreso disponible registrado sugiere Viendo aunque los episodios registrados pertenezcan solo a temporadas ya completas y queden otras sin empezar. Al aumentar episodios se pide confirmar también el estado del anime; Mantener conserva el historial. Si ya está visto todo lo disponible, prevalecen las sugerencias Terminado o Esperando contenido. La nueva comprobación no obliga a cambiar otros estados manuales ni cuenta contenidos Omitidos o Por salir.
+- Añadir episodios sin completar un contenido propone Viendo si su estado es distinto. Mantener conserva el estado y el nuevo historial; corregir solo una fecha o reducir progreso no dispara esta propuesta.
+- Las tarjetas abrevian únicamente los marcadores importados redundantes, reconociendo guiones y el nombre alternativo; conservan los títulos oficiales y el texto completo en la ayuda contextual.
+- `Temporada 2 — Anime: Subtítulo` se presenta como `Temporada 2 — Subtítulo` cuando Anime coincide exactamente con el título principal o alternativo. Sin marcador de temporada se conserva el título oficial, por ejemplo `No Game No Life: Zero`. El nombre persistido nunca cambia.
 - El número de catálogo se asigna al crear un anime, no cambia al archivar o eliminar y no se reutiliza.
 - El número de catálogo pertenece exclusivamente a una franquicia. Las películas anime independientes no reciben ni muestran número y nunca provocan la renumeración de franquicias existentes.
 - Si el anime no tiene puntuación general manual, la interfaz y las estadísticas usan la media simple de sus contenidos puntuados.
 - Las notas informativas de un contenido son independientes de su opinión personal.
-- Los títulos sin valoración se colocan al final al ordenar por puntuación.
+- Los títulos sin valoración se colocan al final al ordenar por puntuación. Estado admite varias selecciones y Anime también puede ordenarse por porcentaje visto; cualquier empate se resuelve por título.
 - La corrección manual del número de episodios requiere confirmación; el avance `+1` continúa siendo inmediato.
 - `+1` depende del progreso real, no de que el contenido figure como Terminado. Se bloquea al alcanzar el total o si está Omitido, Abandonado o Esperando contenido.
 - Aumentar el progreso crea una entrada por episodio nuevo. Reducirlo retira las entradas más recientes que excedan el nuevo progreso y no crea correcciones negativas visibles.
@@ -81,7 +110,7 @@ Mantener una biblioteca dedicada de anime que permita seguir franquicias complej
 - Omitir no elimina el contenido ni su historial. La acción inversa lo vuelve a incluir como Canon; otra canonicidad se elige desde la edición completa.
 - Las fechas manuales de inicio y fin no se solicitan en contenidos; la actividad se obtiene del historial y el estreno permanece como contexto objetivo.
 - La primera actividad procede exclusivamente del historial persistido. Si el progreso importado no tiene sesiones, se indica que no existe una fecha registrada.
-- El detalle ofrece un resumen agrupado del historial para el uso cotidiano y conserva un acceso explícito a la vista Historial completa para filtros y correcciones detalladas.
+- El detalle ofrece un resumen agrupado del historial para el uso cotidiano. La vista Historial completa continúa disponible en la navegación principal y desde el acceso iconográfico de la cabecera, sin repetir un botón textual dentro de cada tarjeta.
 - `Ver historial` desde la cabecera selecciona el anime y deja vacío el filtro de contenido. Desde una tarjeta selecciona tanto el anime como ese contenido.
 - El filtro de contenido depende del anime seleccionado y solo ofrece contenidos de esa franquicia. Al cambiar de anime se limpia cualquier contenido que ya no pertenezca al nuevo anime.
 - El orden visual de las tarjetas sigue el orden recomendado persistido y se lee de izquierda a derecha y de arriba abajo. Arrastrar una tarjeta continúa actualizando ese mismo orden.
@@ -102,7 +131,6 @@ Mantener una biblioteca dedicada de anime que permita seguir franquicias complej
 - APIs externas, recomendaciones, calendario de emisión y notificaciones.
 - Sincronización posterior con Notion o actualización automática de datos externos.
 - Episodios individuales con título o valoración propia.
-- Revisualizaciones y varios periodos completos de visionado de temporadas, OVA, especiales o películas vinculadas dentro de una franquicia.
 - Rutas alternativas de visionado.
 - Mezclar Anime, Series y Películas en una vista Todos.
 
@@ -112,12 +140,15 @@ Mantener una biblioteca dedicada de anime que permita seguir franquicias complej
 - [x] Una película anime independiente puede marcarse vista sin crear contenido hijo.
 - [x] Una película anime independiente terminada pero sin historial continúa ofreciendo `Registrar visionado` y no muestra una fecha duplicada en su formulario principal.
 - [x] El historial de una película independiente permite registrar hoy, registrar otra fecha y editar o eliminar su entrada con las mismas convenciones de Lectura.
+- [x] Un contenido completado puede revisionarse varias veces; cada instancia conserva su fecha y puede editarse o eliminarse sin descontar episodios del progreso original.
+- [x] Los campos de episodios se limitan mientras se escribe y la validación de Rust vuelve a impedir cualquier exceso.
+- [x] La nota de un contenido dispone de edición rápida y autoguardado desde la vista Información.
 - [x] Una película vinculada se muestra dentro de su anime de origen.
 - [x] En curso, Biblioteca y Estadísticas contienen únicamente Anime.
 - [x] Archivo, restauración y borrado mantienen el comportamiento seguro existente.
 - [x] Los animes muestran un número de catálogo estable y permiten guardar géneros.
 - [x] Los contenidos permiten guardar su estreno y notas separadas de la opinión.
-- [x] Las puntuaciones admiten décimas y la puntuación general cae en la media de contenidos cuando no existe una manual.
+- [x] Las puntuaciones admiten hasta dos decimales y la puntuación general cae en la media de contenidos cuando no existe una manual.
 - [x] La importación local queda respaldada y no incluye enlaces ni portadas de Notion.
 - [x] La biblioteca puede ordenarse por catálogo, valoración y título.
 - [x] Un contenido puede omitirse rápidamente y deja de afectar al progreso y a la media.
@@ -169,4 +200,13 @@ Mantener una biblioteca dedicada de anime que permita seguir franquicias complej
 - [x] Las tarjetas no conservan una fila inferior vacía cuando sus acciones secundarias están ocultas.
 - [x] Los metadatos superiores aprovechan el ancho de la tarjeta y se reorganizan sin solaparse cuando alguno falta.
 - [x] La puntuación utiliza una celda SeriesGraph con texto blanco y color derivado de la nota.
-- [x] Historial permite avanzar `+1 episodio` sobre el siguiente contenido disponible, registrar varios episodios y abrir la vista completa desde la misma cabecera, sin mostrar `Añadir contenido`.
+- [x] Historial permite avanzar `+1 episodio` sobre el siguiente contenido disponible y registrar varios episodios, sin mostrar `Añadir contenido` ni duplicar el acceso a la vista completa.
+- [x] Al completar todos los episodios conocidos de un contenido, se propone marcarlo como Terminado y se permite conservar su estado actual; si es el último contenido pendiente, un checkbox permite decidir si la misma confirmación termina también el anime.
+- [x] Una fecha de visionado nueva o editada nunca puede ser anterior al estreno conocido de su contenido.
+
+### Por retomar — aprobado el 2026-09-03
+
+- Estado manual exclusivo de títulos Anime: ya estabas al día y tienes nuevo contenido disponible que todavía no has empezado. No sustituye En pausa ni se aplica a contenidos o películas independientes.
+- Figura en edición, tarjetas, filtros y estadísticas, con ayuda explicativa.
+- Al pasar contenido no omitido de Por salir a Pendiente, si el anime estaba Esperando contenido y no hay otro contenido a medias, se propone Por retomar. Mantener no altera su estado; aceptar solo cambia el estado del anime.
+- Las fechas no activan disponibilidad automáticamente. Historial, puntuaciones y episodios se conservan.

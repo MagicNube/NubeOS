@@ -1,7 +1,7 @@
 # Roadmap de NubeOS
 
 - Estado: Aprobado por Nube
-- Última actualización: 2026-08-22
+- Última actualización: 2026-09-04
 
 ## Propósito
 
@@ -15,8 +15,9 @@ No contiene fechas. La prioridad es cerrar y revisar cada módulo antes de conce
 - Comidas y compras está implementado y cerrado tras varias rondas de uso real.
 - Documentos está implementado, revisado y cerrado.
 - Hábitos y rutinas está implementado, revisado y cerrado.
-- El bloque audiovisual está implementado y continúa en revisión visual.
-- Lectura tiene una primera versión técnica completa pendiente de revisión con datos reales.
+- Anime, Series, Películas, Lectura, Videojuegos, Inicio y Estadísticas MEDIA tienen su alcance implementado aprobado y cerrado por Nube el 2026-09-04.
+- La aprobación documental no sustituye pruebas técnicas: las comprobaciones de instalación y los trabajos futuros conservan su estado independiente.
+- Existe una build NSIS candidata 0.1.0; su instalación y migración final todavía deben comprobarse.
 - Los datos continúan siendo locales, sin copias ni sincronización durante esta etapa.
 
 ## Hito 0 — Fundaciones documentadas
@@ -102,12 +103,12 @@ El alcance concreto se determinará mediante una nueva actualización de spec, d
 
 **Objetivo:** sustituir las bases relacionales de Notion por tres trackers audiovisuales separados en la navegación, con Anime como área principal compleja y Series y Películas como áreas sencillas.
 
-- [ ] Revisar `docs/modules/anime/`, `series/` y `movies/` tras el refactor autorizado.
+- [x] Revisar `docs/modules/anime/`, `series/` y `movies/` tras el refactor autorizado; aprobación de Nube el 2026-09-04.
 - [x] Aprobar ADR-008 sobre módulos audiovisuales y núcleo compartido.
 - [x] Implementar como lote autorizado una primera versión técnica completa.
 - [x] Separar Anime, Series y Películas como tres entradas de la barra lateral.
 - [ ] Probar las tres bibliotecas, portadas, progreso e historial con datos reales.
-- [ ] Refinar la experiencia y cerrar el módulo.
+- [x] Refinar la experiencia y cerrar el módulo por aprobación de Nube el 2026-09-04.
 
 **Salida provisional:** Anime conserva contenidos y progreso detallado; Series usa posición simple; Películas usa seguimiento binario. Las tres áreas comparten infraestructura sin mezclar sus bibliotecas.
 
@@ -129,18 +130,23 @@ El alcance concreto se determinará mediante una nueva actualización de spec, d
 - [x] Implementar persistencia, casos de uso, Biblioteca, En lectura, Estadísticas y Archivo.
 - [x] Unificar favoritos mediante una estrella compacta compartida.
 - [ ] Probar formularios, filtros, ordenación y tarjetas con datos reales.
-- [ ] Refinar la experiencia y cerrar el módulo.
+- [x] Refinar la experiencia y cerrar el módulo por aprobación de Nube el 2026-09-04.
 
 **Salida provisional:** biblioteca de lectura local y vacía con título, autor, géneros, estado, fechas, puntuación y opinión.
 
-## Módulos posteriores
+## Hito 9 — Videojuegos
 
-Los siguientes módulos siguen siendo candidatos, sin orden comprometido. Cada uno comenzará de nuevo por spec, diseño y tareas:
+**Objetivo:** mantener una biblioteca personal con partidas y rejugadas independientes.
 
-- Finanzas personales.
-- Proyectos.
+- [x] Definir spec, diseño y tareas.
+- [x] Implementar Biblioteca, Jugando, Historial, Estadísticas y Archivo.
+- [x] Añadir portadas horizontales, géneros, favoritos y recorridos repetibles.
+- [ ] Probar formularios, estados derivados, portadas e historial con datos reales.
+- [x] Aprobar la documentación y cerrar el módulo: Nube, 2026-09-04.
 
-## Hito 9 — Inicio conectado
+**Salida provisional:** tracker local de videojuegos completo técnicamente y pendiente de validación de uso.
+
+## Hito 10 — Inicio conectado
 
 **Objetivo:** sustituir la landing provisional por una vista diaria que conecte los módulos implementados.
 
@@ -148,9 +154,16 @@ Los siguientes módulos siguen siendo candidatos, sin orden comprometido. Cada u
 - [x] Mostrar planificación diaria y compra semanal.
 - [x] Mostrar entretenimiento en curso y documentos que requieren atención.
 - [x] Mantener aislamiento mediante contratos públicos de consulta.
-- [ ] Revisar la composición con datos reales y cerrar el Dashboard.
+- [x] Aprobar la composición y cerrar el Dashboard: Nube, 2026-09-04. No se ejecutan nuevas pruebas en este cierre.
 
 **Salida provisional:** Inicio es el punto de entrada predeterminado y resume información real sin persistencia propia.
+
+## Módulos posteriores
+
+Los siguientes módulos siguen siendo candidatos, sin orden comprometido. Cada uno comenzará de nuevo por spec, diseño y tareas:
+
+- Finanzas personales.
+- Proyectos.
 
 ## Fuera del roadmap inicial
 

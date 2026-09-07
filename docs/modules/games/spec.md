@@ -1,7 +1,8 @@
 # Spec — Videojuegos
 
-- Estado: Aprobada por Nube; implementación completada, comprobación visual pendiente
-- Última actualización: 2026-08-24
+- Estado: Aprobado por Nube (módulo cerrado)
+- Última actualización: 2026-09-04
+- Aprobación de cierre: Nube, 2026-09-04. Cierre del alcance implementado; los trabajos futuros y las verificaciones de instalación no se consideran realizados por esta aprobación.
 
 ## Objetivo
 
@@ -13,7 +14,7 @@ Mantener una biblioteca personal de videojuegos que permita recordar qué se est
 - Crear, consultar y editar videojuegos mediante formularios modales.
 - Guardar nombre, géneros, portada opcional, estado, puntuación, opinión y favorito.
 - Estados: Pendiente, Jugando, En pausa, Terminado y Abandonado.
-- Buscar por nombre, filtrar por estado y favoritos y ordenar por actualización, título, puntuación o fechas de inicio y finalización, conservando la opción elegida.
+- Buscar por nombre, combinar varios estados, filtrar favoritos y ordenar por actualización, título, puntuación o fechas de inicio y finalización, conservando la opción elegida y resolviendo empates por título.
 - Iniciar una partida, cerrar su periodo y registrar partidas antiguas mediante fecha de inicio y fin, indicando de forma independiente si el juego se terminó.
 - Rejugar un título creando una partida nueva sin sobrescribir las anteriores.
 - Consultar, corregir y eliminar partidas desde el historial.

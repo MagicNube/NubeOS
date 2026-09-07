@@ -2,6 +2,16 @@
 
 Este documento recoge solo conceptos que se utilicen realmente en NubeOS.
 
+## Orden de registro frente a cronología real
+
+La marca persistida que evita sumar un revisionado al progreso no determina cuándo ocurrió. Rust puede derivar otra propiedad visible ordenando las sesiones por fecha y recordando el primer registro de cada par contenido/episodio con un `HashMap`. Las repeticiones se recogen en un `HashSet`; el cálculo no modifica sesiones ni progreso y se actualiza al corregir fechas. Separar ambos conceptos evita que añadir un visionado antiguo después lo etiquete erróneamente como posterior.
+
+## Porcentaje sobre una parte conocida del catálogo
+
+Cuando faltan totales, sumar los episodios vistos de todos los contenidos y dividirlos solo por los totales conocidos mezcla poblaciones distintas. Rust deriva `known_percentage` usando tanto numerador como denominador del mismo subconjunto con total confirmado; el porcentaje global sigue siendo `None`. React únicamente presenta el valor y avisa «del total conocido». Los omitidos y los contenidos por salir quedan fuera de ambos cálculos. No se persiste otra métrica que pueda quedar desactualizada.
+
+Ejemplo: 50/100 episodios confirmados y 80/? producen un 50 % del total conocido, no un 130 % ni una falsa confirmación de haber terminado. Las pruebas cubren este caso, el catálogo vacío y los extremos 0/100 %.
+
 ## Plantilla de nota
 
 ### Concepto
@@ -117,6 +127,20 @@ Este documento recoge solo conceptos que se utilicen realmente en NubeOS.
 - **Qué problema evita:** cambios que funcionan en una base recién creada pero fallan o pierden significado en el equipo del usuario, donde las migraciones anteriores ya se ejecutaron.
 - **¿Es idiomático?:** sí. Mantener migraciones incrementales e incluir una prueba de actualización es una práctica habitual. El dominio sigue usando tipos actuales; la compatibilidad queda localizada en SQL y en una lectura defensiva del repositorio.
 - **Ejemplo pequeño:** un objetivo mensual guardado con `monthly_start_day = 15` reaparece como `preferred_days = [15]` tras actualizar, sin intervención manual.
+
+## Recorridos de visionado
+
+### Prioridad explícita en las sugerencias
+
+Una inferencia debe distinguir hechos de decisiones: tener tres episodios registrados no significa seguir Viendo si el último contenido se marcó Abandonado. Rust selecciona ese último contenido por su posición recomendada, excluye pendientes/futuros/omitidos y calcula una propuesta sin escribir el estado. Pruebas con arrays invertidos aseguran que el resultado no dependa del orden accidental de una consulta. React confirma la propuesta solo tras cambios relevantes; editar una puntuación no debe provocar el mismo aviso.
+
+### Identidad del recorrido e identidad del registro
+
+- **Qué es:** `run_id` identifica un visionado completo o parcial de un contenido; `registration_id` identifica un bloque de episodios registrado en una fecha. Un recorrido puede contener muchos bloques.
+- **Por qué se usa en NubeOS:** continuar un revisionado 1–60 con 61–75 es distinto de empezar otro desde el 1, aunque ambos se introduzcan el mismo día. La intención se guarda explícitamente, no se deduce de las fechas.
+- **Qué evita:** reiniciar accidentalmente los intervalos al editar, duplicar episodios dentro del mismo recorrido o inflar el progreso principal al revisionar. La comprobación de solapamientos y la inserción se ejecutan en la misma transacción SQLite.
+- **¿Es idiomático?:** sí. Claves foráneas expresan la relación y `HashSet<u32>` calcula cobertura única y primer episodio pendiente sin persistir contadores redundantes. La migración conserva cada bloque antiguo adicional como recorrido independiente, sin inventar asociaciones.
+- **Ejemplo:** registros 1–60 y 61–75 comparten `run_id`, pero tienen `registration_id` distintos. Para volver a ver 1–10 se crea otro `run_id`; el progreso original de 148 permanece intacto.
 
 ## Materializar una consulta antes de devolverla
 

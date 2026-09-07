@@ -1,7 +1,8 @@
 # Spec — Series
 
-- Estado: Ampliación de revisionados implementada; revisión visual pendiente
-- Última actualización: 2026-08-30
+- Estado: Aprobado por Nube (módulo cerrado)
+- Última actualización: 2026-09-04
+- Aprobación de cierre: Nube, 2026-09-04. Cierre del alcance implementado; los trabajos futuros y las verificaciones de instalación no se consideran realizados por esta aprobación.
 
 ## Objetivo
 
@@ -32,7 +33,7 @@ Registrar series convencionales mediante un tracker sencillo que recuerde qué s
 - La fecha final no puede ser anterior a la fecha inicial.
 - Ninguna fecha del historial puede estar en el futuro según la fecha local de Madrid.
 - La tarjeta presenta el estado fuera de la portada y prioriza la fecha o el periodo del último seguimiento frente al número de episodio.
-- La biblioteca conserva la ordenación elegida y permite ordenar por título, puntuación y fechas inicial y final.
+- La biblioteca combina varios estados, conserva la ordenación elegida y permite ordenar por título, puntuación y fechas inicial y final, con desempate alfabético.
 - Series nunca muestra Anime ni Películas.
 - Los contenidos detallados creados durante el prototipo se conservan en modo lectura para no perder datos.
 - Solo puede existir un visionado abierto por serie.
@@ -46,9 +47,9 @@ Registrar series convencionales mediante un tracker sencillo que recuerde qué s
 
 ## Criterios de aceptación
 
-- [ ] Se puede guardar una serie con posición opcional y recuperarla tras reiniciar.
-- [ ] Las tarjetas muestran posición, estado y puntuación sin datos de Anime.
-- [ ] Editar posición o fechas no altera datos históricos ajenos.
-- [ ] Archivo y borrado funcionan igual que en los demás trackers.
-- [ ] Se puede registrar un segundo visionado sin alterar el primero.
-- [ ] Historial permite corregir y retirar periodos completos.
+- [x] Se puede guardar una serie con posición opcional y recuperarla tras reiniciar.
+- [x] Las tarjetas muestran posición, estado y puntuación sin datos de Anime.
+- [x] Editar posición o fechas no altera datos históricos ajenos.
+- [x] Archivo y borrado funcionan igual que en los demás trackers.
+- [x] Se puede registrar un segundo visionado sin alterar el primero.
+- [x] Historial permite corregir y retirar periodos completos.

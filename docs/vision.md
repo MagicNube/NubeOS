@@ -1,7 +1,7 @@
 # Visión de NubeOS
 
 - Estado: Aprobada por Nube
-- Última actualización: 2026-08-02
+- Última actualización: 2026-09-03
 
 ## Problema
 
@@ -11,7 +11,7 @@ NubeOS es una aplicación personal para una única persona: su propietario. Debe
 
 ## Propuesta de valor
 
-NubeOS reúne flujos personales recurrentes en una aplicación de escritorio privada, modular y local-first. Cada módulo resuelve un problema concreto con datos que pertenecen al usuario, siguen siendo utilizables sin conexión y pueden exportarse.
+NubeOS reúne flujos personales recurrentes en una aplicación de escritorio privada, modular y local-first. Cada módulo resuelve un problema concreto con datos que pertenecen al usuario y siguen siendo utilizables sin conexión. La exportación sigue siendo una capacidad prevista, todavía no implementada.
 
 No busca sustituir todas las herramientas existentes ni convertirse en una plataforma generalista. Busca reducir fricción en las partes de la vida personal que el usuario consulta y actualiza con frecuencia.
 
@@ -21,7 +21,7 @@ No busca sustituir todas las herramientas existentes ni convertirse en una plata
 - **Local-first.** El uso diario no depende de un servicio remoto.
 - **Modular y enfocada.** Cada área tiene un propósito claro; no se añaden funciones por acumulación.
 - **Clara y calmada.** La interfaz prioriza legibilidad, foco y el mínimo ruido visual.
-- **Datos portables.** El usuario conserva control y puede exportar sus datos en formatos razonables.
+- **Datos portables.** El usuario conserva el control y la arquitectura debe permitir exportar sus datos en formatos razonables cuando se implemente esa capacidad.
 - **Evolución deliberada.** Las necesidades reales del uso personal guían el orden de los módulos.
 
 ## Alcance inicial
@@ -36,6 +36,10 @@ El primer módulo a especificar es el **planificador de comidas y compras**. Los
 - Proyectos.
 - Lectura.
 - Series.
+
+## Evolución realizada
+
+La aplicación de uso personal incorpora actualmente Inicio, Comidas y compras, Documentos, Hábitos, Anime, Lectura, Videojuegos, Películas y Series. Este inventario no amplía por sí solo la visión ni declara cerrados los módulos que continúan en revisión. Finanzas y Proyectos permanecen sin diseñar.
 
 ## Fuera de alcance inicial
 

@@ -17,6 +17,11 @@ import {
   X,
 } from "lucide-react";
 import Modal from "../ui/Modal";
+import FilterDisclosure from "../ui/FilterDisclosure";
+import FilterBuilder from "../ui/FilterBuilder";
+import { readDefaultSort, saveDefaultSort } from "../ui/sortPreference";
+import MultiSelectControl from "../ui/MultiSelectControl";
+import { useAppView } from "../ui/AppViewContext";
 import FavoriteFilter from "../ui/FavoriteFilter";
 import ArchiveItemActions from "../ui/ArchiveItemActions";
 import SelectControl from "../ui/SelectControl";
@@ -49,6 +54,7 @@ import "./media.css";
 
 type SimpleArea = Extract<MediaArea, "series" | "movies">;
 type SimpleSort = "updated" | "title" | "score" | "startAsc" | "startDesc" | "finishAsc" | "finishDesc";
+const simpleSorts: readonly SimpleSort[] = ["title", "updated", "score", "startDesc", "startAsc", "finishDesc", "finishAsc"];
 
 export default function SimpleMediaWorkspace({ area }: { area: SimpleArea }) {
   const copy = area === "series"
@@ -74,27 +80,73 @@ export default function SimpleMediaWorkspace({ area }: { area: SimpleArea }) {
   const [form, setForm] = useState<"new" | "edit" | null>(null);
   const [archived, setArchived] = useState(false);
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState<TrackingStatus | "">("");
+  const [statuses, setStatuses] = useState<TrackingStatus[]>([]);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
-  const [scoreFilter, setScoreFilter] = useState<"" | "unscored">("");
-  const [sort, setSort] = useState<SimpleSort>(() => (localStorage.getItem(`nubeos.${area}.sort`) as SimpleSort) || "updated");
+  const [collectionPanel, setCollectionPanel] = useState<"filters" | "sort" | null>(null);
+  const [scoreFilter, setScoreFilter] = useState<"" | "scored" | "unscored">("");
+  const [genreFilter, setGenreFilter] = useState("");
+  const [scoreMinimum, setScoreMinimum] = useState("");
+  const [scoreMaximum, setScoreMaximum] = useState("");
+  const [startedYear, setStartedYear] = useState("");
+  const [finishedYear, setFinishedYear] = useState("");
+  const [historyCount, setHistoryCount] = useState<"" | "none" | "one" | "multiple" | "open">("");
+  const sortStorageKey = `nubeos.${area}.sort.default.v3`;
+  const [defaultSort, setDefaultSort] = useState<SimpleSort>(() => readDefaultSort(sortStorageKey, "title", simpleSorts));
+  const [sort, setSort] = useState<SimpleSort>(() => readDefaultSort(sortStorageKey, "title", simpleSorts));
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const requestId = useRef(0);
 
-  useEffect(() => { localStorage.setItem(`nubeos.${area}.sort`, sort); }, [area, sort]);
+  const historyByTitle = useMemo(() => {
+    const counts = new Map<string, { total: number; open: boolean; starts: string[]; finishes: string[] }>();
+    if (area === "movies") {
+      allViewings.forEach((entry) => {
+        const current = counts.get(entry.titleId) ?? { total: 0, open: false, starts: [], finishes: [] };
+        current.total += 1;
+        current.starts.push(entry.watchedOn);
+        current.finishes.push(entry.watchedOn);
+        counts.set(entry.titleId, current);
+      });
+    } else {
+      allSeriesRuns.forEach((entry) => {
+        const current = counts.get(entry.titleId) ?? { total: 0, open: false, starts: [], finishes: [] };
+        current.total += 1;
+        current.open ||= entry.finishedOn === null;
+        current.starts.push(entry.startedOn);
+        if (entry.finishedOn) current.finishes.push(entry.finishedOn);
+        counts.set(entry.titleId, current);
+      });
+    }
+    return counts;
+  }, [allSeriesRuns, allViewings, area]);
+  const genreOptions = useMemo(() => [...new Set(items.flatMap((item) => item.genres))].sort((a, b) => a.localeCompare(b, "es")), [items]);
+  const historyYears = useMemo(() => [...new Set([...allViewings.map((entry) => entry.watchedOn), ...allSeriesRuns.flatMap((entry) => [entry.startedOn, entry.finishedOn]).filter((date): date is string => Boolean(date))].map((date) => date.slice(0, 4)))].sort().reverse(), [allSeriesRuns, allViewings]);
 
-  const sortedItems = useMemo(() => items.filter((item) => !scoreFilter || item.score === null).sort((left, right) => {
+  const sortedItems = useMemo(() => items.filter((item) => {
+    const history = historyByTitle.get(item.id);
+    const query = search.trim().toLocaleLowerCase("es");
+    return (!query || item.name.toLocaleLowerCase("es").includes(query) || item.alternativeTitle?.toLocaleLowerCase("es").includes(query))
+      && (statuses.length === 0 || statuses.includes(item.status))
+      && (!favoritesOnly || item.favorite)
+      && (!genreFilter || item.genres.includes(genreFilter))
+      && (!scoreFilter || (scoreFilter === "unscored" ? item.score === null : item.score !== null))
+      && (!scoreMinimum || (item.score !== null && item.score >= Number(scoreMinimum)))
+      && (!scoreMaximum || (item.score !== null && item.score <= Number(scoreMaximum)))
+      && (!startedYear || history?.starts.some((date) => date.startsWith(startedYear)))
+      && (!finishedYear || history?.finishes.some((date) => date.startsWith(finishedYear)))
+      && (!historyCount || (historyCount === "none" ? !history : historyCount === "one" ? history?.total === 1 : historyCount === "multiple" ? (history?.total ?? 0) >= 2 : history?.open));
+  }).sort((left, right) => {
+    const byTitle = () => left.name.localeCompare(right.name, "es");
     if (sort === "updated") return 0;
-    if (sort === "title") return left.name.localeCompare(right.name, "es");
+    if (sort === "title") return byTitle();
     if (sort === "score") return (right.score ?? -1) - (left.score ?? -1) || left.name.localeCompare(right.name, "es");
     const first = sort.startsWith("start") ? left.startedOn : left.finishedOn;
     const second = sort.startsWith("start") ? right.startedOn : right.finishedOn;
-    if (!first) return second ? 1 : 0;
+    if (!first) return second ? 1 : byTitle();
     if (!second) return -1;
-    return sort.endsWith("Asc") ? first.localeCompare(second) : second.localeCompare(first);
-  }), [items, scoreFilter, sort]);
+    return (sort.endsWith("Asc") ? first.localeCompare(second) : second.localeCompare(first)) || byTitle();
+  }), [favoritesOnly, finishedYear, genreFilter, historyByTitle, historyCount, items, scoreFilter, scoreMaximum, scoreMinimum, search, sort, startedYear, statuses]);
 
   const load = useCallback(async (showLoading = false) => {
     const id = ++requestId.current;
@@ -103,13 +155,13 @@ export default function SimpleMediaWorkspace({ area }: { area: SimpleArea }) {
       const data = await mediaApi.list({
         archived: view === "statistics" ? false : archived,
         area,
-        search: view === "library" ? search || null : null,
-        status: view === "library" ? status || null : null,
-        favoritesOnly: view === "library" && favoritesOnly,
+        search: null,
+        status: null,
+        favoritesOnly: false,
       });
       const [viewingData, seriesRunData] = await Promise.all([
         area === "movies" ? mediaApi.movieViewings() : Promise.resolve([]),
-        area === "series" && view === "statistics" ? mediaApi.seriesRuns() : Promise.resolve([]),
+        area === "series" ? mediaApi.seriesRuns() : Promise.resolve([]),
       ]);
       if (requestId.current === id) {
         setItems(data);
@@ -122,7 +174,7 @@ export default function SimpleMediaWorkspace({ area }: { area: SimpleArea }) {
     } finally {
       if (requestId.current === id) setLoading(false);
     }
-  }, [archived, area, favoritesOnly, search, status, view]);
+  }, [archived, area, view]);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => void load(loading), 150);
@@ -161,6 +213,10 @@ export default function SimpleMediaWorkspace({ area }: { area: SimpleArea }) {
   }
 
   function showArchive() {
+    if (!archived) {
+      setSearch(""); setStatuses([]); setFavoritesOnly(false); setScoreFilter(""); setGenreFilter("");
+      setScoreMinimum(""); setScoreMaximum(""); setStartedYear(""); setFinishedYear(""); setHistoryCount("");
+    }
     setArchived((current) => !current);
     setView("library");
     setDetail(null);
@@ -203,31 +259,31 @@ export default function SimpleMediaWorkspace({ area }: { area: SimpleArea }) {
   }
 
   const Icon = copy.icon;
+  const viewTitle = view === "history" ? "Historial" : view === "statistics" ? "Estadísticas" : archived ? "Archivo" : "Biblioteca";
+  useAppView(viewTitle);
+  const activeFilterCount = Number(statuses.length > 0) + Number(Boolean(scoreFilter)) + Number(Boolean(genreFilter))
+    + Number(Boolean(scoreMinimum)) + Number(Boolean(scoreMaximum)) + Number(Boolean(startedYear))
+    + Number(Boolean(finishedYear)) + Number(Boolean(historyCount));
+  const collectionActions = <div className="simple-media-heading-actions">
+    <button className="text-action" onClick={showArchive} type="button">
+      {archived ? <RotateCcw size={16} /> : <Archive size={16} />}
+      {archived ? "Volver" : "Archivo"}
+    </button>
+    {!archived && <button className="primary-button" onClick={() => setForm("new")} type="button"><Plus size={17} /> Añadir {copy.singular}</button>}
+  </div>;
   return (
     <section className="media-workspace simple-media-workspace">
-      <nav aria-label={`Vistas de ${area === "movies" ? "Películas" : "Series"}`} className="media-tabs simple-media-tabs">
-        <button className={view === "library" ? "active" : ""} onClick={() => setView("library")} type="button"><Library size={16} /> Biblioteca</button>
-        {area === "movies" && <button className={view === "history" ? "active" : ""} onClick={() => { setView("history"); setArchived(false); setDetail(null); setSearch(""); setStatus(""); setFavoritesOnly(false); }} type="button"><History size={16} /> Historial</button>}
-        <button className={view === "statistics" ? "active" : ""} onClick={() => { setView("statistics"); setArchived(false); setDetail(null); }} type="button"><BarChart3 size={16} /> Estadísticas</button>
-      </nav>
-      <div className="library-heading-row simple-media-heading">
-        <header className="media-view-heading">
-          <span>{view === "history" ? "TU HISTORIAL" : view === "statistics" ? "TU COLECCIÓN" : archived ? "ARCHIVO" : "TU COLECCIÓN"}</span>
-          <h2>{view === "history" ? "Visionados" : view === "statistics" ? "Estadísticas" : archived ? `${copy.plural[0].toUpperCase()}${copy.plural.slice(1)} archivadas` : `Tus ${copy.plural}`}</h2>
-          <p>{view === "history" ? "Primeros visionados y revisiones, conservados por separado." : archived ? "Restaura o elimina definitivamente." : area === "series" ? "Un seguimiento sencillo de lo que ves y por dónde vas." : "Pendientes, vistas y valoraciones sin mezclarlas con el anime."}</p>
-        </header>
-        <div className="simple-media-heading-actions">
-          <button className="text-action" onClick={showArchive} type="button">
-            {archived ? <RotateCcw size={16} /> : <Archive size={16} />}
-            {archived ? "Volver" : "Archivo"}
-          </button>
-          {!archived && (
-            <button className="primary-button" onClick={() => setForm("new")} type="button">
-              <Plus size={17} /> Añadir {copy.singular}
-            </button>
-          )}
+      <header className="entertainment-page-header">
+        <h1 className="entertainment-module-title">{area === "movies" ? "Películas" : "Series"}</h1>
+        <div className="entertainment-navigation-row">
+          <nav aria-label={`Vistas de ${area === "movies" ? "Películas" : "Series"}`} className="media-tabs simple-media-tabs">
+            <button aria-current={!archived && view === "library" ? "page" : undefined} className={!archived && view === "library" ? "active" : ""} onClick={() => { setView("library"); setArchived(false); }} type="button"><Library aria-hidden="true" size={16} /> Biblioteca</button>
+            {area === "movies" && <button aria-current={!archived && view === "history" ? "page" : undefined} className={!archived && view === "history" ? "active" : ""} onClick={() => { setView("history"); setArchived(false); setDetail(null); setSearch(""); setStatuses([]); setFavoritesOnly(false); }} type="button"><History aria-hidden="true" size={16} /> Historial</button>}
+            <button aria-current={!archived && view === "statistics" ? "page" : undefined} className={!archived && view === "statistics" ? "active" : ""} onClick={() => { setView("statistics"); setArchived(false); setDetail(null); }} type="button"><BarChart3 aria-hidden="true" size={16} /> Estadísticas</button>
+          </nav>
+          {collectionActions}
         </div>
-      </div>
+      </header>
 
       {error && (
         <div className="media-error" role="alert">
@@ -241,25 +297,26 @@ export default function SimpleMediaWorkspace({ area }: { area: SimpleArea }) {
           <Search size={17} />
           <input onChange={(event) => setSearch(event.target.value)} placeholder={`Buscar ${copy.plural}`} value={search} />
         </label>
-        <SelectControl>
-          <select aria-label="Filtrar por estado" onChange={(event) => setStatus(event.target.value as TrackingStatus | "")} value={status}>
-            <option value="">Todos los estados</option>
-            {trackingStatuses.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-          </select>
-        </SelectControl>
-        <SelectControl><select aria-label="Filtrar por puntuación" onChange={(event) => setScoreFilter(event.target.value as "" | "unscored")} value={scoreFilter}><option value="">Todas las puntuaciones</option><option value="unscored">Sin puntuar</option></select></SelectControl>
-        <SelectControl>
-          <select aria-label="Ordenar colección" onChange={(event) => setSort(event.target.value as SimpleSort)} value={sort}>
-            <option value="updated">Actualizados recientemente</option>
-            <option value="title">Título</option>
-            <option value="score">Puntuación</option>
-            <option value="startAsc">Inicio (más antiguos)</option>
-            <option value="startDesc">Inicio (más recientes)</option>
-            <option value="finishAsc">Fin (más antiguos)</option>
-            <option value="finishDesc">Fin (más recientes)</option>
-          </select>
-        </SelectControl>
         {!archived && <FavoriteFilter active={favoritesOnly} onChange={setFavoritesOnly} />}
+        <FilterDisclosure change={setCollectionPanel} controlsId={`${area}-library-filters`} count={activeFilterCount} open={collectionPanel} sortActive={sort !== "title"} />
+        {collectionPanel && <FilterBuilder id={`${area}-library-filters`} mode={collectionPanel} filters={[
+          { id: "status", label: "Estado", active: statuses.length > 0, clear: () => setStatuses([]), control: <MultiSelectControl label="Todos los estados" onChange={setStatuses} options={trackingStatuses} value={statuses} /> },
+          { id: "genre", label: "Género", active: Boolean(genreFilter), clear: () => setGenreFilter(""), control: <SelectControl><select aria-label="Filtrar por género" onChange={(event) => setGenreFilter(event.target.value)} value={genreFilter}><option value="">Todos los géneros</option>{genreOptions.map((genre) => <option key={genre}>{genre}</option>)}</select></SelectControl> },
+          { id: "score", label: "Puntuación", active: Boolean(scoreFilter), clear: () => setScoreFilter(""), control: <SelectControl><select aria-label="Filtrar por disponibilidad de puntuación" onChange={(event) => setScoreFilter(event.target.value as "" | "scored" | "unscored")} value={scoreFilter}><option value="">Todas las puntuaciones</option><option value="scored">Solo puntuadas</option><option value="unscored">Sin puntuar</option></select></SelectControl> },
+          { id: "score-min", label: "Puntuación mínima", active: Boolean(scoreMinimum), clear: () => setScoreMinimum(""), control: <SelectControl><select aria-label="Puntuación mínima" onChange={(event) => setScoreMinimum(event.target.value)} value={scoreMinimum}><option value="">Cualquiera</option>{[5,6,7,8,9].map((value) => <option key={value} value={value}>{value} o más</option>)}</select></SelectControl> },
+          { id: "score-max", label: "Puntuación máxima", active: Boolean(scoreMaximum), clear: () => setScoreMaximum(""), control: <SelectControl><select aria-label="Puntuación máxima" onChange={(event) => setScoreMaximum(event.target.value)} value={scoreMaximum}><option value="">Cualquiera</option>{[5,6,7,8,9].map((value) => <option key={value} value={value}>{value} o menos</option>)}</select></SelectControl> },
+          { id: "start-year", label: area === "movies" ? "Año del visionado" : "Año de inicio", active: Boolean(startedYear), clear: () => setStartedYear(""), control: <SelectControl><select aria-label="Filtrar por año de inicio" onChange={(event) => setStartedYear(event.target.value)} value={startedYear}><option value="">Cualquier año</option>{historyYears.map((year) => <option key={year}>{year}</option>)}</select></SelectControl> },
+          ...(area === "series" ? [{ id: "finish-year", label: "Año de finalización", active: Boolean(finishedYear), clear: () => setFinishedYear(""), control: <SelectControl><select aria-label="Filtrar por año de finalización" onChange={(event) => setFinishedYear(event.target.value)} value={finishedYear}><option value="">Cualquier año</option>{historyYears.map((year) => <option key={year}>{year}</option>)}</select></SelectControl> }] : []),
+          { id: "history-count", label: area === "movies" ? "Número de visionados" : "Número de recorridos", active: Boolean(historyCount), clear: () => setHistoryCount(""), control: <SelectControl><select aria-label={`Filtrar por número de ${area === "movies" ? "visionados" : "recorridos"}`} onChange={(event) => setHistoryCount(event.target.value as "" | "none" | "one" | "multiple" | "open")} value={historyCount}><option value="">Cualquier cantidad</option><option value="none">Sin visionados</option><option value="one">Visto una vez</option><option value="multiple">Visto dos o más veces</option>{area === "series" && <option value="open">Con visionado en curso</option>}</select></SelectControl> },
+        ]} sortControl={<SelectControl><select aria-label="Ordenar colección" onChange={(event) => setSort(event.target.value as SimpleSort)} value={sort}>
+              <option value="title">Título (A–Z)</option>
+              <option value="updated">Actualizados recientemente</option>
+              <option value="score">Puntuación</option>
+              <option value="startAsc">Inicio (más antiguos)</option>
+              <option value="startDesc">Inicio (más recientes)</option>
+              <option value="finishAsc">Fin (más antiguos)</option>
+              <option value="finishDesc">Fin (más recientes)</option>
+            </select></SelectControl>} sortPreference={{ isDefault: sort === defaultSort, isFallback: sort === "title", save: () => { saveDefaultSort(sortStorageKey, sort); setDefaultSort(sort); } }} />}
       </div>
 
       {loading ? (
@@ -496,6 +553,7 @@ function SimpleMediaDetail({
 
 function SimpleMediaStatistics({ area, entries, items, runs, open, showUnscored }: { area: SimpleArea; entries: MovieViewing[]; items: MediaTitle[]; runs: SeriesRun[]; open: (id: string) => Promise<void>; showUnscored: () => void }) {
   return <section className="simple-media-statistics"><MediaStatisticsDashboard
+    refined
     items={items.map((item) => ({ id: item.id, name: item.name, status: item.status, statusLabel: statusLabel(item.status), score: item.score, favorite: item.favorite, genres: item.genres, startedOn: item.startedOn, finishedOn: item.finishedOn }))}
     noun={area === "movies" ? "Películas" : "Series"}
     openItem={(id) => void open(id)}

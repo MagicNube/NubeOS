@@ -1,7 +1,8 @@
 # Spec — Hábitos y rutinas
 
 - Estado: Aprobado por Nube (módulo cerrado)
-- Última actualización: 2026-08-22
+- Última actualización: 2026-09-04
+- Aprobación de cierre: Nube, 2026-09-04. Cierre del alcance implementado; los trabajos futuros y las verificaciones de instalación no se consideran realizados por esta aprobación.
 
 ## Objetivo
 
@@ -117,6 +118,7 @@ El módulo debe cubrir tanto hábitos orientados a constancia —leer, estudiar 
 - [x] Un objetivo mensual de dos veces puede usar dos días orientativos y completarse anticipadamente.
 - [x] Una actividad creada entre semana empieza el lunes de esa misma semana y permite omitir manualmente los días anteriores.
 - [x] Hoy separa hábitos y tareas recurrentes en escritorio y vuelve a una columna en anchuras reducidas.
+- [x] Fecha, progreso total, porcentaje y barra forman una cabecera diaria única; los títulos y contadores de ambas columnas mantienen una jerarquía legible.
 - [x] Al consultar una semana anterior se avisa de que las modificaciones actualizarán sus estadísticas.
 - [x] La omisión usa una acción secundaria reconocible y un estado visual diferenciado sin alterar el comportamiento del checkbox.
 - [x] Las estadísticas cambian al seleccionar semana, mes, año, historial o un intervalo personalizado.

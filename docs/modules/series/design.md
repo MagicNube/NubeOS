@@ -1,7 +1,8 @@
 # Diseño — Series
 
-- Estado: Ampliación de revisionados implementada; revisión visual pendiente
-- Última actualización: 2026-08-22
+- Estado: Aprobado por Nube (módulo cerrado)
+- Última actualización: 2026-09-04
+- Aprobación de cierre: Nube, 2026-09-04. Cierre del alcance implementado; los trabajos futuros y las verificaciones de instalación no se consideran realizados por esta aprobación.
 
 ## Modelo
 

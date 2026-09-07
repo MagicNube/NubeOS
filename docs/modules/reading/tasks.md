@@ -1,47 +1,48 @@
 # Tareas — Lectura
 
-- Estado: T-R01 a T-R30 implementadas; comprobación manual pendiente
-- Última actualización: 2026-08-30
+- Estado: Aprobado por Nube (módulo cerrado)
+- Última actualización: 2026-09-06
+- Aprobación de cierre: Nube, 2026-09-04. Cierre del alcance implementado; los trabajos futuros y las verificaciones de instalación no se consideran realizados por esta aprobación.
 
 ## T-R01 — Auditar el modelo de Notion
 
-- Estado: Implementada
+- Estado: Implementada y aprobada por Nube.
 - Alcance: revisar columnas, estados, géneros, fechas y valoraciones sin importar datos.
 - Resultado: 27 filas sin títulos duplicados; cinco estados, doce géneros y valoraciones históricas de dos a cinco estrellas. Prioridad y URLs quedan excluidas.
 
 ## T-R02 — Unificar el filtro de favoritos
 
-- Estado: Implementada; comprobación visual pendiente
+- Estado: Implementada y aprobada por Nube.
 - Alcance: crear un botón compartido compacto con estrella vacía/rellena y sustituir las variantes de Documentos y Media.
 - Verificación: navegación por teclado, tooltip, `aria-pressed` y comparación visual.
 
 ## T-R03 — Crear dominio y migración
 
-- Estado: Implementada
+- Estado: Implementada y aprobada por Nube.
 - Alcance: entidad, estados, validaciones y tabla SQLite vacía.
 - Verificación: pruebas unitarias y de repositorio.
 
 ## T-R04 — Implementar casos de uso y comandos Tauri
 
-- Estado: Implementada
+- Estado: Implementada y aprobada por Nube.
 - Alcance: listar, crear, editar, favorito, archivar, restaurar, borrar y estadísticas.
 - Verificación: pruebas de persistencia y contratos registrados.
 
 ## T-R05 — Crear contratos TypeScript
 
-- Estado: Implementada
+- Estado: Implementada y aprobada por Nube.
 - Alcance: DTOs, API y presentación de estados, fechas y puntuaciones.
 - Verificación: comprobación TypeScript.
 
 ## T-R06 — Crear Biblioteca y En lectura
 
-- Estado: Implementada; comprobación visual pendiente
+- Estado: Implementada y aprobada por Nube.
 - Alcance: navegación, filtros combinables, ordenación, tarjetas, estados vacíos y Archivo.
 - Verificación: build y recorrido manual.
 
 ## T-R07 — Crear formulario, detalle y estadísticas
 
-- Estado: Implementada; comprobación visual pendiente
+- Estado: Implementada y aprobada por Nube.
 - Alcance: modales coherentes, aviso de borrador, edición completa y resumen agregado.
 - Verificación: build y recorrido manual.
 
@@ -55,31 +56,31 @@
 
 ## T-R09 — Refinar navegación y géneros
 
-- Estado: Implementada; comprobación visual pendiente
+- Estado: Implementada y aprobada por Nube.
 - Alcance: Biblioteca inicial, pestaña Leyendo con iconos y medidas comunes, favoritos solo en Biblioteca y diez géneros seleccionables.
 - Verificación: build y recorrido manual.
 
 ## T-R10 — Añadir portadas locales
 
-- Estado: Implementada; comprobación visual pendiente
+- Estado: Implementada y aprobada por Nube.
 - Alcance: migración de metadatos, almacenamiento privado JPEG/PNG/WebP, selección provisional, sustitución, retirada y lectura.
 - Verificación: pruebas Rust, build y recorrido manual.
 
 ## T-R11 — Unificar acciones de Archivo
 
-- Estado: Implementada; comprobación visual pendiente
+- Estado: Implementada y aprobada por Nube.
 - Alcance: componente compartido con restaurar y papelera, iconográfico y visible por hover/foco en las colecciones archivadas.
 - Verificación: build y revisión visual transversal.
 
 ## T-R12 — Simplificar los estados de Lectura
 
-- Estado: Implementada; comprobación manual pendiente
+- Estado: Implementada y aprobada por Nube.
 - Alcance: retirar Por investigar de dominio, contratos e interfaz y migrar posibles registros existentes a Pendiente.
 - Verificación: prueba de migración, pruebas Rust y build TypeScript.
 
 ## T-R13 — Reordenar el formulario de libros
 
-- Estado: Implementada; comprobación visual pendiente
+- Estado: Implementada y aprobada por Nube.
 - Alcance: mover la gestión de portada después de Opinión y acercar la secuencia del formulario al patrón de Anime.
 - Verificación: build TypeScript y recorrido visual de creación y edición.
 
@@ -87,7 +88,7 @@
 
 ## T-R14 — Dar protagonismo a la portada en Biblioteca
 
-- Estado: Implementada; comprobación visual pendiente
+- Estado: Implementada y aprobada por Nube.
 - Alcance: sustituir la cabecera horizontal recortada por una portada vertical completa y redistribuir la información en el espacio lateral.
 - Criterios: todas las cubiertas ocupan un marco `2:3`, conservan su proporción sin bandas vacías, las cuatro esquinas quedan redondeadas y el marco recuerda a un libro.
 - Verificación: build TypeScript y recorrido visual con portada, sin portada, fechas parciales y puntuación vacía.
@@ -96,27 +97,27 @@
 
 ## T-R15 — Modelar lecturas y relecturas
 
-- Estado: Implementada; comprobación manual pendiente
+- Estado: Implementada y aprobada por Nube.
 - Alcance: entidad `ReadingRun`, invariantes y migración de fechas existentes.
 - Verificación: pruebas de migración, periodo abierto único y rangos válidos.
 
 ## T-R16 — Implementar persistencia y casos de uso de relectura
 
-- Estado: Implementada; comprobación manual pendiente
+- Estado: Implementada y aprobada por Nube.
 - Dependencias: T-R15
 - Alcance: iniciar, finalizar, registrar, corregir, listar y retirar periodos.
 - Verificación: pruebas transaccionales y sincronización del estado del libro.
 
 ## T-R17 — Exponer comandos e historial en React
 
-- Estado: Implementada; comprobación manual pendiente
+- Estado: Implementada y aprobada por Nube.
 - Dependencias: T-R16
 - Alcance: DTOs, comandos Tauri, API TypeScript, pestaña Historial y filtros.
 - Verificación: build y recorrido con una lectura inicial y dos relecturas.
 
 ## T-R18 — Integrar relecturas en detalle y estadísticas
 
-- Estado: Implementada; comprobación manual pendiente
+- Estado: Implementada y aprobada por Nube.
 - Dependencias: T-R17
 - Alcance: acciones rápidas, resumen de lectura actual/última y total de relecturas.
 - Verificación: estados Pendiente, Leyendo, En pausa y Terminado.
@@ -129,63 +130,63 @@
 
 ## T-R20 — Pegar y normalizar portadas
 
-- Estado: Implementada; comprobación manual pendiente
+- Estado: Implementada y aprobada por Nube.
 - Alcance: aceptar imágenes del portapapeles en el formulario, convertirlas a JPEG y reutilizar el almacén provisional privado.
 - Verificación: build, límites de 8 MB y prueba manual con PNG/WebP copiado.
 
 ## T-R21 — Unificar el detalle del tracker
 
-- Estado: Implementada; comprobación visual pendiente
+- Estado: Implementada y aprobada por Nube.
 - Alcance: dividir el detalle en Resumen e Historial y aplicar la misma jerarquía de métricas que Videojuegos y Películas.
 - Verificación: build y prueba manual con libro pendiente, lectura abierta y varias relecturas.
 
 ## T-R22 — Refinar detalle y estadísticas
 
-- Estado: Implementada; comprobación visual pendiente
+- Estado: Implementada y aprobada por Nube.
 - Alcance: normalizar la portada vertical del detalle y filtrar estadísticas por género y puntuación mínima desde casos de uso Rust.
 - Verificación: pruebas Rust, build y prueba manual con filtros combinados.
 
 ## T-R23 — Ajustar encuadre y zoom de portada
 
-- Estado: Implementada; comprobación visual pendiente
+- Estado: Implementada y aprobada por Nube.
 - Alcance: persistir posición X/Y y zoom, reutilizar el editor compartido y mostrar la acción Ajustar únicamente al hover, foco o en dispositivos sin hover.
 - Verificación: pruebas de dominio y repositorio, build y recorrido manual con portada vertical.
 
 ## T-R24 — Corregir el formulario de lecturas y relecturas
 
-- Estado: Implementada; comprobación visual pendiente.
+- Estado: Implementada y aprobada por Nube.
 - Alcance: aplicar al formulario de fechas los mismos campos oscuros, espaciados, estados de foco y adaptación responsive que al resto de Lectura.
 - Restricciones: no modificar el historial, las fechas almacenadas ni los casos de uso de lectura.
 - Verificación: abrir Registrar lectura y Editar lectura en ventanas anchas y estrechas, y ejecutar el build TypeScript/Vite.
 
 ## T-R25 — Refrescar y retirar portadas de forma coherente
 
-- Estado: Implementada; comprobación visual pendiente.
+- Estado: Implementada y aprobada por Nube.
 - Alcance: mostrar el nombre de una portada recién elegida, retirarla mediante papelera y refrescar Biblioteca y detalle tras sustituirla.
 - Verificación: elegir, pegar, reemplazar y eliminar la portada de un libro ya existente sin reiniciar la aplicación.
 
 ## T-R26 — Consolidar formularios, ordenación e historial
 
-- Estado: Implementada; comprobación visual pendiente.
+- Estado: Implementada y aprobada por Nube.
 - Alcance: incorporar favorito al formulario, conservar la ordenación por título, puntuación y fechas, simplificar la cabecera del historial y exigir fecha inicial en todas las lecturas.
 - Restricciones: una relectura no puede comenzar antes de la primera lectura; la fecha final permanece opcional.
 - Verificación: crear, editar y ordenar libros; registrar lecturas válidas e intentar guardar una relectura cronológicamente inválida.
 
 ## T-R27 — Corregir contraste de fechas y retirada de portada
 
-- Estado: Implementada; comprobación visual pendiente.
+- Estado: Implementada y aprobada por Nube.
 - Alcance: mantener blancos los segmentos de los selectores de fecha durante su edición y centrar la acción iconográfica de papelera en el formulario de portada.
 - Verificación: escribir y corregir días, meses y años; editar un libro con portada y revisar la alineación de la papelera.
 
 ## T-R28 — Conservar los años disponibles al filtrar el historial
 
-- Estado: Implementada; comprobación visual pendiente.
+- Estado: Implementada y aprobada por Nube.
 - Alcance: obtener los años a partir del historial completo del libro seleccionado, independientemente del año actualmente filtrado.
 - Verificación: alternar entre varios años sin que desaparezcan las demás opciones y comprobar el filtro combinado por libro.
 
 ## T-R29 — Recordar autores y confirmar estados derivados
 
-- Estado: Implementada; comprobación visual pendiente.
+- Estado: Implementada y aprobada por Nube.
 - Alcance: sugerir autores ya utilizados al escribir y pedir confirmación cuando una nueva lectura implique cambiar el estado del libro.
 - Restricciones: conservar siempre el nuevo registro; rechazar la sugerencia mantiene el estado elegido por el usuario sin perder las fechas derivadas del historial.
 - Verificación: crear dos libros del mismo autor, iniciar un libro Terminado y registrar una lectura histórica manteniendo su estado.
@@ -196,7 +197,7 @@ Las etiquetas de género de tarjeta y detalle adoptan la misma geometría y tipo
 
 ## T-R30 — Aplicar la confirmación a todo el ciclo del historial
 
-- Estado: Implementada; comprobación visual pendiente.
+- Estado: Implementada y aprobada por Nube.
 - Alcance: confirmar los estados derivados al crear, editar, empezar, terminar o eliminar una lectura y ordenar las acciones de la cabecera por frecuencia de uso.
 - Restricciones: rechazar la sugerencia conserva las fechas registradas; `Registrar lectura` es la acción principal situada a la derecha.
 - Verificación: probar los cinco tipos de mutación sobre libros Pendiente, Leyendo y Terminado.
@@ -205,7 +206,7 @@ Las etiquetas de género de tarjeta y detalle adoptan la misma geometría y tipo
 
 ## T-R31 — Separar periodo cerrado de libro terminado
 
-- Estado: Implementada; comprobación visual pendiente.
+- Estado: Implementada y aprobada por Nube.
 - Alcance: persistir si cada lectura terminó realmente el libro, además de sus fechas, y mostrar `Sin terminar` en los periodos cerrados incompletos.
 - Restricciones: `Terminar hoy` completa el libro; cerrar manualmente una lectura sin terminar sugiere En pausa y conserva la confirmación de estado.
 - Verificación: migrar lecturas existentes, registrar una lectura cerrada completa e incompleta y comprobar historial y estado sugerido.
@@ -214,7 +215,7 @@ Las etiquetas de género de tarjeta y detalle adoptan la misma geometría y tipo
 
 ## T-R32 — Completar detalle y estadísticas
 
-- Estado: Implementada; comprobación visual pendiente.
+- Estado: Implementada y aprobada por Nube.
 - Alcance: añadir favorito al detalle, alinear las tres métricas compartidas y ampliar Estadísticas con libros puntuados y un Top 5/10/15/25 persistente.
 - Verificación: alternar favorito dentro del libro, revisar métricas con y sin nota y cambiar la longitud del ranking.
 
@@ -222,7 +223,7 @@ Las etiquetas de género de tarjeta y detalle adoptan la misma geometría y tipo
 
 ## T-R33 — Ampliar géneros y enlazar libros sin puntuar
 
-- Estado: Implementada; comprobación visual pendiente.
+- Estado: Implementada y aprobada por Nube.
 - Alcance: ampliar la lista cerrada a veinticinco géneros y convertir el recuento de obras sin puntuar en un acceso a Biblioteca con el filtro aplicado.
 - Verificación: clasificar ficción contemporánea y filosofía, guardar y editar el libro, y abrir `Fuera del ranking` desde Estadísticas.
 
@@ -230,7 +231,7 @@ Las etiquetas de género de tarjeta y detalle adoptan la misma geometría y tipo
 
 ## T-R34 — Representar periodos de lectura en el calendario
 
-- Estado: Implementada; comprobación visual pendiente.
+- Estado: Implementada y aprobada por Nube.
 - Alcance: añadir los modos `Actividad`, `Periodos` y `Ambas`, conservando el primero como valor inicial.
 - Restricciones: los días entre inicio y fin se describen como periodo estimado, no como actividad diaria confirmada; las lecturas abiertas terminan visualmente en el día actual.
 - Verificación: revisar lecturas cerradas, abiertas, relecturas y periodos que cruzan de año, además del detalle al pasar el cursor.
@@ -239,7 +240,7 @@ Las etiquetas de género de tarjeta y detalle adoptan la misma geometría y tipo
 
 ## T-R35 — Completar géneros y normalizar controles Media
 
-- Estado: Implementada; comprobación visual pendiente.
+- Estado: Implementada y aprobada por Nube.
 - Alcance: asignar géneros a los libros existentes sin clasificación, corregir clasificaciones heredadas evidentes, aceptar años de dos cifras en las fechas de historial y adoptar la barra común de búsqueda y filtros.
 - Restricciones: no importar libros nuevos ni modificar lecturas, estados o puntuaciones.
 - Verificación: ejecutar la migración sobre datos existentes, introducir `26` y `19` como años y revisar búsqueda, filtros y ordenación sin textos recortados.
@@ -248,8 +249,48 @@ Las etiquetas de género de tarjeta y detalle adoptan la misma geometría y tipo
 
 ## T-R36 — Reforzar integridad temporal
 
-- Estado: Implementada; comprobación visual pendiente.
+- Estado: Implementada y aprobada por Nube.
 - Alcance: rechazar también en Rust cualquier fecha futura recibida al crear o editar una lectura.
 - Verificación: enviar fechas pasada y futura directamente al comando, sin depender de la validación del formulario.
 
 **Resultado:** el historial conserva su contrato aunque el dato no proceda de la interfaz actual.
+
+## T-R37 — Pilotar la navegación contextual
+
+- Estado: Implementada; revisión visual pendiente de Nube.
+- Alcance: compactar la barra lateral, mostrar una ruta fija `NubeOS › Entretenimiento › Lectura`, nombrar cada pantalla por su vista actual y situar sus pestañas bajo el título. El patrón aprobado se extiende a Anime, Videojuegos, Películas y Series.
+- Coherencia: los cinco módulos de entretenimiento abren su colección con el título `Biblioteca`; la ruta superior identifica el módulo y evita repetirlo dentro de la página.
+- Accesibilidad: un único `h1`, estados activos semánticos, foco visible, salto al contenido y respeto por movimiento reducido.
+- Restricciones: se unifican la carcasa y la navegación; las tarjetas y vistas de datos conservan su composición específica.
+- Verificación: comprobación TypeScript y revisión de whitespace superadas; falta la aprobación visual en ejecución y no se genera una build instalable en esta tarea.
+
+**Resultado:** la jerarquía pilotada en Lectura pasa a ser el patrón común de los cinco módulos de entretenimiento.
+
+## T-R38 — Reducir duplicidad visual y filtros visibles
+
+- Estado: Implementada; revisión visual pendiente de Nube.
+- Alcance: cabecera reducida a Lectura, ruta dinámica con Biblioteca/Leyendo/Historial/Estadísticas y filtros secundarios plegables con contador.
+- Verificación: TypeScript correcto; Biblioteca, Leyendo, foco del buscador y despliegue de filtros revisados visualmente. Sin build instalable.
+
+## T-R39 — Limpiar cabecera y contador de filtros
+
+- Estado: Implementada; revisión visual pendiente de Nube.
+- Alcance: usar un título plano, colocar Archivo y Añadir libro junto a las vistas y excluir la ordenación del contador de filtros.
+- Verificación: TypeScript correcto y comprobación visual de la cabecera compartida; sin build instalable.
+
+## T-R40 — Ampliar filtros y unificar acciones de historial
+
+- Estado: Implementada; revisión visual pendiente de Nube.
+- Alcance: añadir autor, género, puntuación, años y número de lecturas mediante un constructor progresivo con ordenación separada; usar título alfabético como valor neutro, señalar en morado cualquier alternativa y mostrar editar y eliminar al pasar el cursor o enfocar la fila.
+
+## T-R41 — Permitir varios estados y ordenar con estabilidad
+
+- Estado: Implementada; revisión visual pendiente de Nube.
+- Alcance: convertir Estado en una condición multiselección, colocar Título primero como orden neutro y resolver alfabéticamente los empates de autor, puntuación, fechas y actualización.
+- Verificación: combinar estados y comprobar órdenes con valores repetidos. Build TypeScript/Vite correcta; sin build instalable.
+
+## T-R42 — Guardar una ordenación predeterminada explícita
+
+- Estado: Implementada; revisión visual pendiente de Nube.
+- Alcance: separar el orden temporal del predeterminado, mantener Título A–Z como inicio neutro y ofrecer Guardar como predeterminado dentro del panel de ordenación compartido.
+- Verificación: elegir, guardar y sustituir una preferencia; TypeScript/Vite correcto.

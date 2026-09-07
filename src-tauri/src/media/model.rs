@@ -55,6 +55,7 @@ pub enum TrackingStatus {
     Completed,
     Dropped,
     WaitingContent,
+    ToResume,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -240,8 +241,10 @@ impl MediaTitle {
         self.catalog_number = None;
     }
 
-    pub fn change_status(&mut self, status: TrackingStatus) {
+    pub fn change_status(&mut self, status: TrackingStatus) -> Result<(), MediaError> {
+        validate_title_status(self.kind, status)?;
         self.status = status;
+        Ok(())
     }
 
     pub fn change_score(&mut self, score: Option<f64>) -> Result<(), MediaError> {
@@ -273,6 +276,7 @@ impl MediaTitle {
 
 impl MediaTitleDraft {
     pub fn validate(mut self) -> Result<Self, MediaError> {
+        validate_title_status(self.kind, self.status)?;
         self.name = clean_required(self.name, 150)?;
         self.alternative_title = clean_optional(self.alternative_title, 150)?;
         self.genres = clean_genres(self.genres)?;
@@ -394,6 +398,9 @@ impl MediaContent {
 
 impl MediaContentDraft {
     pub fn validate(mut self) -> Result<Self, MediaError> {
+        if self.status == TrackingStatus::ToResume {
+            return Err(MediaError::InvalidTrackingStatus);
+        }
         self.name = clean_required(self.name, 150)?;
         self.studio = clean_optional(self.studio, 150)?;
         self.opinion = clean_optional(self.opinion, 4000)?;
@@ -435,6 +442,17 @@ pub struct WatchSession {
     pub delta: i32,
     pub episode_number: Option<u32>,
     pub source: SessionSource,
+    pub registration_id: String,
+    pub is_rewatch: bool,
+    pub run_id: Option<String>,
+    pub run_status: String,
+}
+
+fn validate_title_status(kind: MediaKind, status: TrackingStatus) -> Result<(), MediaError> {
+    if status == TrackingStatus::ToResume && kind != MediaKind::Anime {
+        return Err(MediaError::InvalidTrackingStatus);
+    }
+    Ok(())
 }
 
 fn clean_required(value: String, limit: usize) -> Result<String, MediaError> {
@@ -477,7 +495,8 @@ fn clean_genres(values: Vec<String>) -> Result<Vec<String>, MediaError> {
 
 fn validate_score(score: Option<f64>) -> Result<(), MediaError> {
     if score.is_some_and(|value| {
-        !(0.0..=10.0).contains(&value) || (value * 10.0 - (value * 10.0).round()).abs() > 0.000_001
+        !(0.0..=10.0).contains(&value)
+            || (value * 100.0 - (value * 100.0).round()).abs() > 0.000_001
     }) {
         return Err(MediaError::InvalidScore);
     }
@@ -496,12 +515,14 @@ pub enum MediaError {
     ProgressExceedsTotal,
     InvalidDateRange,
     InvalidMediaArea,
+    InvalidTrackingStatus,
     InvalidSeriesProgress,
     TitleCannotHaveContents,
     InvalidCover,
     InvalidCoverPosition,
     CannotIncrement,
     FutureSession,
+    SessionBeforeRelease,
 }
 
 impl fmt::Display for MediaError {
@@ -513,11 +534,14 @@ impl fmt::Display for MediaError {
             Self::TextTooLong => "Uno de los textos supera la longitud permitida.",
             Self::TooManyGenres => "Un título no puede tener más de 20 géneros.",
             Self::InvalidScore => {
-                "La puntuación debe estar entre 0 y 10 y tener como máximo un decimal."
+                "La puntuación debe estar entre 0 y 10 y tener como máximo dos decimales."
             }
             Self::InvalidEpisodeTotal => "El total de episodios debe ser mayor que cero.",
             Self::ProgressExceedsTotal => "Los episodios vistos no pueden superar el total.",
             Self::InvalidDateRange => "La fecha final no puede ser anterior a la de estreno.",
+            Self::InvalidTrackingStatus => {
+                "Por retomar solo es válido para un anime, no para contenidos, películas o series."
+            }
             Self::InvalidMediaArea => "El tipo de título no pertenece a esta biblioteca.",
             Self::InvalidSeriesProgress => {
                 "La temporada y el episodio actuales solo son válidos para series."
@@ -529,6 +553,9 @@ impl fmt::Display for MediaError {
             Self::InvalidCoverPosition => "La posición de la portada debe estar entre 0 y 100.",
             Self::CannotIncrement => "Este contenido no puede avanzar otro episodio.",
             Self::FutureSession => "No se puede registrar una sesión futura.",
+            Self::SessionBeforeRelease => {
+                "La fecha de visionado no puede ser anterior al estreno del contenido."
+            }
         })
     }
 }
@@ -558,13 +585,25 @@ mod tests {
     }
 
     #[test]
-    fn scores_use_tenth_point_steps() {
+    fn content_drafts_reject_title_only_status() {
+        let mut draft = content(ContentKind::Season, Some(12), 0);
+        draft.status = TrackingStatus::ToResume;
+        assert_eq!(
+            draft.validate().unwrap_err(),
+            MediaError::InvalidTrackingStatus
+        );
+    }
+
+    #[test]
+    fn scores_accept_up_to_two_decimal_places() {
         let mut draft = content(ContentKind::Season, Some(12), 0);
         draft.score = Some(8.5);
         assert!(draft.clone().validate().is_ok());
         draft.score = Some(8.3);
         assert!(draft.clone().validate().is_ok());
         draft.score = Some(8.35);
+        assert!(draft.clone().validate().is_ok());
+        draft.score = Some(8.351);
         assert_eq!(draft.validate().unwrap_err(), MediaError::InvalidScore);
         let mut zero = content(ContentKind::Season, Some(12), 0);
         zero.score = Some(0.0);

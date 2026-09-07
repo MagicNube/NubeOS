@@ -1,7 +1,8 @@
 # Diseño — Lectura
 
-- Estado: Ampliación de relecturas implementada; comprobación manual pendiente
-- Última actualización: 2026-08-24
+- Estado: Aprobado por Nube (módulo cerrado)
+- Última actualización: 2026-09-05
+- Aprobación de cierre: Nube, 2026-09-04. Cierre del alcance implementado; los trabajos futuros y las verificaciones de instalación no se consideran realizados por esta aprobación.
 
 ## Modelo
 
@@ -67,6 +68,9 @@ La consulta admite archivo, texto, estado, género y favoritos. La ordenación p
 
 ## Interfaz
 
+- Lectura usa la navegación contextual compartida: la barra superior muestra `NubeOS › Lectura › Biblioteca` y actualiza el último segmento al cambiar de vista. La cabecera conserva únicamente la identidad `Lectura`; las pestañas aparecen inmediatamente debajo.
+- `Archivo` y `Añadir libro` ocupan la zona de acciones de la barra superior; el contenido puede desplazarse sin perder la ruta ni las acciones principales.
+- La navegación lateral usa filas compactas completas, un fondo morado tenue para la selección y estados de hover coherentes con el lenguaje oscuro de la aplicación.
 - `ReadingWorkspace` contiene `Biblioteca`, `Leyendo` y `Estadísticas`, en ese orden y con los mismos iconos y medidas que Media.
 - La ampliación añade `Historial` entre Leyendo y Estadísticas.
 - La cabecera coloca Archivo antes de Añadir libro.

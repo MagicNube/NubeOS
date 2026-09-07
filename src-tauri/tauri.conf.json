@@ -12,15 +12,19 @@
   "app": {
     "windows": [
       {
-        "title": "NubeOS",
+        "title": "",
         "width": 1180,
         "height": 760,
         "minWidth": 850,
         "minHeight": 600,
-        "resizable": true
+        "resizable": true,
+        "decorations": false
       }
     ],
-    "security": { "csp": null }
+    "security": {
+      "csp": null,
+      "capabilities": ["main-window"]
+    }
   },
   "bundle": { "active": true, "targets": "all" }
 }

@@ -19,9 +19,10 @@ use super::{
     },
     repository::{normalize, MediaHistoryEntry, MediaRepository, MediaRepositoryError},
     service::{
-        build_statistics, can_increment_content, content_score_average, effective_title_score,
-        next_content, progress_for, studios_for, suggested_title_status, validate_content_parent,
-        validate_progress_change, MediaAggregate,
+        build_statistics, can_increment_content, can_rewatch_content,
+        chronological_rewatch_sessions, content_run_summaries, content_score_average,
+        effective_title_score, next_content, progress_for, studios_for, suggested_content_status,
+        suggested_title_status, validate_content_parent, validate_progress_change, MediaAggregate,
     },
 };
 
@@ -54,6 +55,7 @@ pub enum TrackingStatusDto {
     Completed,
     Dropped,
     WaitingContent,
+    ToResume,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -204,6 +206,9 @@ pub struct ProgressDto {
     pub total: Option<u32>,
     pub total_incomplete: bool,
     pub percentage: Option<f64>,
+    pub known_percentage: Option<f64>,
+    pub upcoming_count: usize,
+    pub available_completed: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -260,6 +265,7 @@ pub struct MediaContentDto {
     pub name: String,
     pub kind: ContentKindDto,
     pub status: TrackingStatusDto,
+    pub suggested_status: Option<TrackingStatusDto>,
     pub canon_status: CanonStatusDto,
     pub total_episodes: Option<u32>,
     pub effective_total: Option<u32>,
@@ -273,6 +279,7 @@ pub struct MediaContentDto {
     pub finished_on: Option<String>,
     pub position: u32,
     pub can_increment: bool,
+    pub can_rewatch: bool,
     pub first_activity_on: Option<String>,
     pub last_activity_on: Option<String>,
 }
@@ -287,6 +294,62 @@ pub struct WatchSessionDto {
     pub episode_number: u32,
     pub source: SessionSourceDto,
     pub can_delete: bool,
+    pub registration_id: String,
+    pub is_rewatch: bool,
+    pub is_chronological_rewatch: bool,
+    pub run_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContentRunDto {
+    pub id: String,
+    pub content_id: String,
+    pub ordinal: usize,
+    pub status: String,
+    pub is_progress_run: bool,
+    pub first_on: String,
+    pub last_on: String,
+    pub watched: usize,
+    pub next_episode: Option<u32>,
+    pub can_complete: bool,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RegisterContentRunInputDto {
+    pub content_id: String,
+    pub run_id: Option<String>,
+    pub first_episode: u32,
+    pub last_episode: u32,
+    pub watched_on: String,
+    pub status: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContentRunStatusInputDto {
+    pub content_id: String,
+    pub run_id: String,
+    pub status: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RegisterContentRewatchInputDto {
+    pub content_id: String,
+    pub episodes: u32,
+    pub watched_on: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateContentRegistrationInputDto {
+    pub registration_id: String,
+    pub content_id: String,
+    pub episodes: u32,
+    pub watched_on: String,
+    pub first_episode: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -302,6 +365,7 @@ pub struct MediaHistoryEntryDto {
     pub watched_on: String,
     pub episode_number: u32,
     pub can_delete: bool,
+    pub released_on: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -310,6 +374,7 @@ pub struct MediaDetailDto {
     pub title: MediaTitleDto,
     pub contents: Vec<MediaContentDto>,
     pub sessions: Vec<WatchSessionDto>,
+    pub runs: Vec<ContentRunDto>,
 }
 
 #[derive(Debug, Serialize)]
@@ -714,7 +779,7 @@ pub fn set_media_title_status(
         .map_err(repository_error)?
         .ok_or_else(not_found)?;
     let next_status = status_from_dto(status);
-    title.change_status(next_status);
+    title.change_status(next_status).map_err(domain_error)?;
     repository.update_title(&title).map_err(repository_error)?;
     let aggregate = repository
         .find_aggregate(&id)
@@ -858,6 +923,13 @@ pub fn update_media_history_date(
     }
     let mut connection = database.connection.lock().map_err(|_| unavailable())?;
     let mut repository = MediaRepository::new(&mut connection);
+    match repository.session_content_release(&session_id) {
+        Ok(Some(released_on)) if date < released_on => {
+            return Err(domain_error(MediaError::SessionBeforeRelease));
+        }
+        Ok(_) | Err(MediaRepositoryError::NotFound) => {}
+        Err(reason) => return Err(repository_error(reason)),
+    }
     match repository.update_session_date(&session_id, date) {
         Ok(()) => Ok(()),
         Err(MediaRepositoryError::NotFound) => {
@@ -869,6 +941,44 @@ pub fn update_media_history_date(
         }
         Err(reason) => Err(repository_error(reason)),
     }
+}
+
+#[tauri::command]
+pub fn update_media_content_registration(
+    database: State<'_, ProductDatabase>,
+    input: UpdateContentRegistrationInputDto,
+) -> Result<MediaDetailDto, MediaCommandErrorDto> {
+    let content_id = parse_content_id(&input.content_id)?;
+    let watched_on = parse_date(&input.watched_on)?;
+    if watched_on > madrid_today() {
+        return Err(domain_error(MediaError::FutureSession));
+    }
+    let mut connection = database.connection.lock().map_err(|_| unavailable())?;
+    let mut repository = MediaRepository::new(&mut connection);
+    let content = repository
+        .find_content(&content_id)
+        .map_err(repository_error)?
+        .ok_or_else(not_found)?;
+    if content
+        .released_on
+        .is_some_and(|release| watched_on < release)
+    {
+        return Err(domain_error(MediaError::SessionBeforeRelease));
+    }
+    repository
+        .update_content_registration_range(
+            &input.registration_id,
+            &content_id,
+            watched_on,
+            input.episodes,
+            input.first_episode,
+        )
+        .map_err(repository_error)?;
+    repository
+        .find_aggregate(&content.title_id)
+        .map_err(repository_error)?
+        .map(|aggregate| detail_to_dto(&aggregate))
+        .ok_or_else(not_found)
 }
 
 #[tauri::command]
@@ -1145,6 +1255,9 @@ pub fn increment_media_progress(
             if !can_increment_content(&content) {
                 return Err(domain_error(MediaError::CannotIncrement));
             }
+            if content.released_on.is_some_and(|release| date < release) {
+                return Err(domain_error(MediaError::SessionBeforeRelease));
+            }
             let title_id = content.title_id.clone();
             repository
                 .set_content_progress(
@@ -1162,6 +1275,100 @@ pub fn increment_media_progress(
         .map_err(repository_error)?
         .ok_or_else(not_found)?;
     Ok(detail_to_dto(&aggregate))
+}
+
+#[tauri::command]
+pub fn register_media_content_rewatch(
+    database: State<'_, ProductDatabase>,
+    input: RegisterContentRewatchInputDto,
+) -> Result<MediaDetailDto, MediaCommandErrorDto> {
+    let content_id = parse_content_id(&input.content_id)?;
+    let watched_on = parse_date(&input.watched_on)?;
+    if watched_on > madrid_today() {
+        return Err(domain_error(MediaError::FutureSession));
+    }
+    let mut connection = database.connection.lock().map_err(|_| unavailable())?;
+    let mut repository = MediaRepository::new(&mut connection);
+    let content = repository
+        .find_content(&content_id)
+        .map_err(repository_error)?
+        .ok_or_else(not_found)?;
+    if content
+        .released_on
+        .is_some_and(|release| watched_on < release)
+    {
+        return Err(domain_error(MediaError::SessionBeforeRelease));
+    }
+    let total = content
+        .effective_total()
+        .unwrap_or(content.watched_episodes);
+    if input.episodes == 0 || input.episodes > total || !can_rewatch_content(&content) {
+        return Err(error(
+            "validation",
+            "El número de episodios revisionados no es válido.",
+        ));
+    }
+    let title_id = content.title_id.clone();
+    repository
+        .register_content_rewatch(&content_id, input.episodes, watched_on)
+        .map_err(repository_error)?;
+    let aggregate = repository
+        .find_aggregate(&title_id)
+        .map_err(repository_error)?
+        .ok_or_else(not_found)?;
+    Ok(detail_to_dto(&aggregate))
+}
+
+#[tauri::command]
+pub fn register_media_content_run(
+    database: State<'_, ProductDatabase>,
+    input: RegisterContentRunInputDto,
+) -> Result<MediaDetailDto, MediaCommandErrorDto> {
+    let content_id = parse_content_id(&input.content_id)?;
+    let date = parse_date(&input.watched_on)?;
+    let mut connection = database.connection.lock().map_err(|_| unavailable())?;
+    let mut repository = MediaRepository::new(&mut connection);
+    let content = repository
+        .find_content(&content_id)
+        .map_err(repository_error)?
+        .ok_or_else(not_found)?;
+    repository
+        .register_content_run_range(
+            &content_id,
+            input.run_id.as_deref(),
+            input.first_episode,
+            input.last_episode,
+            date,
+            &input.status,
+        )
+        .map_err(repository_error)?;
+    repository
+        .find_aggregate(&content.title_id)
+        .map_err(repository_error)?
+        .map(|a| detail_to_dto(&a))
+        .ok_or_else(not_found)
+}
+
+#[tauri::command]
+pub fn set_media_content_run_status(
+    database: State<'_, ProductDatabase>,
+    input: ContentRunStatusInputDto,
+) -> Result<MediaDetailDto, MediaCommandErrorDto> {
+    let content_id = parse_content_id(&input.content_id)?;
+    let mut connection = database.connection.lock().map_err(|_| unavailable())?;
+    let mut repository = MediaRepository::new(&mut connection);
+    let content = repository
+        .find_content(&content_id)
+        .map_err(repository_error)?
+        .ok_or_else(not_found)?;
+    repository
+        .set_content_run_status(&content_id, &input.run_id, &input.status)
+        .map_err(repository_error)?;
+    repository
+        .find_aggregate(&content.title_id)
+        .map_err(repository_error)?
+        .map(|a| detail_to_dto(&a))
+        .ok_or_else(not_found)
 }
 
 #[tauri::command]
@@ -1399,7 +1606,7 @@ fn change_progress(
                     "Solo una película independiente usa progreso directo.",
                 ));
             }
-            validate_progress_change(title.watched_units, next, Some(1), date, today)
+            validate_progress_change(title.watched_units, next, Some(1), date, today, None)
                 .map_err(domain_error)?;
             repository
                 .set_title_progress(&id, next, date, source)
@@ -1418,6 +1625,7 @@ fn change_progress(
                 content.effective_total(),
                 date,
                 today,
+                content.released_on,
             )
             .map_err(domain_error)?;
             let title_id = content.title_id.clone();
@@ -1497,11 +1705,19 @@ fn title_to_dto(aggregate: &MediaAggregate) -> MediaTitleDto {
         .iter()
         .map(|session| session.watched_on)
         .min();
-    let last_activity = aggregate
+    let session_last_activity = aggregate
         .sessions
         .iter()
         .map(|session| session.watched_on)
         .max();
+    // Movie viewings live in their own repeatable history. The repository keeps
+    // `finished_on` synchronized with its latest entry, so movie cards can expose
+    // the same activity field as episodic titles without inventing sessions.
+    let last_activity = session_last_activity.or_else(|| {
+        (aggregate.title.kind == MediaKind::Movie)
+            .then_some(aggregate.title.finished_on)
+            .flatten()
+    });
     MediaTitleDto {
         id: aggregate.title.id.as_str().to_owned(),
         catalog_number: aggregate.title.catalog_number,
@@ -1535,6 +1751,9 @@ fn title_to_dto(aggregate: &MediaAggregate) -> MediaTitleDto {
             total: progress.total,
             total_incomplete: progress.total_incomplete,
             percentage: progress.percentage,
+            known_percentage: progress.known_percentage,
+            upcoming_count: progress.upcoming_count,
+            available_completed: progress.available_completed,
         },
         contents_count: aggregate.contents.len(),
         average_content_score: content_score_average(&aggregate.contents),
@@ -1553,7 +1772,23 @@ fn title_to_dto(aggregate: &MediaAggregate) -> MediaTitleDto {
 }
 
 fn detail_to_dto(aggregate: &MediaAggregate) -> MediaDetailDto {
+    let chronological_rewatches = chronological_rewatch_sessions(&aggregate.sessions);
     MediaDetailDto {
+        runs: content_run_summaries(aggregate)
+            .into_iter()
+            .map(|run| ContentRunDto {
+                id: run.id,
+                content_id: run.content_id,
+                ordinal: run.ordinal,
+                status: run.status,
+                is_progress_run: run.is_progress_run,
+                first_on: run.first_on.to_string(),
+                last_on: run.last_on.to_string(),
+                watched: run.watched,
+                next_episode: run.next_episode,
+                can_complete: run.can_complete,
+            })
+            .collect(),
         title: title_to_dto(aggregate),
         contents: aggregate
             .contents
@@ -1582,14 +1817,19 @@ fn detail_to_dto(aggregate: &MediaAggregate) -> MediaDetailDto {
                     SessionSource::QuickAdd => SessionSourceDto::QuickAdd,
                     SessionSource::ManualAdjustment => SessionSourceDto::ManualAdjustment,
                 },
-                can_delete: session.content_id.as_ref().map_or(
-                    aggregate.title.watched_units == episode_number,
-                    |id| {
-                        aggregate.contents.iter().any(|content| {
-                            content.id == *id && content.watched_episodes == episode_number
-                        })
-                    },
-                ),
+                can_delete: session.is_rewatch
+                    || session.content_id.as_ref().map_or(
+                        aggregate.title.watched_units == episode_number,
+                        |id| {
+                            aggregate.contents.iter().any(|content| {
+                                content.id == *id && content.watched_episodes == episode_number
+                            })
+                        },
+                    ),
+                registration_id: session.registration_id.clone(),
+                is_rewatch: session.is_rewatch,
+                is_chronological_rewatch: chronological_rewatches.contains(&session.id),
+                run_id: session.run_id.clone(),
             })
             .collect(),
     }
@@ -1627,6 +1867,7 @@ fn content_to_dto(
         name: content.name.clone(),
         kind: content_kind_to_dto(content.kind),
         status: status_to_dto(content.status),
+        suggested_status: suggested_content_status(content).map(status_to_dto),
         canon_status: canon_to_dto(content.canon_status),
         total_episodes: content.total_episodes,
         effective_total: content.effective_total(),
@@ -1641,6 +1882,7 @@ fn content_to_dto(
         position: content.position,
         can_increment: can_increment_content(content),
         first_activity_on: first_activity.map(|date| date.to_string()),
+        can_rewatch: can_rewatch_content(content),
         last_activity_on: last_activity.map(|date| date.to_string()),
     }
 }
@@ -1657,6 +1899,7 @@ fn history_to_dto(entry: &MediaHistoryEntry) -> MediaHistoryEntryDto {
         watched_on: entry.watched_on.to_string(),
         episode_number: entry.episode_number,
         can_delete: entry.can_delete,
+        released_on: entry.released_on.map(|date| date.to_string()),
     }
 }
 
@@ -1716,6 +1959,7 @@ fn status_from_dto(value: TrackingStatusDto) -> TrackingStatus {
         TrackingStatusDto::Completed => TrackingStatus::Completed,
         TrackingStatusDto::Dropped => TrackingStatus::Dropped,
         TrackingStatusDto::WaitingContent => TrackingStatus::WaitingContent,
+        TrackingStatusDto::ToResume => TrackingStatus::ToResume,
     }
 }
 fn status_to_dto(value: TrackingStatus) -> TrackingStatusDto {
@@ -1726,6 +1970,7 @@ fn status_to_dto(value: TrackingStatus) -> TrackingStatusDto {
         TrackingStatus::Completed => TrackingStatusDto::Completed,
         TrackingStatus::Dropped => TrackingStatusDto::Dropped,
         TrackingStatus::WaitingContent => TrackingStatusDto::WaitingContent,
+        TrackingStatus::ToResume => TrackingStatusDto::ToResume,
     }
 }
 fn content_kind_from_dto(value: ContentKindDto) -> ContentKind {

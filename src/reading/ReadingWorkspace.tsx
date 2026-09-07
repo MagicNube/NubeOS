@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ReactNode } from "react";
 import {
   Archive, BarChart3, BookOpen, CalendarDays, Edit3, History, ImagePlus, Library, Move, Plus, RotateCcw, Search,
   Star, Trash2, X,
@@ -13,6 +12,11 @@ import SelectControl from "../ui/SelectControl";
 import SmartDateInput from "../ui/SmartDateInput";
 import { TrackerDetailTabs, TrackerMetricGrid } from "../ui/TrackerDetail";
 import MediaStatisticsDashboard from "../ui/MediaStatisticsDashboard";
+import FilterDisclosure from "../ui/FilterDisclosure";
+import FilterBuilder from "../ui/FilterBuilder";
+import MultiSelectControl from "../ui/MultiSelectControl";
+import { useAppView } from "../ui/AppViewContext";
+import { readDefaultSort, saveDefaultSort } from "../ui/sortPreference";
 import { notifyCoverChanged } from "../ui/coverRefresh";
 import { confirmInferredStatusChange } from "../ui/inferredStatus";
 import { pastedCoverAsJpeg } from "../ui/pastedCover";
@@ -25,6 +29,8 @@ import ReadingCoverImage from "./ReadingCoverImage";
 
 type View = "current" | "library" | "history" | "statistics";
 type Sort = "updated" | "title" | "author" | "score" | "startAsc" | "startDesc" | "finishAsc" | "finishDesc";
+const readingSorts: readonly Sort[] = ["title", "updated", "author", "score", "startDesc", "startAsc", "finishDesc", "finishAsc"];
+const readingSortStorageKey = "nubeos.reading.sort.default.v3";
 
 const emptyInput: ReadingBookInput = {
   title: "", author: "", genres: [], status: "pending", score: null,
@@ -53,13 +59,20 @@ export default function ReadingWorkspace() {
   const [archived, setArchived] = useState(false);
   const [librarySearch, setLibrarySearch] = useState("");
   const [currentSearch, setCurrentSearch] = useState("");
-  const [libraryStatus, setLibraryStatus] = useState<ReadingStatus | "">("");
+  const [libraryStatuses, setLibraryStatuses] = useState<ReadingStatus[]>([]);
   const [libraryGenre, setLibraryGenre] = useState("");
-  const [libraryScore, setLibraryScore] = useState<"" | "unscored">("");
+  const [libraryScore, setLibraryScore] = useState<"" | "scored" | "unscored">("");
+  const [scoreMinimum, setScoreMinimum] = useState("");
+  const [scoreMaximum, setScoreMaximum] = useState("");
+  const [authorFilter, setAuthorFilter] = useState("");
+  const [startedYear, setStartedYear] = useState("");
+  const [finishedYear, setFinishedYear] = useState("");
+  const [readingCount, setReadingCount] = useState<"" | "none" | "one" | "multiple">("");
   const [currentGenre, setCurrentGenre] = useState("");
   const [favoritesOnly, setFavoritesOnly] = useState(false);
-  const [sort, setSort] = useState<Sort>(() => (localStorage.getItem("nubeos.reading.sort") as Sort) || "updated");
-  useEffect(() => { localStorage.setItem("nubeos.reading.sort", sort); }, [sort]);
+  const [collectionPanel, setCollectionPanel] = useState<"filters" | "sort" | null>(null);
+  const [defaultSort, setDefaultSort] = useState<Sort>(() => readDefaultSort(readingSortStorageKey, "title", readingSorts));
+  const [sort, setSort] = useState<Sort>(() => readDefaultSort(readingSortStorageKey, "title", readingSorts));
   const [selected, setSelected] = useState<ReadingDetail | null>(null);
   const [form, setForm] = useState<"new" | "edit" | null>(null);
   const [runForm, setRunForm] = useState<{ bookId: string; run?: ReadingRun } | null>(null);
@@ -69,10 +82,16 @@ export default function ReadingWorkspace() {
   const requestId = useRef(0);
   const currentFilters = view === "current";
   const search = currentFilters ? currentSearch : librarySearch;
-  const status = currentFilters ? "reading" : libraryStatus;
+  const statuses: ReadingStatus[] = currentFilters ? ["reading"] : libraryStatuses;
   const genre = currentFilters ? currentGenre : libraryGenre;
   const setSearch = currentFilters ? setCurrentSearch : setLibrarySearch;
   const setGenre = currentFilters ? setCurrentGenre : setLibraryGenre;
+  const runsByBook = useMemo(() => {
+    const counts = new Map<string, number>();
+    allHistory.forEach((entry) => counts.set(entry.run.bookId, (counts.get(entry.run.bookId) ?? 0) + 1));
+    return counts;
+  }, [allHistory]);
+  const authorOptions = useMemo(() => [...new Set(books.map((book) => book.author).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es")), [books]);
 
   const load = useCallback(async (showLoading = false) => {
     const id = ++requestId.current;
@@ -104,24 +123,30 @@ export default function ReadingWorkspace() {
     const filtered = books.filter((book) =>
       (view !== "current" || book.status === "reading")
       && (!query || book.title.toLocaleLowerCase("es").includes(query) || book.author.toLocaleLowerCase("es").includes(query))
-      && (!status || book.status === status)
+      && (statuses.length === 0 || statuses.includes(book.status))
       && (!genre || book.genres.includes(genre))
-      && (view !== "library" || !libraryScore || book.score === null)
+      && (!authorFilter || book.author === authorFilter)
+      && (!startedYear || book.startedOn?.startsWith(startedYear))
+      && (!finishedYear || book.finishedOn?.startsWith(finishedYear))
+      && (!libraryScore || (libraryScore === "unscored" ? book.score === null : book.score !== null))
+      && (!scoreMinimum || (book.score !== null && book.score >= Number(scoreMinimum)))
+      && (!scoreMaximum || (book.score !== null && book.score <= Number(scoreMaximum)))
+      && (!readingCount || (readingCount === "none" ? !runsByBook.get(book.id) : readingCount === "one" ? runsByBook.get(book.id) === 1 : (runsByBook.get(book.id) ?? 0) >= 2))
       && (!favoritesOnly || book.favorite));
     return filtered.sort((left, right) => {
       if (sort === "title") return left.title.localeCompare(right.title, "es");
-      if (sort === "author") return left.author.localeCompare(right.author, "es");
+      if (sort === "author") return left.author.localeCompare(right.author, "es") || left.title.localeCompare(right.title, "es");
       if (sort === "score") return (right.score ?? -1) - (left.score ?? -1) || left.title.localeCompare(right.title, "es");
       if (sort.startsWith("start") || sort.startsWith("finish")) {
         const first = sort.startsWith("start") ? left.startedOn : left.finishedOn;
         const second = sort.startsWith("start") ? right.startedOn : right.finishedOn;
-        if (!first) return second ? 1 : 0;
+        if (!first) return second ? 1 : left.title.localeCompare(right.title, "es");
         if (!second) return -1;
-        return sort.endsWith("Asc") ? first.localeCompare(second) : second.localeCompare(first);
+        return (sort.endsWith("Asc") ? first.localeCompare(second) : second.localeCompare(first)) || left.title.localeCompare(right.title, "es");
       }
-      return right.updatedAt.localeCompare(left.updatedAt);
+      return right.updatedAt.localeCompare(left.updatedAt) || left.title.localeCompare(right.title, "es");
     });
-  }, [books, favoritesOnly, genre, libraryScore, search, sort, status, view]);
+  }, [authorFilter, books, favoritesOnly, finishedYear, genre, libraryScore, readingCount, runsByBook, scoreMaximum, scoreMinimum, search, sort, startedYear, statuses, view]);
 
   async function action(operation: () => Promise<unknown>) {
     setBusy(true);
@@ -133,7 +158,7 @@ export default function ReadingWorkspace() {
   function showArchive() {
     setArchived((value) => !value);
     setSelected(null);
-    setLibrarySearch(""); setLibraryStatus(""); setLibraryGenre(""); setLibraryScore(""); setFavoritesOnly(false);
+    setLibrarySearch(""); setLibraryStatuses([]); setLibraryGenre(""); setLibraryScore(""); setScoreMinimum(""); setScoreMaximum(""); setAuthorFilter(""); setStartedYear(""); setFinishedYear(""); setReadingCount(""); setFavoritesOnly(false);
   }
 
   async function openBook(id: string) { setBusy(true); try { setSelected(await readingApi.get(id)); } catch (reason) { setError(readingErrorMessage(reason)); } finally { setBusy(false); } }
@@ -156,37 +181,59 @@ export default function ReadingWorkspace() {
     {!archived && <button className="primary-button" onClick={() => setForm("new")} type="button"><Plus size={17} /> Añadir libro</button>}
   </div>;
 
+  const pageTitle = archived
+    ? "Archivo"
+    : view === "current"
+      ? "Leyendo"
+      : view === "history"
+        ? "Historial"
+        : view === "statistics"
+          ? "Estadísticas"
+          : "Biblioteca";
+  useAppView(pageTitle);
+  const activeFilterCount = Number(view === "library" && libraryStatuses.length > 0)
+    + Number(Boolean(genre))
+    + Number(Boolean(libraryScore)) + Number(Boolean(scoreMinimum)) + Number(Boolean(scoreMaximum))
+    + Number(Boolean(authorFilter)) + Number(Boolean(startedYear)) + Number(Boolean(finishedYear)) + Number(Boolean(readingCount));
+
   return (
     <section className="reading-workspace">
-      <div className="reading-toolbar">
-        <nav aria-label="Vistas de Lectura" className="reading-tabs">
-          <button className={view === "library" ? "active" : ""} onClick={() => { setView("library"); setArchived(false); }} type="button"><Library size={16} /> Biblioteca</button>
-          <button className={view === "current" ? "active" : ""} onClick={() => { setView("current"); setArchived(false); }} type="button"><BookOpen size={16} /> Leyendo</button>
-          <button className={view === "history" ? "active" : ""} onClick={() => { setView("history"); setArchived(false); }} type="button"><History size={16} /> Historial</button>
-          <button className={view === "statistics" ? "active" : ""} onClick={() => { setView("statistics"); setArchived(false); }} type="button"><BarChart3 size={16} /> Estadísticas</button>
-        </nav>
-      </div>
+      <header className="entertainment-page-header">
+        <h1 className="entertainment-module-title">Lectura</h1>
+        <div className="entertainment-navigation-row">
+          <nav aria-label="Vistas de Lectura" className="reading-tabs">
+            <button aria-current={!archived && view === "library" ? "page" : undefined} className={!archived && view === "library" ? "active" : ""} onClick={() => { setView("library"); setArchived(false); }} type="button"><Library aria-hidden="true" size={16} /> Biblioteca</button>
+            <button aria-current={!archived && view === "current" ? "page" : undefined} className={!archived && view === "current" ? "active" : ""} onClick={() => { setView("current"); setArchived(false); }} type="button"><BookOpen aria-hidden="true" size={16} /> Leyendo</button>
+            <button aria-current={!archived && view === "history" ? "page" : undefined} className={!archived && view === "history" ? "active" : ""} onClick={() => { setView("history"); setArchived(false); }} type="button"><History aria-hidden="true" size={16} /> Historial</button>
+            <button aria-current={!archived && view === "statistics" ? "page" : undefined} className={!archived && view === "statistics" ? "active" : ""} onClick={() => { setView("statistics"); setArchived(false); }} type="button"><BarChart3 aria-hidden="true" size={16} /> Estadísticas</button>
+          </nav>
+          {collectionActions}
+        </div>
+      </header>
 
       {error && <div className="reading-error" role="alert"><span>{error}</span><button aria-label="Cerrar error" onClick={() => setError(null)} type="button"><X size={15} /></button></div>}
 
       {view === "statistics" && !archived ? (
-        <Statistics actions={collectionActions} books={books} entries={allHistory} open={(id) => void openBook(id)} showUnscored={() => { setLibraryScore("unscored"); setView("library"); setArchived(false); }} />
+        <Statistics books={books} entries={allHistory} open={(id) => void openBook(id)} showUnscored={() => { setLibraryScore("unscored"); setView("library"); setArchived(false); }} />
       ) : view === "history" && !archived ? (
-        <ReadingHistory actions={collectionActions} entries={history} books={books} bookId={historyBook} year={historyYear} years={historyYears} setBookId={setHistoryBook} setYear={setHistoryYear} edit={(entry) => setRunForm({ bookId: entry.run.bookId, run: entry.run })} remove={(entry) => { if (window.confirm(`¿Eliminar esta lectura de “${entry.bookTitle}”?`)) void action(async () => { const book = await readingApi.get(entry.run.bookId); await mutateRunKeepingChoice(book, () => readingApi.deleteRun(entry.run.id)); }); }} />
+        <ReadingHistory entries={history} books={books} bookId={historyBook} year={historyYear} years={historyYears} setBookId={setHistoryBook} setYear={setHistoryYear} edit={(entry) => setRunForm({ bookId: entry.run.bookId, run: entry.run })} remove={(entry) => { if (window.confirm(`¿Eliminar esta lectura de “${entry.bookTitle}”?`)) void action(async () => { const book = await readingApi.get(entry.run.bookId); await mutateRunKeepingChoice(book, () => readingApi.deleteRun(entry.run.id)); }); }} />
       ) : (
         <>
-          <div className="reading-collection-heading"><header className="reading-view-heading">
-            <span>{archived ? "ARCHIVO" : view === "current" ? "AHORA" : "TU COLECCIÓN"}</span>
-            <h2>{archived ? "Libros archivados" : view === "current" ? "Leyendo" : "Biblioteca"}</h2>
-            <p>{archived ? "Restaura o elimina definitivamente." : view === "current" ? "Los libros que estás leyendo ahora mismo." : "Pendientes, terminados y todo lo que quieres conservar."}</p>
-          </header>{collectionActions}</div>
           <div className={`reading-filters${view !== "library" || archived ? " without-favorite" : ""}`}>
             <label className="reading-search"><Search size={17} /><input onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por título o autor" value={search} /></label>
-            {view === "current" ? <SelectControl><select aria-label="Estado de la vista" disabled value="reading"><option value="reading">Leyendo</option></select></SelectControl> : <SelectControl><select aria-label="Filtrar por estado" onChange={(event) => setLibraryStatus(event.target.value as ReadingStatus | "")} value={libraryStatus}><option value="">Todos los estados</option>{readingStatuses.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></SelectControl>}
-            <SelectControl><select aria-label="Filtrar por género" onChange={(event) => setGenre(event.target.value)} value={genre}><option value="">Todos los géneros</option>{readingGenres.map((item) => <option key={item} value={item}>{item}</option>)}</select></SelectControl>
-            {view === "library" && <SelectControl><select aria-label="Filtrar por puntuación" onChange={(event) => setLibraryScore(event.target.value as "" | "unscored")} value={libraryScore}><option value="">Todas las puntuaciones</option><option value="unscored">Sin puntuar</option></select></SelectControl>}
-            <SelectControl><select aria-label="Ordenar libros" onChange={(event) => setSort(event.target.value as Sort)} value={sort}><option value="updated">Actualizados recientemente</option><option value="title">Título (A–Z)</option><option value="author">Autor (A–Z)</option><option value="score">Mejor puntuación</option><option value="startDesc">Inicio (más reciente)</option><option value="startAsc">Inicio (más antiguo)</option><option value="finishDesc">Finalización (más reciente)</option><option value="finishAsc">Finalización (más antigua)</option></select></SelectControl>
             {view === "library" && !archived && <FavoriteFilter active={favoritesOnly} onChange={setFavoritesOnly} />}
+            <FilterDisclosure change={setCollectionPanel} controlsId="reading-library-filters" count={activeFilterCount} open={collectionPanel} sortActive={sort !== "title"} />
+            {collectionPanel && <FilterBuilder id="reading-library-filters" mode={collectionPanel} filters={[
+              ...(view === "library" ? [{ id: "status", label: "Estado", active: libraryStatuses.length > 0, clear: () => setLibraryStatuses([]), control: <MultiSelectControl label="Todos los estados" onChange={setLibraryStatuses} options={readingStatuses} value={libraryStatuses} /> }] : []),
+              { id: "genre", label: "Género", active: Boolean(genre), clear: () => setGenre(""), control: <SelectControl><select aria-label="Filtrar por género" onChange={(event) => setGenre(event.target.value)} value={genre}><option value="">Todos los géneros</option>{readingGenres.map((item) => <option key={item} value={item}>{item}</option>)}</select></SelectControl> },
+              { id: "author", label: "Autor", active: Boolean(authorFilter), clear: () => setAuthorFilter(""), control: <SelectControl><select aria-label="Filtrar por autor" onChange={(event) => setAuthorFilter(event.target.value)} value={authorFilter}><option value="">Todos los autores</option>{authorOptions.map((author) => <option key={author}>{author}</option>)}</select></SelectControl> },
+              { id: "score", label: "Puntuación", active: Boolean(libraryScore), clear: () => setLibraryScore(""), control: <SelectControl><select aria-label="Filtrar por disponibilidad de puntuación" onChange={(event) => setLibraryScore(event.target.value as "" | "scored" | "unscored")} value={libraryScore}><option value="">Todas las puntuaciones</option><option value="scored">Solo puntuadas</option><option value="unscored">Sin puntuar</option></select></SelectControl> },
+              { id: "score-min", label: "Puntuación mínima", active: Boolean(scoreMinimum), clear: () => setScoreMinimum(""), control: <SelectControl><select aria-label="Puntuación mínima" onChange={(event) => setScoreMinimum(event.target.value)} value={scoreMinimum}><option value="">Cualquiera</option>{[5,6,7,8,9].map((value) => <option key={value} value={value}>{value} o más</option>)}</select></SelectControl> },
+              { id: "score-max", label: "Puntuación máxima", active: Boolean(scoreMaximum), clear: () => setScoreMaximum(""), control: <SelectControl><select aria-label="Puntuación máxima" onChange={(event) => setScoreMaximum(event.target.value)} value={scoreMaximum}><option value="">Cualquiera</option>{[5,6,7,8,9].map((value) => <option key={value} value={value}>{value} o menos</option>)}</select></SelectControl> },
+              { id: "start-year", label: "Año de inicio", active: Boolean(startedYear), clear: () => setStartedYear(""), control: <SelectControl><select aria-label="Filtrar por año de inicio" onChange={(event) => setStartedYear(event.target.value)} value={startedYear}><option value="">Cualquier año</option>{historyYears.map((year) => <option key={year}>{year}</option>)}</select></SelectControl> },
+              { id: "finish-year", label: "Año de finalización", active: Boolean(finishedYear), clear: () => setFinishedYear(""), control: <SelectControl><select aria-label="Filtrar por año de finalización" onChange={(event) => setFinishedYear(event.target.value)} value={finishedYear}><option value="">Cualquier año</option>{historyYears.map((year) => <option key={year}>{year}</option>)}</select></SelectControl> },
+              { id: "readings", label: "Número de lecturas", active: Boolean(readingCount), clear: () => setReadingCount(""), control: <SelectControl><select aria-label="Filtrar por número de lecturas" onChange={(event) => setReadingCount(event.target.value as "" | "none" | "one" | "multiple")} value={readingCount}><option value="">Cualquier cantidad</option><option value="none">Sin lecturas</option><option value="one">Leído una vez</option><option value="multiple">Releído</option></select></SelectControl> },
+            ]} sortControl={<SelectControl><select aria-label="Ordenar libros" onChange={(event) => setSort(event.target.value as Sort)} value={sort}><option value="title">Título (A–Z)</option><option value="updated">Actualizados recientemente</option><option value="author">Autor (A–Z)</option><option value="score">Mejor puntuación</option><option value="startDesc">Inicio (más reciente)</option><option value="startAsc">Inicio (más antiguo)</option><option value="finishDesc">Finalización (más reciente)</option><option value="finishAsc">Finalización (más antigua)</option></select></SelectControl>} sortPreference={{ isDefault: sort === defaultSort, isFallback: sort === "title", save: () => { saveDefaultSort(readingSortStorageKey, sort); setDefaultSort(sort); } }} />}
           </div>
           {loading ? <Empty text="Cargando libros…" /> : visible.length === 0 ? <Empty text={archived ? "El Archivo está vacío." : view === "current" ? "No tienes ningún libro en lectura." : "Todavía no has añadido ningún libro."} /> : (
             <div className="reading-grid">
@@ -295,13 +342,14 @@ function ReadingRunForm({ run, busy, close, save }: { run: ReadingRun | null; bu
   return <Modal className="reading-run-modal" labelledBy="reading-run-title" onClose={close}><form onSubmit={async (event) => { event.preventDefault(); if (await save(draft)) close(); }}><div className="reading-form-header"><div><h2 id="reading-run-title">{run ? "Editar lectura" : "Registrar lectura"}</h2><p>La fecha final cierra el periodo; no implica necesariamente terminar el libro.</p></div><button className="reading-icon-action" onClick={close} type="button"><X size={18} /></button></div><div className="reading-form-grid"><label>Fecha de inicio<SmartDateInput max={readingToday()} onChange={(value) => setDraft({ ...draft, startedOn: value || null })} required value={draft.startedOn ?? ""} /></label><label>Fecha final (opcional)<SmartDateInput max={readingToday()} min={draft.startedOn ?? undefined} onChange={(value) => { const finishedOn = value || null; setDraft({ ...draft, finishedOn, completed: Boolean(finishedOn) }); }} value={draft.finishedOn ?? ""} /></label></div>{draft.finishedOn && <label className="tracker-run-completion" title="El periodo quedará cerrado y se sugerirá marcar el libro como Pausado."><input checked={!draft.completed} onChange={(event) => setDraft({ ...draft, completed: !event.target.checked })} type="checkbox" /><span>No terminé el libro</span></label>}<div className="reading-form-footer"><button className="secondary-button" onClick={close} type="button">Cancelar</button><button className="primary-button" disabled={busy || !draft.startedOn} type="submit">Guardar</button></div></form></Modal>;
 }
 
-function ReadingHistory({ actions, entries, books, bookId, year, years, setBookId, setYear, edit, remove }: { actions: ReactNode; entries: ReadingHistoryEntry[]; books: ReadingBook[]; bookId: string; year: string; years: string[]; setBookId: (value: string) => void; setYear: (value: string) => void; edit: (entry: ReadingHistoryEntry) => void; remove: (entry: ReadingHistoryEntry) => void }) {
-  return <div><div className="reading-collection-heading"><header className="reading-view-heading"><span>TU HISTORIAL</span><h2>Lecturas y relecturas</h2><p>Cada vuelta a un libro permanece separada.</p></header>{actions}</div><div className="reading-history-filters"><SelectControl><select onChange={(event) => setBookId(event.target.value)} value={bookId}><option value="">Todos los libros</option>{books.map((book) => <option key={book.id} value={book.id}>{book.title}</option>)}</select></SelectControl><SelectControl><select onChange={(event) => setYear(event.target.value)} value={year}><option value="">Todos los años</option>{years.map((item) => <option key={item}>{item}</option>)}</select></SelectControl></div>{entries.length === 0 ? <Empty text="Todavía no hay lecturas en el historial." /> : <div className="reading-history-list">{entries.map((entry) => <article key={entry.run.id}><CalendarDays size={18} /><div><strong>{entry.bookTitle}{entry.run.finishedOn && !entry.run.completed && <span className="tracker-run-incomplete">Sin terminar</span>}</strong><span>{entry.bookAuthor} · {formatReadingDate(entry.run.startedOn)} → {entry.run.finishedOn ? formatReadingDate(entry.run.finishedOn) : "En curso"}</span></div><div><button className="reading-icon-action" onClick={() => edit(entry)} title="Editar" type="button"><Edit3 size={15} /></button><button className="reading-icon-action" onClick={() => remove(entry)} title="Eliminar" type="button"><Trash2 size={15} /></button></div></article>)}</div>}</div>;
+function ReadingHistory({ entries, books, bookId, year, years, setBookId, setYear, edit, remove }: { entries: ReadingHistoryEntry[]; books: ReadingBook[]; bookId: string; year: string; years: string[]; setBookId: (value: string) => void; setYear: (value: string) => void; edit: (entry: ReadingHistoryEntry) => void; remove: (entry: ReadingHistoryEntry) => void }) {
+  return <div><div className="reading-history-filters"><SelectControl><select onChange={(event) => setBookId(event.target.value)} value={bookId}><option value="">Todos los libros</option>{books.map((book) => <option key={book.id} value={book.id}>{book.title}</option>)}</select></SelectControl><SelectControl><select onChange={(event) => setYear(event.target.value)} value={year}><option value="">Todos los años</option>{years.map((item) => <option key={item}>{item}</option>)}</select></SelectControl></div>{entries.length === 0 ? <Empty text="Todavía no hay lecturas en el historial." /> : <div className="reading-history-list">{entries.map((entry) => <article key={entry.run.id}><CalendarDays size={18} /><div><strong>{entry.bookTitle}{entry.run.finishedOn && !entry.run.completed && <span className="tracker-run-incomplete">Sin terminar</span>}</strong><span>{entry.bookAuthor} · {formatReadingDate(entry.run.startedOn)} → {entry.run.finishedOn ? formatReadingDate(entry.run.finishedOn) : "En curso"}</span></div><div><button className="reading-icon-action" onClick={() => edit(entry)} title="Editar" type="button"><Edit3 size={15} /></button><button className="reading-icon-action" onClick={() => remove(entry)} title="Eliminar" type="button"><Trash2 size={15} /></button></div></article>)}</div>}</div>;
 }
 
-function Statistics({ actions, books, entries, open, showUnscored }: { actions: ReactNode; books: ReadingBook[]; entries: ReadingHistoryEntry[]; open: (id: string) => void; showUnscored: () => void }) {
-  return <div className="reading-statistics"><div className="reading-collection-heading"><header className="reading-view-heading"><span>TU BIBLIOTECA</span><h2>Estadísticas</h2><p>Lecturas, relecturas y evolución de tus gustos.</p></header>{actions}</div><MediaStatisticsDashboard
+function Statistics({ books, entries, open, showUnscored }: { books: ReadingBook[]; entries: ReadingHistoryEntry[]; open: (id: string) => void; showUnscored: () => void }) {
+  return <div className="reading-statistics"><MediaStatisticsDashboard
     calendarPeriods
+    refined
     items={books.map((book) => ({ id: book.id, name: book.title, detail: book.author, status: book.status, statusLabel: readingStatusLabel(book.status), score: book.score, favorite: book.favorite, genres: book.genres, startedOn: book.startedOn, finishedOn: book.finishedOn }))}
     noun="Libros"
     openItem={open}

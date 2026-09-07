@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title">
+  <title id="title">NubeOS</title>
+  <rect x="32" y="32" width="960" height="960" rx="236" fill="#7c3aed"/>
+  <path d="M244 796V228H392L632 608V228H780V796H632L392 416V796H244Z" fill="#ffffff"/>
+</svg>

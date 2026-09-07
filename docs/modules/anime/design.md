@@ -1,7 +1,8 @@
 # Diseño — Anime
 
-- Estado: Implementado; revisión visual pendiente
-- Última actualización: 2026-08-22
+- Estado: Aprobado por Nube (módulo cerrado)
+- Última actualización: 2026-09-04
+- Aprobación de cierre: Nube, 2026-09-04. Cierre del alcance implementado; los trabajos futuros y las verificaciones de instalación no se consideran realizados por esta aprobación.
 
 ## Modelo
 
@@ -14,19 +15,39 @@ Una franquicia usa `MediaTitle(kind = anime, is_anime = true)`. Una película an
 
 `MediaTitle` incorpora `catalog_number` y `genres`. El número es una identidad visual secuencial distinta del UUID técnico. `MediaContent` incorpora `started_on` y `notes`; `notes` conserva información objetiva y `opinion` la valoración personal.
 
-`WatchSession` representa una unidad vista de los contenidos de una franquicia, no un delta visual, y guarda su número de episodio. Las películas independientes usan `MovieViewing`, una entrada autónoma por visionado. El progreso anterior a esta versión puede existir sin sesiones y se conserva como línea base sin inventar fechas.
+`WatchSession` representa una unidad vista de los contenidos de una franquicia, no un delta visual, y guarda su número de episodio. `registration_id` agrupa los episodios añadidos en una misma operación e `is_rewatch` distingue un revisionado que no modifica el progreso principal. Las películas independientes usan `MovieViewing`, una entrada autónoma por visionado. El progreso anterior a esta versión puede existir sin sesiones y se conserva como línea base sin inventar fechas.
 
 ## Responsabilidades
+
+- `suggested_title_status` considera el último estado explícito por `position` (con ID como desempate estable), excluyendo Pendiente, Por salir y Omitido. Abandonado/En pausa prevalecen sobre episodios antiguos; el resto conserva actividad, cierre disponible y Por retomar, e incorpora los casos todos pendientes y solo futuros. No escribe en persistencia.
+- `resolveContentStateSuggestion` compara el conjunto, estados, canonicidad y posiciones antes/después de editar contenidos, y confirma una propuesta devuelta por Rust. Comparar campos relevantes evita avisos por puntuaciones o metadatos. Crear, editar, omitir, eliminar y reordenar comparten ese flujo; el incremento mantiene sus confirmaciones específicas de contenido y anime.
+- `conciseContentName` retira el prefijo `Anime:` únicamente tras una clasificación de temporada y una coincidencia exacta normalizada con el título o alias. El sufijo conserva su grafía y los nombres oficiales de películas/OVA no se recortan. Es una transformación visual sin actualización de los datos guardados.
+
+- `MediaProgress.known_percentage` deriva en Rust el progreso de los contenidos con total conocido. El porcentaje global conserva su significado anterior y continúa ausente con totales incompletos. `AnimePreviewProgress` comparte la presentación entre Biblioteca y En curso sin consultar contenidos ni duplicar reglas.
+
+- Rust deriva `canRewatch` del progreso completo (para total desconocido: estado Terminado y progreso positivo). La UI y el comando de revisionado comparten esta regla; no basta con el estado manual para totales conocidos. Los formularios muestran el estreno recibido y mantienen visibles los errores devueltos por Rust.
+
+- El dominio deriva `progress.upcomingCount` y `progress.availableCompleted`, excluyendo Omitido y WaitingContent del conjunto disponible. La presentación etiqueta WaitingContent como Por salir solo para contenidos; el contrato y la persistencia no cambian de estado ni requieren migración.
+- Tras incrementar progreso, la UI confirma por separado el estado del contenido y el del anime cuando hay futuros. Usa la finalización disponible calculada en Rust y ofrece tres decisiones explícitas, con Esperando contenido como recomendada. Los cambios de fecha y los revisionados no repiten este aviso.
 
 - Rust valida clasificación, contenidos, canonicidad, progreso y estadísticas.
 - El repositorio audiovisual persiste títulos, contenidos y sesiones en las tablas `media_*`.
 - Los comandos filtran mediante `MediaArea::Anime` antes de devolver tarjetas.
 - React presenta la jerarquía completa y no mezcla otras áreas.
-- Rust asigna los números de catálogo mediante una secuencia persistida y valida puntuaciones en décimas.
+- Rust asigna los números de catálogo mediante una secuencia persistida y valida puntuaciones con hasta dos decimales.
 - Rust genera una sesión por episodio añadido, mantiene sincronizado el contador persistido y solo permite retirar la última sesión de cada objetivo.
 - Rust calcula una sugerencia de estado global sin aplicarla y deriva las fechas de actividad exclusivamente del historial persistido.
+- El DTO de contenido incluye `suggestedStatus`, calculado en Rust: progreso parcial sugiere Viendo y total completo sugiere Terminado. React ofrece la confirmación solo tras un incremento real y conserva el estado si el usuario elige Mantener.
 
 ## Interfaz
+
+- Contenidos permite ocultar visualmente los omitidos mediante un filtro independiente de estado, activado inicialmente. No modifica inclusión, historial ni progreso; el orden se ajusta mostrando todos los contenidos.
+- Archivo solo ofrece Volver como acción de colección. El historial global muestra fecha como texto y edición en un formulario separado, sin Primera actividad.
+- Las filas del historial global reutilizan la jerarquía compacta de Lectura: el título reúne episodio, contenido y anime; la fecha del visionado queda debajo y el estreno se reserva como dato secundario a la derecha. Editar y eliminar continúan apareciendo mediante `hover` o foco.
+
+- El estado del recorrido se conserva en dominio y en el formulario de registro, pero no se edita desde la tarjeta resumen. Esta presenta identidad, alcance y fechas; las únicas acciones locales son editar o eliminar bloques del historial.
+
+- El formulario de registro alinea la ayuda breve `Estreno: fecha` con una casilla nativa compacta `Marcar todo` bajo episodios. La casilla opera solo sobre el borrador de cantidad y reutiliza los límites existentes, sin nuevas reglas de persistencia.
 
 - `AnimeWorkspace` presenta Biblioteca, En curso, Historial y Estadísticas, en ese orden. Archivo y Añadir anime permanecen accesibles desde cualquier vista.
 - El formulario ofrece Formato: Serie o franquicia / Película independiente.
@@ -35,7 +56,7 @@ Una franquicia usa `MediaTitle(kind = anime, is_anime = true)`. Una película an
 - La posición persistida se muestra como `#1`, `#2` y siguientes y expresa el orden recomendado.
 - El detalle de película independiente utiliza seguimiento directo.
 - Las tarjetas y el detalle muestran `#n`; el formulario permite editar géneros sin modificar ese número.
-- La puntuación efectiva es la manual del título o, si falta, la media de contenidos. La entrada es numérica entre 0 y 10, admite una décima y usa una escala cromática exclusiva sin morado.
+- La puntuación efectiva es la manual del título o, si falta, la media de contenidos. La entrada es numérica entre 0 y 10, admite hasta dos decimales y usa una escala cromática exclusiva sin morado.
 - La ordenación es estado efímero de presentación. React ordena una copia de los títulos ya filtrados utilizando `catalogNumber` o la puntuación efectiva recibida.
 - La acción Omitir reutiliza la actualización validada de `MediaContent` y cambia `canon_status` a `omitted`; no introduce otro estado persistente.
 - El editor manual conserva un botón de confirmación. Al aumentar de `N` a `M`, Rust crea los episodios `N + 1 ... M` con la fecha elegida; al reducir retira las sesiones registradas por encima del nuevo valor, sin añadir deltas negativos. `+1` mantiene el flujo inmediato.
@@ -56,7 +77,7 @@ Una franquicia usa `MediaTitle(kind = anime, is_anime = true)`. Una película an
 - El cambio de minivista activa un estado transitorio antes de cambiar el criterio de orden, evitando renderizar los elementos anteriores con la ordenación siguiente.
 - La puntuación rápida usa un guardado diferido corto y también confirma en Enter o desenfoque. Rust continúa validando rango y precisión.
 - La tarjeta de contenido usa tres filas de información: identidad, estado y progreso. Las acciones secundarias se posicionan sobre la superficie sin participar en la cuadrícula, aparecen en `hover` o foco y no reservan espacio cuando están ocultas.
-- Los nombres redundantes se acortan solo al presentar patrones importados (`Temporada 1 — Anime`, `Película — Anime: Título`); el valor persistido no se modifica.
+- Los nombres redundantes se acortan solo al presentar marcadores importados (`Temporada 1 — Anime`, `Película — Anime: Título`); nunca se elimina el prefijo de la obra cuando forma parte del título oficial, por lo que se conserva `Anime: Título`. El valor persistido no se modifica.
 - `Guardar` permanece en las correcciones de progreso porque reducir episodios modifica historial. `+1` se presenta como acción principal del bloque.
 - El formulario conserva puntuación coloreada pero con la altura de un campo normal, añade separadores semánticos y muestra inicio, final y estreno en una fila de tres columnas. Las áreas de texto parten de dos líneas y crecen con el contenido.
 - La acción rápida de canonicidad alterna entre Omitido y Canon. Esta elección reversible evita abrir el formulario para recuperar un contenido; Recomendado y Opcional continúan siendo metadatos de edición deliberada.
@@ -95,17 +116,17 @@ La carga desde Notion se ejecuta con una herramienta puntual fuera de las migrac
 ## Decisiones aplazadas
 
 - Comprobar con uso real si una película vinculada necesita portada propia.
-- Modelar revisualizaciones de contenidos vinculados o rutas alternativas solo cuando exista un caso real; las películas independientes ya admiten revisionados.
+- Modelar rutas alternativas de visionado solo cuando exista un caso real; tanto las películas independientes como los contenidos vinculados ya admiten revisionados.
 - El cambio entre Anime y Películas Anime conserva el contenido anterior durante la carga, lo atenúa y lo sustituye de una vez cuando llega la nueva colección; nunca aplica la ordenación nueva sobre datos antiguos.
 - Las tarjetas de contenido son resúmenes estables: identidad, estado, tipo, canonicidad, estreno, última actividad, progreso y puntuación. No contienen formularios ni pestañas propias.
 - La puntuación ocupa una celda compacta inspirada en SeriesGraph: fondo según el tramo de nota, cifra blanca y ausencia de estrellas para no confundirla con Favorito.
 - Las pestañas globales `Contenidos` e `Historial` permanecen centradas en la barra de sección. La primera muestra la cuadrícula ordenada; la segunda agrupa sesiones por contenido y fecha.
-- Historial imita la jerarquía de Lectura: contador, acceso al historial completo, avance rápido del siguiente contenido, registro múltiple y lista compacta. Cada bloque puede corregir su fecha y el bloque más reciente de cada contenido puede retirarse.
+- Historial imita la jerarquía de Lectura: contador, avance rápido del siguiente contenido, registro múltiple y lista compacta. Cada bloque puede corregir su fecha; el bloque más reciente del progreso original puede retirarse y cualquier revisionado puede eliminarse sin reducir el contador completado. El acceso global no se repite dentro de este resumen.
 - `cover_position_x` y `cover_position_y` guardan porcentajes entre 0 y 100 en `media_titles`. React permite arrastrar la portada dentro de un marco de la misma proporción que la vista actual y Rust valida y persiste la posición.
 - El estado del contenido se muestra inmediatamente debajo del título. Su modificación continúa en el formulario para no convertir de nuevo la tarjeta en un panel de controles rápidos.
 - El estado textual ocupa el extremo superior izquierdo de la barra de navegación. El resumen inferior reserva una zona destacada a la puntuación y distribuye Tipo, Canonicidad, Último visionado y Estreno en dos filas, evitando una única tira de datos.
 
-- Historial presenta `Ver historial completo` a la izquierda y la confirmación manual a la derecha; el avance inmediato se denomina `Registrar +1` sin duplicar el signo mediante un icono.
+- Historial presenta el avance inmediato y el registro manual juntos; la navegación superior conserva el acceso a la vista completa.
 - El editor de portada captura el puntero durante todo el gesto y ofrece además ejes porcentuales como alternativa precisa y accesible.
 - En los formularios, Opinión precede a Anotaciones siempre que ambos campos conviven.
 - Las fechas manuales de inicio y fin se conservan temporalmente para progreso importado sin sesiones. El historial es la fuente temporal preferida para actividad nueva; retirar u ocultar los campos requiere una tarea de modelo y migración independiente.
@@ -116,6 +137,8 @@ La carga desde Notion se ejecuta con una herramienta puntual fuera de las migrac
 
 ## Portadas horizontales
 
+- `AnimePreviewProgress` presenta el porcentaje morado como cifra principal de 22 px y el contador gris a su derecha a 12 px en Biblioteca y En curso. La fila alinea las líneas base y permite saltos en anchos reducidos. Los avisos de total desconocido se renderizan encima del progreso. `AnimePreviewStatus` comparte el estado a la izquierda y el aviso opcional de contenido por salir a la derecha, en gris de 12 px, sin cápsula; la fila permite saltos y no hereda el margen automático del pie. La tarjeta y su botón de apertura llenan la altura disponible; el margen automático del pie mantiene el progreso en la base, incluso con géneros o avisos de alturas distintas. En curso conserva su botón de avance debajo. La vista aislada usa los mismos componentes sin selector. Consume el porcentaje derivado por Rust, sin nuevos cálculos de dominio.
+
 - Biblioteca, En curso, detalle y editor utilizan marcos 16:9 para franquicias y películas Anime.
 - La cuadrícula de Biblioteca presenta tres columnas normales para dar a cada portada suficiente anchura.
 - El encuadre y zoom persistidos siguen compartiendo el editor audiovisual existente; no se crea almacenamiento adicional.
@@ -125,9 +148,21 @@ La carga desde Notion se ejecuta con una herramienta puntual fuera de las migrac
 
 ## Navegación y estadísticas refinadas
 
+- Migración 0037: `media_content_runs` contiene identidad, contenido y estado; `media_watch_sessions.run_id` enlaza episodios con su recorrido. El resumen, cronología, cobertura única y siguiente episodio se derivan en Rust. La interfaz selecciona recorrido y rango; el repositorio valida pertenencia, límites, solapamientos y estado dentro de la transacción. La marca interna `is_rewatch` sigue protegiendo el progreso heredado.
+
+- El historial del detalle agrupa por recorrido y muestra intervalos editables dentro de cada uno. La tarjeta no repite selectores de estado ni accesos Continuar/Nuevo recorrido: esas decisiones pertenecen al formulario `Registrar visionado`. Nuevo recorrido propone un intervalo editable y no presupone que empiece por el episodio 1. El recorrido base conserva el cálculo de cierre del progreso original; añadir progreso explícitamente lo retoma. Ninguna de estas operaciones impone un estado global al anime.
+
+- `chronological_rewatch_sessions` ordena sesiones por fecha, marca interna y claves estables, y detecta episodios repetidos por contenido. El DTO expone `isChronologicalRewatch` separado de `isRewatch`: el primero determina la etiqueta del historial y el segundo mantiene el comportamiento de progreso y permisos existente. Un grupo recibe Revisionado si contiene algún episodio repetido. Se recalcula al obtener el detalle, sin migrar ni reescribir el historial. El formulario usa el término neutro Registrar visionado; no confunde una instancia adicional con una fecha necesariamente posterior.
+
+- `suggested_title_status` añade la alternativa Viendo para Anime Pendiente con `progress.watched > 0` después de evaluar el cierre disponible. Así una temporada terminada y otra pendiente no dejan el título sin sugerencia. `resolveContentProgressStatus` confirma la propuesta del título tras la del contenido únicamente si sigue Pendiente y Rust propone Viendo; el comando de cambio solo se invoca al aceptar. La cabecera muestra la misma propuesta para progreso preexistente. Sin migración, cambios masivos ni avisos nuevos al corregir solo fechas o reducir episodios.
+
 - El detalle mantiene una sola selección `Contenidos / Historial`; no existen pestañas ni controles de progreso repetidos dentro de las tarjetas.
 - La sugerencia de estado global pertenece al bloque central de identidad, centrada sobre el tipo y el título, y requiere confirmación explícita.
 - El registro central muestra el progreso persistido del contenido elegido, limita la cantidad al total conocido y anticipa el rango de episodios que se creará.
+- Los campos de cantidad aceptan únicamente dígitos y se acotan durante la escritura: nunca permiten introducir más episodios que los restantes o que el total del revisionado.
+- Editar una instancia permite corregir fecha y cantidad. Los revisionados son libres dentro del total; en el historial original solo el último bloque puede cambiar de tamaño porque modifica el progreso persistido.
+- La puntuación del contenido se edita directamente desde su tarjeta mediante el mismo autoguardado y validación visual que la puntuación del anime.
+- Cuando un registro o `+1 episodio` alcanza el total conocido, la aplicación propone cambiar ese contenido a `Terminado`; nunca lo hace de forma silenciosa. Si al aceptarlo queda completada toda la obra incluida, un checkbox compacto y activado por defecto permite decidir si también se termina el anime.
 - La consulta estadística acepta un ámbito opcional (`Anime`, `Película` o ambos) y aplica ese filtro en Rust antes de calcular totales, medias y rankings.
 - Una película Anime independiente presenta historial repetible y resumen sin mostrar un contador unitario que siempre sería `1 de 1`.
 - Su cabecera de Historial separa la acción rápida `Registrar hoy` de `Registrar visionado`, que abre un formulario fechado. Las entradas usan una lista compacta con acciones de edición y eliminación en `hover` o foco, igual que los historiales de los trackers simples.
@@ -136,3 +171,10 @@ La carga desde Notion se ejecuta con una herramienta puntual fuera de las migrac
 - La caja de puntuación de colección reutiliza las dimensiones de Lectura y el formateador compartido devuelve `—` para cualquier nota ausente.
 - La cabecera del detalle se divide en cuatro zonas reales: portada horizontal, identidad, puntuaciones y acciones. Las puntuaciones no viven debajo del título; el resumen de Progreso, Contenidos y Estado ocupa una segunda fila completa e independiente.
 - En anchuras intermedias, puntuaciones y acciones pasan a filas completas bajo portada e identidad. En móvil, las cuatro zonas se apilan sin deformar el marco 16:9.
+
+### Estado Por retomar
+
+- `TrackingStatus::ToResume` / `toResume` / SQLite `to_resume` es exclusivo del título de tipo Anime. Rust valida creación, edición y cambio rápido; los contenidos rechazan el estado.
+- Migración 0036 amplía únicamente el CHECK de `media_titles`, condicionándolo al tipo Anime. No modifica registros, relaciones ni medios administrados.
+- `suggested_title_status` deriva la propuesta; el frontend detecta Por salir → Pendiente y usa el diálogo compartido antes de persistir la elección. Contenido omitido y ediciones sin cambio de disponibilidad no disparan el aviso.
+- Opciones de título Anime separadas de las seis opciones de contenido y los demás módulos. Al cambiar a película en el borrador, Por retomar vuelve a Pendiente; cambiar a la subbiblioteca de películas limpia ese filtro exclusivo.

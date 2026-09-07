@@ -23,13 +23,16 @@ pub enum MediaRepositoryError {
     MustBeArchived,
     InvalidOrder,
     SessionCannotBeRemoved,
+    SessionCannotBeEdited,
     ViewingBeforeFirst,
     InvalidRunDates,
+    InvalidContentRun(&'static str),
 }
 
 impl fmt::Display for MediaRepositoryError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::InvalidContentRun(message) => formatter.write_str(message),
             Self::Database(error) => write!(formatter, "Error de SQLite: {error}"),
             Self::InvalidStored(error) => {
                 write!(formatter, "Datos audiovisuales inválidos: {error}")
@@ -45,6 +48,9 @@ impl fmt::Display for MediaRepositoryError {
                 .write_str("El nuevo orden no contiene exactamente los contenidos del título."),
             Self::SessionCannotBeRemoved => formatter
                 .write_str("Solo puede retirarse el último episodio registrado de cada contenido."),
+            Self::SessionCannotBeEdited => formatter.write_str(
+                "Solo se puede cambiar la cantidad del último bloque registrado de cada contenido.",
+            ),
             Self::ViewingBeforeFirst => formatter.write_str(
                 "Un nuevo visionado no puede ser anterior al primer visionado registrado.",
             ),
@@ -67,6 +73,19 @@ pub struct MediaRepository<'connection> {
     connection: &'connection mut Connection,
 }
 
+type StoredSessionTarget = (Option<String>, Option<String>, Option<u32>, bool);
+
+struct NewWatchSession<'a> {
+    title_id: Option<&'a MediaTitleId>,
+    content_id: Option<&'a MediaContentId>,
+    watched_on: NaiveDate,
+    episode_number: u32,
+    source: SessionSource,
+    registration_id: &'a str,
+    is_rewatch: bool,
+    run_id: Option<&'a str>,
+}
+
 #[derive(Debug, Clone)]
 pub struct MediaHistoryEntry {
     pub id: String,
@@ -80,6 +99,7 @@ pub struct MediaHistoryEntry {
     pub watched_on: NaiveDate,
     pub episode_number: u32,
     pub can_delete: bool,
+    pub released_on: Option<NaiveDate>,
 }
 
 impl<'connection> MediaRepository<'connection> {
@@ -285,7 +305,7 @@ impl<'connection> MediaRepository<'connection> {
     pub fn list_history(&mut self) -> Result<Vec<MediaHistoryEntry>, MediaRepositoryError> {
         let mut statement = self.connection.prepare(
             "SELECT id, title_id, title_name, title_kind, is_anime, content_id,
-                    content_name, content_kind, watched_on, episode_number, can_delete
+                    content_name, content_kind, watched_on, episode_number, can_delete, released_on
              FROM (
                  SELECT sessions.id AS id, titles.id AS title_id, titles.name AS title_name,
                         titles.kind AS title_kind, titles.is_anime AS is_anime,
@@ -293,10 +313,11 @@ impl<'connection> MediaRepository<'connection> {
                         contents.kind AS content_kind, sessions.watched_on AS watched_on,
                         sessions.episode_number AS episode_number,
                         CASE
+                          WHEN sessions.is_rewatch = 1 THEN 1
                           WHEN contents.id IS NOT NULL THEN contents.watched_episodes = sessions.episode_number
                           ELSE titles.watched_units = sessions.episode_number
                         END AS can_delete,
-                        sessions.created_at AS created_at
+                        sessions.created_at AS created_at, contents.released_on AS released_on
                  FROM media_watch_sessions sessions
                  JOIN media_titles titles
                    ON titles.id = sessions.title_id
@@ -305,7 +326,7 @@ impl<'connection> MediaRepository<'connection> {
                  WHERE sessions.episode_number IS NOT NULL
                  UNION ALL
                  SELECT viewings.id, titles.id, titles.name, titles.kind, titles.is_anime,
-                        NULL, NULL, NULL, viewings.watched_on, 1, 1, viewings.created_at
+                        NULL, NULL, NULL, viewings.watched_on, 1, 1, viewings.created_at, NULL
                  FROM media_movie_viewings viewings
                  JOIN media_titles titles ON titles.id = viewings.title_id
                  WHERE titles.is_anime = 1 AND titles.kind = 'movie'
@@ -334,6 +355,10 @@ impl<'connection> MediaRepository<'connection> {
                     watched_on: parse_date(&row.get::<_, String>(8)?)?,
                     episode_number: row.get(9)?,
                     can_delete: row.get(10)?,
+                    released_on: row
+                        .get::<_, Option<String>>(11)?
+                        .map(|date| parse_date(&date))
+                        .transpose()?,
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
@@ -525,20 +550,27 @@ impl<'connection> MediaRepository<'connection> {
             ],
         )?;
         if next > current {
+            let registration_id = uuid::Uuid::new_v4().to_string();
             for episode_number in (current + 1)..=next {
                 insert_session(
                     &transaction,
-                    Some(title_id),
-                    None,
-                    watched_on,
-                    episode_number,
-                    source,
+                    NewWatchSession {
+                        title_id: Some(title_id),
+                        content_id: None,
+                        watched_on,
+                        episode_number,
+                        source,
+                        registration_id: &registration_id,
+                        is_rewatch: false,
+                        run_id: None,
+                    },
                 )?;
             }
         } else if next < current {
             transaction.execute(
                 "DELETE FROM media_watch_sessions
-                 WHERE title_id = ?1 AND episode_number IS NOT NULL AND episode_number > ?2",
+                 WHERE title_id = ?1 AND is_rewatch = 0
+                   AND episode_number IS NOT NULL AND episode_number > ?2",
                 params![title_id.as_str(), next],
             )?;
         }
@@ -572,23 +604,208 @@ impl<'connection> MediaRepository<'connection> {
             params![Utc::now().to_rfc3339(), title_id],
         )?;
         if next > current {
+            // Adding primary progress explicitly resumes that same run, not a new rewatch.
+            transaction.execute(
+                "UPDATE media_content_runs SET status = 'inProgress' WHERE id = ?1",
+                [format!("{}:base", content_id.as_str())],
+            )?;
+            let registration_id = uuid::Uuid::new_v4().to_string();
             for episode_number in (current + 1)..=next {
                 insert_session(
                     &transaction,
-                    None,
-                    Some(content_id),
-                    watched_on,
-                    episode_number,
-                    source,
+                    NewWatchSession {
+                        title_id: None,
+                        content_id: Some(content_id),
+                        watched_on,
+                        episode_number,
+                        source,
+                        registration_id: &registration_id,
+                        is_rewatch: false,
+                        run_id: None,
+                    },
                 )?;
             }
         } else if next < current {
             transaction.execute(
                 "DELETE FROM media_watch_sessions
-                 WHERE content_id = ?1 AND episode_number IS NOT NULL AND episode_number > ?2",
+                 WHERE content_id = ?1 AND is_rewatch = 0
+                   AND episode_number IS NOT NULL AND episode_number > ?2",
                 params![content_id.as_str(), next],
             )?;
         }
+        transaction.commit()?;
+        Ok(())
+    }
+
+    pub fn register_content_rewatch(
+        &mut self,
+        content_id: &MediaContentId,
+        episodes: u32,
+        watched_on: NaiveDate,
+    ) -> Result<(), MediaRepositoryError> {
+        let transaction = self.connection.transaction()?;
+        let title_id: String = transaction
+            .query_row(
+                "SELECT title_id FROM media_contents WHERE id = ?1",
+                [content_id.as_str()],
+                |row| row.get(0),
+            )
+            .optional()?
+            .ok_or(MediaRepositoryError::NotFound)?;
+        let registration_id = uuid::Uuid::new_v4().to_string();
+        for episode_number in 1..=episodes {
+            insert_session(
+                &transaction,
+                NewWatchSession {
+                    title_id: None,
+                    content_id: Some(content_id),
+                    watched_on,
+                    episode_number,
+                    source: SessionSource::ManualAdjustment,
+                    registration_id: &registration_id,
+                    is_rewatch: true,
+                    run_id: None,
+                },
+            )?;
+        }
+        transaction.execute(
+            "UPDATE media_titles SET updated_at = ?1 WHERE id = ?2",
+            params![Utc::now().to_rfc3339(), title_id],
+        )?;
+        transaction.commit()?;
+        Ok(())
+    }
+
+    pub fn register_content_run_range(
+        &mut self,
+        content_id: &MediaContentId,
+        run_id: Option<&str>,
+        first: u32,
+        last: u32,
+        watched_on: NaiveDate,
+        status: &str,
+    ) -> Result<(), MediaRepositoryError> {
+        let content = self
+            .find_content(content_id)?
+            .ok_or(MediaRepositoryError::NotFound)?;
+        if first == 0
+            || first > last
+            || !matches!(status, "inProgress" | "completed" | "interrupted")
+        {
+            return Err(MediaRepositoryError::InvalidContentRun(
+                "El intervalo o estado del recorrido no es válido.",
+            ));
+        }
+        if content.canon_status == CanonStatus::Omitted
+            || content.status == TrackingStatus::WaitingContent
+        {
+            return Err(MediaRepositoryError::InvalidContentRun(
+                "Este contenido está omitido o por salir.",
+            ));
+        }
+        super::service::validate_progress_change(
+            0,
+            last,
+            content.effective_total(),
+            watched_on,
+            Utc::now()
+                .with_timezone(&chrono_tz::Europe::Madrid)
+                .date_naive(),
+            content.released_on,
+        )
+        .map_err(MediaRepositoryError::InvalidStored)?;
+        let transaction = self.connection.transaction()?;
+        let run = if let Some(id) = run_id {
+            let stored: Option<(String, String, bool)> = transaction.query_row(
+                "SELECT content_id, status, EXISTS(SELECT 1 FROM media_watch_sessions WHERE run_id = r.id AND is_rewatch = 0) FROM media_content_runs r WHERE id = ?1",
+                [id], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?))).optional()?;
+            let (owner, stored_status, is_base) = stored.ok_or(MediaRepositoryError::NotFound)?;
+            if owner != content_id.as_str() || is_base {
+                return Err(MediaRepositoryError::InvalidContentRun(
+                    "El recorrido no es un revisionado de este contenido.",
+                ));
+            }
+            if stored_status != "inProgress" {
+                return Err(MediaRepositoryError::InvalidContentRun(
+                    "Retoma el recorrido antes de añadir episodios.",
+                ));
+            }
+            id.to_owned()
+        } else {
+            let id = uuid::Uuid::new_v4().to_string();
+            transaction.execute(
+                "INSERT INTO media_content_runs(id, content_id) VALUES (?1, ?2)",
+                params![id, content_id.as_str()],
+            )?;
+            id
+        };
+        let overlaps: bool = transaction.query_row(
+            "SELECT EXISTS(SELECT 1 FROM media_watch_sessions WHERE run_id = ?1 AND episode_number BETWEEN ?2 AND ?3)",
+            params![run, first, last], |row| row.get(0))?;
+        if overlaps {
+            return Err(MediaRepositoryError::InvalidContentRun("Ya hay episodios de ese intervalo en este recorrido. Para volver a verlos, crea otro recorrido."));
+        }
+        let registration = uuid::Uuid::new_v4().to_string();
+        for episode_number in first..=last {
+            insert_session(
+                &transaction,
+                NewWatchSession {
+                    title_id: None,
+                    content_id: Some(content_id),
+                    watched_on,
+                    episode_number,
+                    source: SessionSource::ManualAdjustment,
+                    registration_id: &registration,
+                    is_rewatch: true,
+                    run_id: Some(&run),
+                },
+            )?;
+        }
+        validate_run_completion(&transaction, &run, content.effective_total(), status)?;
+        transaction.execute(
+            "UPDATE media_content_runs SET status = ?1 WHERE id = ?2",
+            params![status, run],
+        )?;
+        transaction.execute(
+            "UPDATE media_titles SET updated_at = ?1 WHERE id = ?2",
+            params![Utc::now().to_rfc3339(), content.title_id.as_str()],
+        )?;
+        transaction.commit()?;
+        Ok(())
+    }
+
+    pub fn set_content_run_status(
+        &mut self,
+        content_id: &MediaContentId,
+        run_id: &str,
+        status: &str,
+    ) -> Result<(), MediaRepositoryError> {
+        if !matches!(status, "inProgress" | "completed" | "interrupted") {
+            return Err(MediaRepositoryError::InvalidContentRun(
+                "Estado de recorrido no válido.",
+            ));
+        }
+        let content = self
+            .find_content(content_id)?
+            .ok_or(MediaRepositoryError::NotFound)?;
+        let transaction = self.connection.transaction()?;
+        let belongs: bool = transaction.query_row(
+            "SELECT EXISTS(SELECT 1 FROM media_content_runs WHERE id = ?1 AND content_id = ?2)",
+            params![run_id, content_id.as_str()],
+            |r| r.get(0),
+        )?;
+        if !belongs {
+            return Err(MediaRepositoryError::NotFound);
+        }
+        validate_run_completion(&transaction, run_id, content.effective_total(), status)?;
+        transaction.execute(
+            "UPDATE media_content_runs SET status = ?1 WHERE id = ?2",
+            params![status, run_id],
+        )?;
+        transaction.execute(
+            "UPDATE media_titles SET updated_at = ?1 WHERE id = ?2",
+            params![Utc::now().to_rfc3339(), content.title_id.as_str()],
+        )?;
         transaction.commit()?;
         Ok(())
     }
@@ -609,20 +826,188 @@ impl<'connection> MediaRepository<'connection> {
         Ok(())
     }
 
-    pub fn delete_latest_session(&mut self, session_id: &str) -> Result<(), MediaRepositoryError> {
-        let target: Option<(Option<String>, Option<String>, Option<u32>)> = self
-            .connection
+    pub fn update_content_registration(
+        &mut self,
+        registration_id: &str,
+        expected_content_id: &MediaContentId,
+        watched_on: NaiveDate,
+        episodes: u32,
+    ) -> Result<(), MediaRepositoryError> {
+        self.update_content_registration_range(
+            registration_id,
+            expected_content_id,
+            watched_on,
+            episodes,
+            None,
+        )
+    }
+
+    pub fn update_content_registration_range(
+        &mut self,
+        registration_id: &str,
+        expected_content_id: &MediaContentId,
+        watched_on: NaiveDate,
+        episodes: u32,
+        requested_first: Option<u32>,
+    ) -> Result<(), MediaRepositoryError> {
+        let transaction = self.connection.transaction()?;
+        let stored: Option<(String, String, bool, u32, u32, String)> = transaction
             .query_row(
-                "SELECT title_id, content_id, episode_number
-                 FROM media_watch_sessions WHERE id = ?1",
-                [session_id],
-                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+                "SELECT sessions.content_id, contents.title_id, sessions.is_rewatch,
+                        MIN(sessions.episode_number), COUNT(*), sessions.source
+                 FROM media_watch_sessions sessions
+                 JOIN media_contents contents ON contents.id = sessions.content_id
+                 WHERE sessions.registration_id = ?1 AND sessions.content_id = ?2
+                   AND sessions.episode_number IS NOT NULL
+                 GROUP BY sessions.registration_id, sessions.content_id, contents.title_id,
+                          sessions.is_rewatch, sessions.source",
+                params![registration_id, expected_content_id.as_str()],
+                |row| {
+                    Ok((
+                        row.get(0)?,
+                        row.get(1)?,
+                        row.get(2)?,
+                        row.get(3)?,
+                        row.get(4)?,
+                        row.get(5)?,
+                    ))
+                },
             )
             .optional()?;
-        let (title_id, content_id, episode_number) =
+        let (content_id, title_id, is_rewatch, first_episode, current_count, source) =
+            stored.ok_or(MediaRepositoryError::NotFound)?;
+        let (current_progress, kind, total): (u32, String, Option<u32>) = transaction.query_row(
+            "SELECT watched_episodes, kind, total_episodes FROM media_contents WHERE id = ?1",
+            [&content_id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )?;
+        let effective_total = total.or_else(|| (kind != "season").then_some(1));
+        let first = requested_first.unwrap_or(first_episode);
+        let end = first.checked_add(episodes.saturating_sub(1));
+        if episodes == 0
+            || first == 0
+            || end.is_none()
+            || effective_total.is_some_and(|limit| end.unwrap_or(u32::MAX) > limit)
+            || (!is_rewatch && first != first_episode)
+        {
+            return Err(MediaRepositoryError::InvalidStoredValue(
+                "cantidad de episodios",
+            ));
+        }
+        let last_episode = first_episode + current_count - 1;
+        if !is_rewatch && episodes != current_count && last_episode != current_progress {
+            return Err(MediaRepositoryError::SessionCannotBeEdited);
+        }
+        let run_id: Option<String> = transaction.query_row(
+            "SELECT run_id FROM media_watch_sessions WHERE registration_id = ?1 LIMIT 1",
+            [registration_id],
+            |row| row.get(0),
+        )?;
+        if let Some(run) = &run_id {
+            let overlaps: bool = transaction.query_row(
+                "SELECT EXISTS(SELECT 1 FROM media_watch_sessions WHERE run_id = ?1 AND registration_id != ?2 AND episode_number BETWEEN ?3 AND ?4)",
+                params![run, registration_id, first, end], |row| row.get(0))?;
+            if overlaps {
+                return Err(MediaRepositoryError::InvalidContentRun(
+                    "Ese intervalo se solapa con otro registro del recorrido.",
+                ));
+            }
+        }
+        transaction.execute(
+            "DELETE FROM media_watch_sessions WHERE registration_id = ?1",
+            [registration_id],
+        )?;
+        let content_id =
+            MediaContentId::new(content_id).map_err(MediaRepositoryError::InvalidStored)?;
+        let source = session_source_from_str(&source)?;
+        for episode_number in first..=end.unwrap() {
+            insert_session(
+                &transaction,
+                NewWatchSession {
+                    title_id: None,
+                    content_id: Some(&content_id),
+                    watched_on,
+                    episode_number,
+                    source,
+                    registration_id,
+                    is_rewatch,
+                    run_id: run_id.as_deref(),
+                },
+            )?;
+        }
+        if !is_rewatch && episodes != current_count {
+            transaction.execute(
+                "UPDATE media_contents SET watched_episodes = ?1, updated_at = ?2 WHERE id = ?3",
+                params![
+                    first_episode + episodes - 1,
+                    Utc::now().to_rfc3339(),
+                    content_id.as_str()
+                ],
+            )?;
+        }
+        transaction.execute(
+            "UPDATE media_titles SET updated_at = ?1 WHERE id = ?2",
+            params![Utc::now().to_rfc3339(), title_id],
+        )?;
+        transaction.commit()?;
+        Ok(())
+    }
+
+    pub fn session_content_release(
+        &mut self,
+        session_id: &str,
+    ) -> Result<Option<NaiveDate>, MediaRepositoryError> {
+        let stored: Option<Option<String>> = self
+            .connection
+            .query_row(
+                "SELECT contents.released_on
+                 FROM media_watch_sessions sessions
+                 LEFT JOIN media_contents contents ON contents.id = sessions.content_id
+                 WHERE sessions.id = ?1",
+                [session_id],
+                |row| row.get(0),
+            )
+            .optional()?;
+        stored
+            .ok_or(MediaRepositoryError::NotFound)?
+            .map(|value| NaiveDate::parse_from_str(&value, "%Y-%m-%d"))
+            .transpose()
+            .map_err(|_| MediaRepositoryError::InvalidStoredValue("estreno del contenido"))
+    }
+
+    pub fn delete_latest_session(&mut self, session_id: &str) -> Result<(), MediaRepositoryError> {
+        let target: Option<StoredSessionTarget> = self
+            .connection
+            .query_row(
+                "SELECT title_id, content_id, episode_number, is_rewatch
+                 FROM media_watch_sessions WHERE id = ?1",
+                [session_id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )
+            .optional()?;
+        let (title_id, content_id, episode_number, is_rewatch) =
             target.ok_or(MediaRepositoryError::NotFound)?;
         let episode_number = episode_number.ok_or(MediaRepositoryError::SessionCannotBeRemoved)?;
         let transaction = self.connection.transaction()?;
+        if is_rewatch {
+            let parent_id: String = transaction.query_row(
+                "SELECT title_id FROM media_contents WHERE id = ?1",
+                [content_id
+                    .as_deref()
+                    .ok_or(MediaRepositoryError::NotFound)?],
+                |row| row.get(0),
+            )?;
+            transaction.execute(
+                "DELETE FROM media_watch_sessions WHERE id = ?1",
+                [session_id],
+            )?;
+            transaction.execute(
+                "UPDATE media_titles SET updated_at = ?1 WHERE id = ?2",
+                params![Utc::now().to_rfc3339(), parent_id],
+            )?;
+            transaction.commit()?;
+            return Ok(());
+        }
         if let Some(content_id) = content_id {
             let (current, parent_id): (u32, String) = transaction.query_row(
                 "SELECT watched_episodes, title_id FROM media_contents WHERE id = ?1",
@@ -953,9 +1338,11 @@ impl<'connection> MediaRepository<'connection> {
     ) -> Result<Vec<WatchSession>, MediaRepositoryError> {
         let mut statement = self.connection.prepare(
             "SELECT sessions.id, sessions.title_id, sessions.content_id, sessions.watched_on,
-                    sessions.delta, sessions.source, sessions.episode_number
+                    sessions.delta, sessions.source, sessions.episode_number,
+                    sessions.registration_id, sessions.is_rewatch, sessions.run_id, COALESCE(runs.status, 'inProgress')
              FROM media_watch_sessions sessions
              LEFT JOIN media_contents contents ON contents.id = sessions.content_id
+             LEFT JOIN media_content_runs runs ON runs.id = sessions.run_id
              WHERE (sessions.title_id = ?1 OR contents.title_id = ?1)
                AND sessions.episode_number IS NOT NULL
              ORDER BY sessions.watched_on DESC, sessions.created_at DESC",
@@ -976,26 +1363,60 @@ impl<'connection> MediaRepository<'connection> {
     }
 }
 
+fn validate_run_completion(
+    transaction: &Transaction<'_>,
+    run_id: &str,
+    total: Option<u32>,
+    status: &str,
+) -> Result<(), MediaRepositoryError> {
+    if status == "completed" {
+        let (count, first, last): (u32, Option<u32>, Option<u32>) = transaction.query_row(
+            "SELECT COUNT(DISTINCT episode_number), MIN(episode_number), MAX(episode_number) FROM media_watch_sessions WHERE run_id = ?1",
+            [run_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
+        if count == 0 || total.is_some_and(|n| count != n || first != Some(1) || last != Some(n)) {
+            return Err(MediaRepositoryError::InvalidContentRun(
+                "Faltan episodios para terminar el recorrido. Puedes dejarlo Interrumpido.",
+            ));
+        }
+    }
+    Ok(())
+}
+
 fn insert_session(
     transaction: &Transaction<'_>,
-    title_id: Option<&MediaTitleId>,
-    content_id: Option<&MediaContentId>,
-    watched_on: NaiveDate,
-    episode_number: u32,
-    source: SessionSource,
+    session: NewWatchSession<'_>,
 ) -> Result<(), rusqlite::Error> {
+    let run_id = session.content_id.map(|content| {
+        session.run_id.map(str::to_owned).unwrap_or_else(|| {
+            if session.is_rewatch {
+                format!("{}:run:{}", content.as_str(), session.registration_id)
+            } else {
+                format!("{}:base", content.as_str())
+            }
+        })
+    });
+    if let (Some(id), Some(content)) = (&run_id, session.content_id) {
+        transaction.execute(
+            "INSERT OR IGNORE INTO media_content_runs(id, content_id) VALUES (?1, ?2)",
+            params![id, content.as_str()],
+        )?;
+    }
     transaction.execute(
         "INSERT INTO media_watch_sessions
-         (id, title_id, content_id, watched_on, delta, source, created_at, episode_number)
-         VALUES (?1, ?2, ?3, ?4, 1, ?5, ?6, ?7)",
+         (id, title_id, content_id, watched_on, delta, source, created_at, episode_number,
+          registration_id, is_rewatch, run_id)
+         VALUES (?1, ?2, ?3, ?4, 1, ?5, ?6, ?7, ?8, ?9, ?10)",
         params![
             uuid::Uuid::new_v4().to_string(),
-            title_id.map(MediaTitleId::as_str),
-            content_id.map(MediaContentId::as_str),
-            watched_on.to_string(),
-            session_source_to_str(source),
+            session.title_id.map(MediaTitleId::as_str),
+            session.content_id.map(MediaContentId::as_str),
+            session.watched_on.to_string(),
+            session_source_to_str(session.source),
             Utc::now().to_rfc3339(),
-            episode_number,
+            session.episode_number,
+            session.registration_id,
+            session.is_rewatch,
+            run_id,
         ],
     )?;
     Ok(())
@@ -1155,6 +1576,10 @@ fn session_from_row(row: &Row<'_>) -> rusqlite::Result<WatchSession> {
         watched_on: parse_date(&row.get::<_, String>(3)?)?,
         delta: row.get(4)?,
         source: session_source_from_str(&row.get::<_, String>(5)?)?,
+        registration_id: row.get(7)?,
+        is_rewatch: row.get(8)?,
+        run_id: row.get(9)?,
+        run_status: row.get(10)?,
         episode_number: row.get(6)?,
     })
 }
@@ -1208,6 +1633,7 @@ pub(crate) fn tracking_status_to_str(value: TrackingStatus) -> &'static str {
         TrackingStatus::Completed => "completed",
         TrackingStatus::Dropped => "dropped",
         TrackingStatus::WaitingContent => "waiting_content",
+        TrackingStatus::ToResume => "to_resume",
     }
 }
 
@@ -1219,6 +1645,7 @@ pub(crate) fn tracking_status_from_str(value: &str) -> rusqlite::Result<Tracking
         "completed" => Ok(TrackingStatus::Completed),
         "dropped" => Ok(TrackingStatus::Dropped),
         "waiting_content" => Ok(TrackingStatus::WaitingContent),
+        "to_resume" => Ok(TrackingStatus::ToResume),
         _ => Err(conversion_error("Estado de seguimiento desconocido")),
     }
 }
@@ -1329,6 +1756,376 @@ mod tests {
             position,
         )
         .unwrap()
+    }
+
+    #[test]
+    fn to_resume_migration_preserves_existing_anime_and_content() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        apply_migrations(&mut connection).unwrap();
+        // Restore only the pre-0036 constraint to exercise a populated upgrade.
+        connection.execute_batch("DROP INDEX idx_media_watch_sessions_run_episode;
+            ALTER TABLE media_watch_sessions DROP COLUMN run_id;
+            DROP TABLE media_content_runs;
+            PRAGMA writable_schema=ON;
+            UPDATE sqlite_master SET sql=replace(sql,
+            '(tracking_status IN (''watching'', ''pending'', ''paused'', ''completed'', ''dropped'', ''waiting_content'') OR (kind = ''anime'' AND tracking_status = ''to_resume''))',
+            'tracking_status IN (''watching'', ''pending'', ''paused'', ''completed'', ''dropped'', ''waiting_content'')')
+            WHERE name='media_titles';
+            PRAGMA writable_schema=RESET;
+            PRAGMA user_version=35;").unwrap();
+        let mut anime = title();
+        let item = content(anime.id.clone(), "Temporada 1", 0);
+        {
+            let mut repository = MediaRepository::new(&mut connection);
+            repository.create_title(&anime).unwrap();
+            repository.create_content(&item).unwrap();
+        }
+        apply_migrations(&mut connection).unwrap();
+        let mut repository = MediaRepository::new(&mut connection);
+        let before = repository.find_aggregate(&anime.id).unwrap().unwrap();
+        assert_eq!(before.title.name, anime.name);
+        assert_eq!(before.contents[0].id, item.id);
+        anime.change_status(TrackingStatus::ToResume).unwrap();
+        repository.update_title(&anime).unwrap();
+        let restored = repository.find_aggregate(&anime.id).unwrap().unwrap();
+        assert_eq!(restored.title.status, TrackingStatus::ToResume);
+        assert_eq!(restored.contents[0].status, item.status);
+        assert_eq!(restored.contents[0].watched_episodes, item.watched_episodes);
+        assert!(connection
+            .execute("UPDATE media_contents SET tracking_status='to_resume'", [])
+            .is_err());
+        assert!(connection
+            .execute(
+                "UPDATE media_titles SET kind='movie' WHERE id=?1",
+                [anime.id.as_str()]
+            )
+            .is_err());
+        assert_eq!(
+            connection
+                .query_row("PRAGMA integrity_check", [], |row| row.get::<_, String>(0))
+                .unwrap(),
+            "ok"
+        );
+        assert!(!connection
+            .prepare("PRAGMA foreign_key_check")
+            .unwrap()
+            .query([])
+            .unwrap()
+            .next()
+            .unwrap()
+            .is_some());
+    }
+
+    #[test]
+    fn content_runs_continue_ranges_restart_and_preserve_main_progress() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        apply_migrations(&mut connection).unwrap();
+        let anime = title();
+        let mut season = content(anime.id.clone(), "HxH", 0);
+        season.total_episodes = Some(148);
+        let mut repository = MediaRepository::new(&mut connection);
+        repository.create_title(&anime).unwrap();
+        repository.create_content(&season).unwrap();
+        let date = NaiveDate::from_ymd_opt(2021, 6, 30).unwrap();
+        repository
+            .set_content_progress(&season.id, 148, date, SessionSource::ManualAdjustment)
+            .unwrap();
+        repository
+            .register_content_run_range(
+                &season.id,
+                None,
+                1,
+                60,
+                NaiveDate::from_ymd_opt(2025, 12, 5).unwrap(),
+                "inProgress",
+            )
+            .unwrap();
+        let aggregate = repository.find_aggregate(&anime.id).unwrap().unwrap();
+        let runs = super::super::service::content_run_summaries(&aggregate);
+        let repeat = runs.iter().find(|r| !r.is_progress_run).unwrap();
+        assert_eq!(repeat.next_episode, Some(61));
+        assert_eq!(repeat.ordinal, 1);
+        let run_id = repeat.id.clone();
+        repository
+            .register_content_run_range(
+                &season.id,
+                Some(&run_id),
+                61,
+                75,
+                NaiveDate::from_ymd_opt(2026, 1, 3).unwrap(),
+                "inProgress",
+            )
+            .unwrap();
+        let aggregate = repository.find_aggregate(&anime.id).unwrap().unwrap();
+        assert_eq!(aggregate.contents[0].watched_episodes, 148);
+        assert_eq!(aggregate.title.status, anime.status);
+        assert_eq!(aggregate.sessions.len(), 223);
+        let runs = super::super::service::content_run_summaries(&aggregate);
+        assert_eq!(
+            runs.iter().find(|r| r.id == run_id).unwrap().next_episode,
+            Some(76)
+        );
+        repository
+            .set_content_run_status(&season.id, &run_id, "interrupted")
+            .unwrap();
+        assert!(repository
+            .register_content_run_range(&season.id, Some(&run_id), 76, 80, date, "inProgress")
+            .is_err());
+        repository
+            .register_content_run_range(
+                &season.id,
+                None,
+                1,
+                10,
+                NaiveDate::from_ymd_opt(2026, 2, 3).unwrap(),
+                "interrupted",
+            )
+            .unwrap();
+        repository
+            .set_content_run_status(&season.id, &run_id, "inProgress")
+            .unwrap();
+        repository
+            .register_content_run_range(
+                &season.id,
+                Some(&run_id),
+                76,
+                148,
+                NaiveDate::from_ymd_opt(2026, 3, 3).unwrap(),
+                "completed",
+            )
+            .unwrap();
+        let saved = repository.find_aggregate(&anime.id).unwrap().unwrap();
+        assert_eq!(saved.contents[0].watched_episodes, 148);
+        let runs = super::super::service::content_run_summaries(&saved);
+        assert_eq!(runs.len(), 3);
+        assert_eq!(
+            runs.iter().find(|r| r.id == run_id).unwrap().status,
+            "completed"
+        );
+        assert_eq!(
+            runs.iter().find(|r| r.id == run_id).unwrap().next_episode,
+            None
+        );
+        assert!(runs
+            .iter()
+            .any(|r| r.watched == 10 && r.status == "interrupted"));
+        // Correcting a closed run must not silently reopen it, nor advertise a
+        // continuation that the repository will reject until explicitly resumed.
+        let last_block = saved
+            .sessions
+            .iter()
+            .find(|s| s.run_id.as_deref() == Some(&run_id) && s.episode_number == Some(76))
+            .unwrap()
+            .registration_id
+            .clone();
+        repository
+            .update_content_registration_range(&last_block, &season.id, date, 70, Some(76))
+            .unwrap();
+        let corrected = repository.find_aggregate(&anime.id).unwrap().unwrap();
+        let runs = super::super::service::content_run_summaries(&corrected);
+        let repeat = runs.iter().find(|r| r.id == run_id).unwrap();
+        assert_eq!(repeat.status, "completed");
+        assert!(!repeat.can_complete);
+        assert_eq!(repeat.next_episode, Some(146));
+        repository
+            .set_content_run_status(&season.id, &run_id, "inProgress")
+            .unwrap();
+        repository
+            .register_content_run_range(&season.id, Some(&run_id), 146, 148, date, "completed")
+            .unwrap();
+    }
+
+    #[test]
+    fn content_run_range_validation_is_transactional() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        apply_migrations(&mut connection).unwrap();
+        let anime = title();
+        let season = content(anime.id.clone(), "T1", 0);
+        let other = content(anime.id.clone(), "T2", 1);
+        let date = NaiveDate::from_ymd_opt(2025, 1, 1).unwrap();
+        let mut repository = MediaRepository::new(&mut connection);
+        repository.create_title(&anime).unwrap();
+        repository.create_content(&season).unwrap();
+        repository.create_content(&other).unwrap();
+        repository
+            .register_content_run_range(&season.id, None, 1, 3, date, "inProgress")
+            .unwrap();
+        let aggregate = repository.find_aggregate(&anime.id).unwrap().unwrap();
+        let run_id = aggregate.sessions[0].run_id.clone().unwrap();
+        for (first, last) in [(0, 3), (5, 4), (1, 4), (4, 13), (4, u32::MAX)] {
+            assert!(repository
+                .register_content_run_range(
+                    &season.id,
+                    Some(&run_id),
+                    first,
+                    last,
+                    date,
+                    "inProgress"
+                )
+                .is_err());
+        }
+        assert!(repository
+            .register_content_run_range(&other.id, Some(&run_id), 4, 6, date, "inProgress")
+            .is_err());
+        assert!(repository
+            .register_content_run_range(&season.id, Some(&run_id), 4, 6, date, "completed")
+            .is_err());
+        assert!(repository
+            .register_content_run_range(&season.id, None, 1, 3, date, "bad")
+            .is_err());
+        assert!(repository
+            .register_content_run_range(
+                &season.id,
+                None,
+                1,
+                3,
+                NaiveDate::from_ymd_opt(2999, 1, 1).unwrap(),
+                "inProgress"
+            )
+            .is_err());
+        assert!(repository
+            .set_content_run_status(&season.id, &run_id, "completed")
+            .is_err());
+        assert_eq!(
+            repository
+                .find_aggregate(&anime.id)
+                .unwrap()
+                .unwrap()
+                .sessions
+                .len(),
+            3
+        );
+        assert_eq!(
+            repository
+                .find_content(&season.id)
+                .unwrap()
+                .unwrap()
+                .watched_episodes,
+            0
+        );
+    }
+
+    #[test]
+    fn content_run_edit_keeps_range_start_and_prevents_overlap() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        apply_migrations(&mut connection).unwrap();
+        let anime = title();
+        let season = content(anime.id.clone(), "T1", 0);
+        let date = NaiveDate::from_ymd_opt(2025, 1, 1).unwrap();
+        let mut repository = MediaRepository::new(&mut connection);
+        repository.create_title(&anime).unwrap();
+        repository.create_content(&season).unwrap();
+        repository
+            .register_content_run_range(&season.id, None, 1, 3, date, "inProgress")
+            .unwrap();
+        let run_id = repository
+            .find_aggregate(&anime.id)
+            .unwrap()
+            .unwrap()
+            .sessions[0]
+            .run_id
+            .clone()
+            .unwrap();
+        repository
+            .register_content_run_range(
+                &season.id,
+                Some(&run_id),
+                4,
+                6,
+                date.succ_opt().unwrap(),
+                "inProgress",
+            )
+            .unwrap();
+        let aggregate = repository.find_aggregate(&anime.id).unwrap().unwrap();
+        let registration = aggregate
+            .sessions
+            .iter()
+            .find(|s| s.episode_number == Some(4))
+            .unwrap()
+            .registration_id
+            .clone();
+        repository
+            .update_content_registration_range(&registration, &season.id, date, 4, Some(4))
+            .unwrap();
+        assert!(repository
+            .update_content_registration_range(&registration, &season.id, date, 4, Some(3))
+            .is_err());
+        let aggregate = repository.find_aggregate(&anime.id).unwrap().unwrap();
+        let block: Vec<_> = aggregate
+            .sessions
+            .iter()
+            .filter(|s| s.registration_id == registration)
+            .collect();
+        assert_eq!(block.iter().filter_map(|s| s.episode_number).min(), Some(4));
+        assert_eq!(block.iter().filter_map(|s| s.episode_number).max(), Some(7));
+        assert!(block.iter().all(|s| s.run_id.as_deref() == Some(&run_id)));
+        let ids: Vec<_> = block.iter().map(|s| s.id.clone()).collect();
+        for id in ids {
+            repository.delete_latest_session(&id).unwrap();
+        }
+        let aggregate = repository.find_aggregate(&anime.id).unwrap().unwrap();
+        assert_eq!(
+            super::super::service::content_run_summaries(&aggregate)[0].next_episode,
+            Some(4)
+        );
+        assert_eq!(aggregate.contents[0].watched_episodes, 0);
+    }
+
+    #[test]
+    fn content_runs_migration_preserves_legacy_sessions() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        apply_migrations(&mut connection).unwrap();
+        let anime = title();
+        let season = content(anime.id.clone(), "T1", 0);
+        let mut repository = MediaRepository::new(&mut connection);
+        repository.create_title(&anime).unwrap();
+        repository.create_content(&season).unwrap();
+        repository
+            .set_content_progress(
+                &season.id,
+                12,
+                NaiveDate::from_ymd_opt(2026, 3, 30).unwrap(),
+                SessionSource::ManualAdjustment,
+            )
+            .unwrap();
+        repository
+            .register_content_rewatch(&season.id, 6, NaiveDate::from_ymd_opt(2022, 5, 2).unwrap())
+            .unwrap();
+        let before = repository.find_aggregate(&anime.id).unwrap().unwrap();
+        connection.execute_batch("DROP INDEX idx_media_watch_sessions_run_episode; ALTER TABLE media_watch_sessions DROP COLUMN run_id; DROP TABLE media_content_runs; PRAGMA user_version=36;").unwrap();
+        apply_migrations(&mut connection).unwrap();
+        let mut repository = MediaRepository::new(&mut connection);
+        let after = repository.find_aggregate(&anime.id).unwrap().unwrap();
+        assert_eq!(before.sessions.len(), after.sessions.len());
+        for old in &before.sessions {
+            let new = after.sessions.iter().find(|s| s.id == old.id).unwrap();
+            assert_eq!(new.registration_id, old.registration_id);
+            assert_eq!(new.watched_on, old.watched_on);
+            assert_eq!(new.episode_number, old.episode_number);
+            assert_eq!(new.is_rewatch, old.is_rewatch);
+        }
+        let runs = super::super::service::content_run_summaries(&after);
+        assert_eq!(runs.len(), 2);
+        assert_eq!(runs[0].ordinal, 0);
+        assert_eq!(runs[0].watched, 6);
+        assert_eq!(runs[1].status, "completed");
+        assert!(runs[1].is_progress_run);
+        assert_eq!(after.contents[0].watched_episodes, 12);
+        assert_eq!(after.title.score, before.title.score);
+        assert_eq!(
+            connection
+                .query_row("PRAGMA integrity_check", [], |r| r.get::<_, String>(0))
+                .unwrap(),
+            "ok"
+        );
+        assert!(!connection
+            .prepare("PRAGMA foreign_key_check")
+            .unwrap()
+            .query([])
+            .unwrap()
+            .next()
+            .unwrap()
+            .is_some());
     }
 
     #[test]
@@ -1624,6 +2421,173 @@ mod tests {
     }
 
     #[test]
+    fn manual_registration_preserves_status_and_exposes_release_in_history() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        apply_migrations(&mut connection).unwrap();
+        let title = title();
+        let mut season = content(title.id.clone(), "Solo Leveling T2", 0);
+        season.status = TrackingStatus::Completed;
+        season.total_episodes = Some(13);
+        season.released_on = Some(NaiveDate::from_ymd_opt(2025, 1, 5).unwrap());
+        let mut repository = MediaRepository::new(&mut connection);
+        repository.create_title(&title).unwrap();
+        repository.create_content(&season).unwrap();
+        repository
+            .set_content_progress(
+                &season.id,
+                3,
+                season.released_on.unwrap(),
+                SessionSource::ManualAdjustment,
+            )
+            .unwrap();
+        let saved = repository.find_content(&season.id).unwrap().unwrap();
+        assert_eq!(saved.watched_episodes, 3);
+        assert_eq!(saved.status, TrackingStatus::Completed);
+        let entries = repository.list_history().unwrap();
+        assert_eq!(entries.len(), 3);
+        assert!(entries
+            .iter()
+            .all(|entry| entry.released_on == season.released_on));
+        assert!(repository
+            .find_aggregate(&title.id)
+            .unwrap()
+            .unwrap()
+            .sessions
+            .iter()
+            .all(|session| !session.is_rewatch));
+    }
+
+    #[test]
+    fn anime_content_rewatches_are_independent_editable_instances() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        apply_migrations(&mut connection).unwrap();
+        let title = title();
+        let title_id = title.id.clone();
+        let content = content(title_id.clone(), "Temporada 1", 0);
+        let content_id = content.id.clone();
+        let first_date = NaiveDate::from_ymd_opt(2026, 7, 1).unwrap();
+        let rewatch_date = NaiveDate::from_ymd_opt(2026, 8, 1).unwrap();
+        let corrected_date = NaiveDate::from_ymd_opt(2026, 8, 2).unwrap();
+        let mut repository = MediaRepository::new(&mut connection);
+        repository.create_title(&title).unwrap();
+        repository.create_content(&content).unwrap();
+        repository
+            .set_content_progress(&content_id, 12, first_date, SessionSource::ManualAdjustment)
+            .unwrap();
+        repository
+            .register_content_rewatch(&content_id, 12, rewatch_date)
+            .unwrap();
+
+        let aggregate = repository.find_aggregate(&title_id).unwrap().unwrap();
+        let rewatch_registration = aggregate
+            .sessions
+            .iter()
+            .find(|session| session.is_rewatch)
+            .unwrap()
+            .registration_id
+            .clone();
+        let rewatch_ids: Vec<_> = aggregate
+            .sessions
+            .iter()
+            .filter(|session| session.is_rewatch)
+            .map(|session| session.id.clone())
+            .collect();
+        assert_eq!(rewatch_ids.len(), 12);
+        assert_eq!(aggregate.contents[0].watched_episodes, 12);
+
+        repository
+            .update_content_registration(&rewatch_registration, &content_id, corrected_date, 8)
+            .unwrap();
+        assert!(matches!(
+            repository.update_content_registration(
+                &rewatch_registration,
+                &content_id,
+                corrected_date,
+                13
+            ),
+            Err(MediaRepositoryError::InvalidStoredValue(
+                "cantidad de episodios"
+            ))
+        ));
+        let rewatch_ids: Vec<_> = repository
+            .find_aggregate(&title_id)
+            .unwrap()
+            .unwrap()
+            .sessions
+            .iter()
+            .filter(|session| session.is_rewatch)
+            .map(|session| session.id.clone())
+            .collect();
+        assert_eq!(rewatch_ids.len(), 8);
+        assert!(repository
+            .find_aggregate(&title_id)
+            .unwrap()
+            .unwrap()
+            .sessions
+            .iter()
+            .filter(|session| session.is_rewatch)
+            .all(|session| session.watched_on == corrected_date));
+        repository
+            .set_content_progress(&content_id, 11, first_date, SessionSource::ManualAdjustment)
+            .unwrap();
+        assert_eq!(
+            repository
+                .find_aggregate(&title_id)
+                .unwrap()
+                .unwrap()
+                .sessions
+                .iter()
+                .filter(|session| session.is_rewatch)
+                .count(),
+            8
+        );
+        for id in rewatch_ids {
+            repository.delete_latest_session(&id).unwrap();
+        }
+        let aggregate = repository.find_aggregate(&title_id).unwrap().unwrap();
+        assert_eq!(aggregate.contents[0].watched_episodes, 11);
+        assert!(aggregate.sessions.iter().all(|session| !session.is_rewatch));
+    }
+
+    #[test]
+    fn latest_original_registration_can_change_its_episode_count() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        apply_migrations(&mut connection).unwrap();
+        let title = title();
+        let title_id = title.id.clone();
+        let content = content(title_id.clone(), "Temporada 1", 0);
+        let content_id = content.id.clone();
+        let date = NaiveDate::from_ymd_opt(2026, 8, 3).unwrap();
+        let mut repository = MediaRepository::new(&mut connection);
+        repository.create_title(&title).unwrap();
+        repository.create_content(&content).unwrap();
+        repository
+            .set_content_progress(&content_id, 4, date, SessionSource::ManualAdjustment)
+            .unwrap();
+        let registration_id = repository
+            .find_aggregate(&title_id)
+            .unwrap()
+            .unwrap()
+            .sessions[0]
+            .registration_id
+            .clone();
+
+        repository
+            .update_content_registration(&registration_id, &content_id, date, 6)
+            .unwrap();
+        let aggregate = repository.find_aggregate(&title_id).unwrap().unwrap();
+        assert_eq!(aggregate.contents[0].watched_episodes, 6);
+        assert_eq!(aggregate.sessions.len(), 6);
+
+        assert!(matches!(
+            repository.update_content_registration(&registration_id, &content_id, date, 13),
+            Err(MediaRepositoryError::InvalidStoredValue(
+                "cantidad de episodios"
+            ))
+        ));
+    }
+
+    #[test]
     fn anime_catalog_number_genres_notes_and_decimal_scores_survive_sqlite() {
         let mut connection = Connection::open_in_memory().unwrap();
         apply_migrations(&mut connection).unwrap();
@@ -1635,7 +2599,7 @@ mod tests {
         repository.create_title(&title).unwrap();
 
         let mut content = content(title_id.clone(), "Temporada 1", 0);
-        content.score = Some(8.3);
+        content.score = Some(8.31);
         content.notes = Some("Continuación principal".into());
         content.started_on = NaiveDate::from_ymd_opt(2026, 8, 1);
         repository.create_content(&content).unwrap();
@@ -1643,7 +2607,7 @@ mod tests {
         let restored = repository.find_aggregate(&title_id).unwrap().unwrap();
         assert_eq!(restored.title.catalog_number, Some(1));
         assert_eq!(restored.title.genres, vec!["Acción"]);
-        assert_eq!(restored.contents[0].score, Some(8.3));
+        assert_eq!(restored.contents[0].score, Some(8.31));
         assert_eq!(
             restored.contents[0].notes.as_deref(),
             Some("Continuación principal")

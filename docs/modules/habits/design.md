@@ -1,7 +1,8 @@
 # Diseño — Hábitos y rutinas
 
 - Estado: Aprobado por Nube (módulo cerrado)
-- Última actualización: 2026-08-22
+- Última actualización: 2026-09-04
+- Aprobación de cierre: Nube, 2026-09-04. Cierre del alcance implementado; los trabajos futuros y las verificaciones de instalación no se consideran realizados por esta aprobación.
 
 ## Alcance del diseño
 
@@ -152,6 +153,12 @@ Las solicitudes de filtros conservan el resultado previo y descartan respuestas 
 - SQLite temporal para migración, conversión del día mensual anterior, revisiones, registros, archivo y reapertura.
 - Comandos con fecha fija para impedir futuro y comprobar contratos.
 - Build TypeScript y comprobación manual de modales, arrastre, navegación y actualización reactiva.
+
+## Cabecera de Hoy
+
+- `habit-day-hero` reúne contexto temporal y progreso en una sola superficie antes de las listas.
+- El porcentaje ocupa una zona centrada y la barra cruza el ancho completo del resumen.
+- Las columnas comienzan después de una separación explícita; sus títulos y contadores crecen sin modificar la altura de las filas de actividad.
 
 ## Decisiones aplazadas
 

@@ -1,7 +1,8 @@
 # Spec — Lectura
 
-- Estado: Ampliación de relecturas implementada; comprobación manual pendiente
-- Última actualización: 2026-08-23
+- Estado: Aprobado por Nube (módulo cerrado)
+- Última actualización: 2026-09-04
+- Aprobación de cierre: Nube, 2026-09-04. Cierre del alcance implementado; los trabajos futuros y las verificaciones de instalación no se consideran realizados por esta aprobación.
 
 ## Objetivo
 
@@ -16,7 +17,7 @@ Mantener una biblioteca personal de libros pendientes, en lectura y terminados, 
 - Iniciar una relectura sin sobrescribir las fechas de lecturas anteriores.
 - Consultar, corregir y eliminar periodos desde una vista Historial.
 - Estados: Pendiente, Leyendo, En pausa, Terminado y Abandonado.
-- Buscar por título o autor y filtrar por estado y género. El filtro de favoritos solo aparece en Biblioteca.
+- Buscar por título o autor y filtrar por uno o varios estados y por género. El filtro de favoritos solo aparece en Biblioteca.
 - Marcar un libro como favorito con una estrella vacía o rellena.
 - Ordenar la Biblioteca por actualización, título, autor, puntuación o fechas inicial y final en ambos sentidos, conservando la opción elegida.
 - Mostrar cada libro con una portada vertical de altura uniforme y distribuir a su lado estado, identidad, géneros, fechas y puntuación.
@@ -71,7 +72,7 @@ Los CSV aportados se usan únicamente para validar el modelo. Contienen 27 libro
 - [x] La aplicación parte con una biblioteca vacía y no contiene datos de los CSV.
 - [x] Se puede crear y recuperar un libro con todos los campos aprobados.
 - [x] Las validaciones de título, autor, puntuación y fechas se aplican en Rust.
-- [ ] Búsqueda, estado, género, favorito y ordenación pueden combinarse.
+- [x] Búsqueda, estado, género, favorito y ordenación pueden combinarse.
 - [x] Leyendo contiene únicamente libros con estado Leyendo y conserva filtros independientes de Biblioteca.
 - [x] Biblioteca es la vista inicial y Leyendo no muestra el filtro Favoritos.
 - [x] El formulario ofrece géneros predefinidos sin texto libre.
@@ -85,5 +86,5 @@ Los CSV aportados se usan únicamente para validar el modelo. Contienen 27 libro
 - [x] Se puede iniciar y finalizar una relectura sin modificar periodos anteriores.
 - [x] Una lectura puede cerrarse sin marcar el libro como terminado y queda identificada como tal en el historial.
 - [x] Registrar una lectura propone el estado coherente y permite conservar explícitamente el estado actual.
-- [ ] El historial permite corregir y retirar periodos de lectura.
-- [ ] Los campos de inicio y fin visibles representan la lectura actual o la última lectura, no un dato sobrescrito manualmente.
+- [x] El historial permite corregir y retirar periodos de lectura.
+- [x] Los campos de inicio y fin visibles representan la lectura actual o la última lectura, no un dato sobrescrito manualmente.

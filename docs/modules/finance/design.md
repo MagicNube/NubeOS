@@ -1,5 +1,7 @@
 # Diseño — Finanzas
 
+- Estado: Plantilla sin definir; no sometida a aprobación
+
 ## Entidades y relaciones
 
 <!-- Entidades, responsabilidades e invariantes. -->
