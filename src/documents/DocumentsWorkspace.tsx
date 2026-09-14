@@ -15,6 +15,7 @@ import Modal from "../ui/Modal";
 import FavoriteFilter from "../ui/FavoriteFilter";
 import ArchiveItemActions from "../ui/ArchiveItemActions";
 import SelectControl from "../ui/SelectControl";
+import { confirmAction } from "../ui/confirmAction";
 import { useTransientNotice } from "../ui/useTransientNotice";
 import "./documents.css";
 
@@ -127,7 +128,7 @@ export default function DocumentsWorkspace() {
 
   return <section className="documents-workspace">
     <div className="documents-toolbar">
-      <div><p className="section-kicker">{query.status === "active" ? "ARCHIVO ACTIVO" : "DOCUMENTOS RETIRADOS"}</p><h2>{query.status === "active" ? "Tus documentos" : "Archivo"}</h2><p>{documents.length} documentos ({formatBytes(totalSize)})</p></div>
+      <div><h2>{query.status === "active" ? "Tus documentos" : "Archivo"}</h2><p>{documents.length} documentos ({formatBytes(totalSize)})</p></div>
       <div className="documents-toolbar-actions">
         <button className="ui-archive-toggle" onClick={() => showStatus(query.status === "active" ? "archived" : "active")} type="button">{query.status === "active" ? <Archive size={17} /> : <ArrowLeft size={17} />}{query.status === "active" ? "Archivo" : "Volver"}</button>
         {query.status === "active" && <button className="primary-button" onClick={choosePdf} type="button"><FilePlus2 size={18} /> Añadir PDF</button>}
@@ -138,8 +139,8 @@ export default function DocumentsWorkspace() {
       {summary.expired > 0 && <button onClick={() => setQuery({ ...query, expiry: "expired" })} type="button"><strong>{summary.expired}</strong> caducados</button>}
       {summary.expiringSoon > 0 && <button onClick={() => setQuery({ ...query, expiry: "nextThirtyDays" })} type="button"><strong>{summary.expiringSoon}</strong> caducan pronto</button>}
     </div>}
-    {notice && <div className="documents-notice">{notice}<button onClick={() => setNotice(null)} type="button"><X size={16} /></button></div>}
-    {error && <div className="documents-error" role="alert">{error}<button onClick={() => setError(null)} type="button"><X size={16} /></button></div>}
+    <div className={notice ? "documents-notice" : "sr-only"} role="status">{notice && <>{notice}<button aria-label="Cerrar aviso" onClick={() => setNotice(null)} type="button"><X aria-hidden="true" size={16} /></button></>}</div>
+    {error && <div className="documents-error" role="alert">{error}<button aria-label="Cerrar error" onClick={() => setError(null)} type="button"><X aria-hidden="true" size={16} /></button></div>}
 
     {pending && <Modal className="document-form-dialog" labelledBy="document-form-title" onClose={() => void cancelImport()}><DocumentForm title="Nuevo documento" file={pending} draft={draft} setDraft={setDraft} knownTags={knownTags} busy={busy} submit={importDocument} cancel={cancelImport} submitLabel="Importar documento" /></Modal>}
 
@@ -166,7 +167,7 @@ export default function DocumentsWorkspace() {
 }
 
 function DocumentRow({ document, selected, open, toggleFavorite }: { document: DocumentRecord; selected: boolean; open: () => void; toggleFavorite: () => void }) {
-  return <div className={selected ? "document-row selected" : "document-row"} onClick={open} onKeyDown={(event) => { if (event.key === "Enter") open(); }} role="button" tabIndex={0}>
+  return <div className={selected ? "document-row selected" : "document-row"} onClick={open} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); open(); } }} role="button" tabIndex={0}>
     <div className="document-row-icon"><FileText size={19} /></div>
     <div className="document-row-main"><strong>{document.name}</strong><span>{document.originalFileName} ({formatBytes(document.fileSizeBytes)})</span><div>{document.tags.map((tag) => <span className="document-tag" key={tag}>{tag}</span>)}</div></div>
     <span className="document-category">{categoryLabels[document.category]}</span><span className={`document-expiry ${document.expiryStatus}`}>{expiryLabels[document.expiryStatus]}</span>
@@ -183,12 +184,12 @@ function DocumentDetail({ document, knownTags, editing, setEditing, busy, close,
   const saveEdit = async (event: React.FormEvent) => { event.preventDefault(); await run(async () => { const updated = await documentApi.update(document.id, draftToInput(editDraft)); updateSelected(updated); setEditing(false); }, "Datos actualizados."); };
   const replace = async () => {
     const selection = await documentApi.selectPdf(); if (!selection) return;
-    if (!window.confirm(`Se sustituirá ${document.originalFileName} por ${selection.originalFileName}. No habrá historial de versiones.`)) { await documentApi.discardPdf(selection.token); return; }
+    if (!await confirmAction({ title: "Reemplazar PDF", message: `Se sustituirá ${document.originalFileName} por ${selection.originalFileName}. No habrá historial de versiones.`, confirmLabel: "Reemplazar PDF", destructive: true })) { await documentApi.discardPdf(selection.token); return; }
     await run(async () => { const updated = await documentApi.replacePdf(document.id, selection.token); updateSelected(updated); }, "PDF reemplazado.");
   };
   const archive = async () => { if (await run(() => documentApi.archive(document.id), "Documento archivado.")) close(); };
   const restore = async () => { if (await run(() => documentApi.restore(document.id), "Documento restaurado.")) close(); };
-  const remove = async () => { if (window.confirm(`¿Eliminar definitivamente “${document.name}” y su PDF privado? Esta acción no se puede deshacer.`) && await run(() => documentApi.delete(document.id), "Documento eliminado.")) close(); };
+  const remove = async () => { if (await confirmAction({ title: `Eliminar “${document.name}”`, message: "Se eliminarán definitivamente el documento y su PDF privado. Esta acción no se puede deshacer.", confirmLabel: "Eliminar documento", destructive: true }) && await run(() => documentApi.delete(document.id), "Documento eliminado.")) close(); };
 
   return <Modal className="document-detail" labelledBy={editing ? "document-form-title" : "document-detail-title"} onClose={close}>
     {editing ? <DocumentForm title="Editar documento" draft={editDraft} setDraft={setEditDraft} knownTags={knownTags} busy={busy} submit={saveEdit} cancel={() => setEditing(false)} submitLabel="Guardar cambios" compact /> : <>

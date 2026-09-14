@@ -57,7 +57,11 @@ export type PurchasePresentation =
       priceEur?: string;
       unitsPerPackage?: number;
     }
-  | { kind: "bulkByWeight"; priceEurPerKilogram?: string }
+  | {
+      kind: "bulkByWeight";
+      priceEurPerKilogram?: string;
+      approximateGramsPerUnit?: number;
+    }
   | { kind: "bulkByUnit"; gramsPerUnit?: number; priceEurPerUnit?: string };
 
 export interface ProductInput {

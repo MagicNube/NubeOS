@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BookOpen,
   CalendarDays,
@@ -12,10 +12,11 @@ import {
   Sparkles,
   Tv,
   Utensils,
+  X,
 } from "lucide-react";
 import { documentApi, type DocumentRecord } from "../documents/api";
 import { gamesApi, type Game } from "../games/api";
-import { habitsApi, type HabitOverviewRow } from "../habits/api";
+import { habitErrorMessage, habitsApi, type HabitOverviewRow } from "../habits/api";
 import { mealsApi, type Meal, type PlannedInstance, type ShoppingList } from "../meals/api";
 import { mediaApi, type MediaTitle } from "../media/api";
 import { readingApi, type ReadingBook } from "../reading/api";
@@ -36,6 +37,7 @@ type DashboardData = {
   habits: HabitOverviewRow[];
   documents: DocumentRecord[];
   meals: Meal[];
+  archivedMeals: Meal[];
   todayMeals: PlannedInstance[];
   shopping: ShoppingList | null;
   anime: MediaTitle[];
@@ -46,7 +48,7 @@ type DashboardData = {
 
 const emptyData: DashboardData = {
   activeHabitCount: 0, activeDocumentCount: 0,
-  habits: [], documents: [], meals: [], todayMeals: [], shopping: null,
+  habits: [], documents: [], meals: [], archivedMeals: [], todayMeals: [], shopping: null,
   anime: [], reading: [], games: [], series: [],
 };
 
@@ -112,11 +114,17 @@ export default function DashboardWorkspace({ open }: { open: (destination: Dashb
   const [refreshing, setRefreshing] = useState(false);
   const [unavailable, setUnavailable] = useState(0);
   const [habitBusy, setHabitBusy] = useState<string | null>(null);
-  const today = useMemo(madridDate, []);
+  const [error, setError] = useState<string | null>(null);
+  const habitLock = useRef(false);
+  const requestId = useRef(0);
+  const [today, setToday] = useState(madridDate);
   const weekStart = useMemo(() => mondayOf(today), [today]);
   const weekday = useMemo(() => weekdayOf(today), [today]);
 
   const load = useCallback(async (initial = false) => {
+    const currentDay = madridDate();
+    if (today !== currentDay) { setToday(currentDay); return; }
+    const id = ++requestId.current;
     if (initial) setLoading(true); else setRefreshing(true);
     const queries = await Promise.allSettled([
       habitsApi.overview("day", today),
@@ -131,7 +139,10 @@ export default function DashboardWorkspace({ open }: { open: (destination: Dashb
       mediaApi.list({ archived: false, area: "series", status: "watching" }),
       habitsApi.list({ archived: false }),
       documentApi.list({ status: "active", search: null, category: null, tags: [], favoritesOnly: false, expiry: null, sort: "importedNewest" }),
+      mealsApi.listMeals("archived"),
     ]);
+    if (id !== requestId.current) return;
+    if (today !== madridDate()) { setToday(madridDate()); return; }
     const value = <T,>(index: number, fallback: T): T => queries[index].status === "fulfilled" ? queries[index].value as T : fallback;
     const plan = value(4, { weekStart, instances: [], dailyMacros: [], weeklyMacros: { proteinGrams: 0, carbohydrateGrams: 0, fatGrams: 0, kilocalories: 0 } });
     setData({
@@ -140,6 +151,7 @@ export default function DashboardWorkspace({ open }: { open: (destination: Dashb
       habits: value(0, { start: today, end: today, today, rows: [] }).rows,
       documents: [...value<DocumentRecord[]>(1, []), ...value<DocumentRecord[]>(2, [])].filter((document, index, all) => all.findIndex((candidate) => candidate.id === document.id) === index),
       meals: value<Meal[]>(3, []),
+      archivedMeals: value<Meal[]>(12, []),
       todayMeals: plan.instances.filter((instance: PlannedInstance) => instance.weekday === weekday),
       shopping: value<ShoppingList | null>(5, null),
       anime: value<MediaTitle[]>(6, []),
@@ -151,7 +163,20 @@ export default function DashboardWorkspace({ open }: { open: (destination: Dashb
     setLoading(false); setRefreshing(false);
   }, [today, weekStart, weekday]);
 
-  useEffect(() => { void load(true); }, [load]);
+  useEffect(() => { void load(true); return () => { requestId.current += 1; }; }, [load]);
+  useEffect(() => {
+    const checkDay = () => setToday(madridDate());
+    const onFocus = () => { void load(false); };
+    const onVisible = () => { if (document.visibilityState === "visible") onFocus(); };
+    const interval = window.setInterval(checkDay, 30_000);
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [load]);
 
   const todayHabits = data.habits.filter((row) => row.cells[0]?.applicable);
   const completedHabits = todayHabits.filter((row) => row.cells[0]?.state === "completed").length;
@@ -177,9 +202,20 @@ export default function DashboardWorkspace({ open }: { open: (destination: Dashb
 
   async function toggleHabit(row: HabitOverviewRow) {
     const cell = row.cells[0]; if (!cell?.canEdit) return;
+    if (habitLock.current) return;
+    if (cell.date !== madridDate()) {
+      setError("Ha cambiado el día. Actualizamos Inicio; vuelve a marcar el hábito de hoy.");
+      await load(false);
+      return;
+    }
+    habitLock.current = true;
     setHabitBusy(row.habit.id);
-    try { await habitsApi.setLog(row.habit.id, today, cell.state === "completed" ? null : "completed"); await load(false); }
-    finally { setHabitBusy(null); }
+    try {
+      await habitsApi.setLog(row.habit.id, cell.date, cell.state === "completed" ? null : "completed");
+      setError(null);
+      await load(false);
+    } catch (reason) { setError(habitErrorMessage(reason)); }
+    finally { habitLock.current = false; setHabitBusy(null); }
   }
 
   if (loading) return <section className="dashboard-loading"><RefreshCw className="dashboard-spin" size={24} /><strong>Preparando tu día…</strong></section>;
@@ -187,9 +223,7 @@ export default function DashboardWorkspace({ open }: { open: (destination: Dashb
   return <section className="dashboard-overview">
     <header className="dashboard-hero">
       <div className="dashboard-hero-copy">
-        <p className="eyebrow">TU ESPACIO</p>
-        <h1>Todo, en un mismo lugar.</h1>
-        <p className="subtitle">Todo lo importante, de un vistazo.</p>
+        <h1>Inicio</h1>
       </div>
       <div className="dashboard-activity">
         <div className="dashboard-activity-heading">
@@ -201,18 +235,19 @@ export default function DashboardWorkspace({ open }: { open: (destination: Dashb
         </div>
       </div>
     </header>
-    {unavailable > 0 && <div className="dashboard-warning"><CircleAlert size={17} />{unavailable === 1 ? "Un bloque no ha podido actualizarse." : `${unavailable} bloques no han podido actualizarse.`}</div>}
+    {error && <div className="dashboard-warning" role="alert"><CircleAlert aria-hidden="true" size={17} />{error}<button aria-label="Cerrar aviso" onClick={() => setError(null)} type="button"><X size={16} /></button></div>}
+    <div className={unavailable > 0 ? "dashboard-warning" : "sr-only"} role="status">{unavailable > 0 && <><CircleAlert aria-hidden="true" size={17} />{unavailable === 1 ? "Un bloque no ha podido actualizarse." : `${unavailable} bloques no han podido actualizarse.`}</>}</div>
 
     <div className="dashboard-grid">
       <article className="dashboard-panel dashboard-habits">
         <header><div><span className="dashboard-panel-icon"><Check size={18} /></span><div><h2>Hábitos de hoy</h2><p>{completedHabits} de {effectiveHabits} completados{skippedHabits ? ` · ${skippedHabits} omitidos` : ""}</p></div></div><SectionButton destination="habitos" label="Ver hábitos" open={open} /></header>
         <div className="dashboard-progress"><span style={{ width: `${effectiveHabits ? Math.min(100, completedHabits / effectiveHabits * 100) : 0}%` }} /></div>
-        {todayHabits.length === 0 ? <p className="dashboard-empty-copy">No tienes actividades para hoy.</p> : <div className="dashboard-habit-list">{todayHabits.slice(0, 6).map((row) => { const state = row.cells[0]?.state; return <button className={state === "completed" ? "completed" : state === "skipped" ? "skipped" : ""} disabled={habitBusy === row.habit.id || !row.cells[0]?.canEdit} key={row.habit.id} onClick={() => void toggleHabit(row)} type="button"><span>{state === "completed" && <Check size={15} />}{state === "skipped" && "—"}</span><strong>{row.habit.name}</strong><small>{state === "completed" ? "Hecho" : state === "skipped" ? "Omitido" : "Pendiente"}</small></button>; })}</div>}
+        {todayHabits.length === 0 ? <p className="dashboard-empty-copy">No tienes actividades para hoy.</p> : <div className="dashboard-habit-list">{todayHabits.slice(0, 6).map((row) => { const state = row.cells[0]?.state; return <button className={state === "completed" ? "completed" : state === "skipped" ? "skipped" : ""} disabled={habitBusy !== null || refreshing || !row.cells[0]?.canEdit} key={row.habit.id} onClick={() => void toggleHabit(row)} type="button"><span>{state === "completed" && <Check size={15} />}{state === "skipped" && "—"}</span><strong>{row.habit.name}</strong><small>{state === "completed" ? "Hecho" : state === "skipped" ? "Omitido" : "Pendiente"}</small></button>; })}</div>}
       </article>
 
       <article className="dashboard-panel dashboard-today-meals">
         <header><div><span className="dashboard-panel-icon"><Utensils size={18} /></span><div><h2>Comidas de hoy</h2><p>{data.todayMeals.length} planificadas</p></div></div><SectionButton destination="comidas" label="Abrir plan" open={open} /></header>
-        {data.todayMeals.length === 0 ? <p className="dashboard-empty-copy">Hoy todavía no tiene comidas planificadas.</p> : <div className="dashboard-meal-list">{data.todayMeals.slice(0, 5).map((instance) => <div key={instance.id}><span>{slots[instance.slot]}</span><strong>{data.meals.find((meal) => meal.id === instance.sourceMealId)?.name ?? "Comida planificada"}</strong></div>)}</div>}
+        {data.todayMeals.length === 0 ? <p className="dashboard-empty-copy">No tienes comidas planificadas para hoy.</p> : <div className="dashboard-meal-list">{data.todayMeals.slice(0, 5).map((instance) => <div key={instance.id}><span>{slots[instance.slot]}</span><strong>{[...data.meals, ...data.archivedMeals].find((meal) => meal.id === instance.sourceMealId)?.name ?? (instance.ingredients.map((ingredient) => ingredient.productName).join(", ") || "Comida planificada")}</strong></div>)}</div>}
         <footer><div><span>Kcal</span><strong>{Math.round(dailyMacros.kilocalories)}</strong></div><div><span>Proteínas</span><strong>{Math.round(dailyMacros.proteinGrams * 10) / 10} g</strong></div></footer>
       </article>
 

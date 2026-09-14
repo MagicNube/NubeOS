@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import SelectControl from "../ui/SelectControl";
 import ArchiveItemActions from "../ui/ArchiveItemActions";
+import { confirmAction } from "../ui/confirmAction";
 import { habitsApi } from "./api";
 import type { HabitCategory, HabitKind, HabitRecord } from "./api";
 import {
@@ -35,6 +36,7 @@ export default function CatalogView({
   edit,
   run,
   reload,
+  busy,
 }: {
   archived: boolean;
   setArchived: (value: boolean) => void;
@@ -48,6 +50,7 @@ export default function CatalogView({
   edit: (habit: HabitRecord) => void;
   run: (operation: () => Promise<unknown>) => Promise<boolean>;
   reload: (initial?: boolean) => Promise<void>;
+  busy: boolean;
 }) {
   const [dragging, setDragging] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
@@ -126,11 +129,10 @@ export default function CatalogView({
     <div className="habit-catalog">
       <div className="habit-catalog-heading">
         <div>
-          <p className="section-kicker">
-            {archived ? "ACTIVIDADES RETIRADAS" : "TU SISTEMA"}
-          </p>
           <h2>{archived ? "Archivo" : "Tus actividades"}</h2>
         </div>
+        <div className="habit-catalog-heading-actions">
+        {!archived && <button className="secondary-button" disabled={busy} onClick={() => void run(() => habitsApi.pauseAll())} title="Pausar todos los hábitos y tareas recurrentes activos, incluidos los ocultos por filtros" type="button"><Pause size={17} /> Pausar todos</button>}
         <button
           className="ui-archive-toggle"
           onClick={() => setArchived(!archived)}
@@ -139,6 +141,7 @@ export default function CatalogView({
           {archived ? <ArrowLeft size={17} /> : <Archive size={17} />}
           {archived ? "Volver" : "Archivo"}
         </button>
+        </div>
       </div>
       <div className="habit-filters">
         <label>
@@ -213,18 +216,16 @@ export default function CatalogView({
                 <span className="habit-schedule-pill">
                   {scheduleLabel(habit.schedule)}
                 </span>
-                {habit.status === "paused" && (
-                  <span className="habit-paused-pill">En pausa</span>
-                )}
                 <div className="habit-catalog-actions">
                   {archived ? (
                     <ArchiveItemActions itemLabel={habit.name}
                       restore={() => void run(() => habitsApi.restore(habit.id))}
-                      remove={() => { if (window.confirm(`¿Eliminar definitivamente “${habit.name}” y todo su historial?`)) void run(() => habitsApi.delete(habit.id)); }}
+                      remove={async () => { if (await confirmAction({ title: `Eliminar “${habit.name}”`, message: "Se eliminarán definitivamente la actividad y todo su historial.", confirmLabel: "Eliminar actividad", destructive: true })) await run(() => habitsApi.delete(habit.id)); }}
                     />
                   ) : (
                     <>
                       <button
+                        disabled={busy}
                         onClick={() => edit(habit)}
                         title="Editar"
                         type="button"
@@ -232,6 +233,9 @@ export default function CatalogView({
                         <Pencil size={17} />
                       </button>
                       <button
+                        className={habit.status === "paused" ? "habit-resume-active" : ""}
+                        aria-label={habit.status === "paused" ? `Reanudar ${habit.name} (en pausa)` : `Pausar ${habit.name}`}
+                        disabled={busy}
                         onClick={() =>
                           void run(() =>
                             habit.status === "paused"
@@ -251,6 +255,7 @@ export default function CatalogView({
                         )}
                       </button>
                       <button
+                        disabled={busy}
                         onClick={() =>
                           void run(() => habitsApi.archive(habit.id))
                         }

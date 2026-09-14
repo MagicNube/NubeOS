@@ -24,8 +24,12 @@ export function TrackerDetailTabs({
   </nav>;
 }
 
-export function TrackerMetricGrid({ metrics }: { metrics: { label: string; value: string | number; color?: string; score?: number | null }[] }) {
+export function TrackerMetricGrid({ metrics }: { metrics: { label: string; value: string | number; color?: string; score?: number | null; details?: string[]; help?: string }[] }) {
   return <div className="ui-tracker-metrics">
-    {metrics.map((metric) => <div key={metric.label}><span>{metric.label}</span><div className="ui-tracker-metric-value">{metric.score !== undefined ? <ScoreTile score={metric.score} /> : <strong className={metric.color ? "ui-score-tile" : undefined} style={metric.color ? ({ backgroundColor: metric.color, borderColor: metric.color, color: "#fff" } satisfies CSSProperties) : undefined}>{metric.value}</strong>}</div></div>)}
+    {metrics.map((metric) => <div key={metric.label}>
+      <span>{metric.label}</span>
+      <div className="ui-tracker-metric-value">{metric.score !== undefined ? <ScoreTile score={metric.score} /> : <strong className={metric.color ? "ui-score-tile" : undefined} style={metric.color ? ({ backgroundColor: metric.color, borderColor: metric.color, color: "#fff" } satisfies CSSProperties) : undefined} title={metric.help}>{metric.value}</strong>}</div>
+      {metric.details && metric.details.length > 0 && <div className="ui-tracker-metric-details">{metric.details.map((detail) => <small key={detail}>{detail}</small>)}</div>}
+    </div>)}
   </div>;
 }

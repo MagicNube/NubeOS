@@ -235,6 +235,7 @@ export default function HabitsWorkspace() {
           )}
           {view === "catalog" && (
             <CatalogView
+              busy={busy}
               archived={archived}
               setArchived={setArchived}
               items={catalog}

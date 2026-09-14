@@ -9,8 +9,19 @@ const source = readFileSync(new URL("../src/ui/MediaStatisticsDashboard.tsx", im
 const output = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
 const mod = new SourceTextModule(output);
 await mod.link((name) => {
-  const exports = name === "react/jsx-runtime" ? ["jsx", "jsxs", "Fragment"] : name === "react" ? ["useEffect", "useMemo", "useState"] : name === "lucide-react" ? ["BarChart3", "CalendarDays", "ChartNoAxesColumnIncreasing", "Compass", "ListFilter", "Trophy"] : name.endsWith(".css") ? [] : ["default"];
-  return new SyntheticModule(exports, function () { for (const key of exports) this.setExport(key, (type, props) => ({ type, props })); });
+  const exports = name === "react/jsx-runtime" ? ["jsx", "jsxs", "Fragment"] : name === "react" ? ["useEffect", "useMemo", "useState"] : name === "lucide-react" ? ["ArrowDown", "ArrowUp", "ArrowUpDown", "BarChart3", "CalendarDays", "ChartNoAxesColumnIncreasing", "Compass", "ListFilter", "Trophy"] : name.endsWith(".css") ? [] : ["default"];
+  return new SyntheticModule(exports, function () {
+    for (const key of exports) {
+      const value = name === "react" && key === "useState"
+        ? (initial) => [typeof initial === "function" ? initial() : initial, () => undefined]
+        : name === "react" && key === "useMemo"
+          ? (factory) => factory()
+          : name === "react" && key === "useEffect"
+            ? () => undefined
+            : (type, props) => ({ type, props });
+      this.setExport(key, value);
+    }
+  });
 });
 await mod.evaluate();
 const { groupGenres, groupYears, monthlyActivity, StatsTable } = mod.namespace;
@@ -32,5 +43,12 @@ test("actividad mensual suma bloques y unidades individuales", () => {
 test("tabla muestra episodios y media al final", () => {
   const tree = StatsTable({ title: "Por género", rows: [], unitLabel: "Episodios" });
   const header = tree.props.children[1];
-  assert.deepEqual(header.props.children.map((child) => child.props.children), ["Grupo", "Obras", "Episodios", "Media"]);
+  const labels = [];
+  const collectText = (node) => {
+    if (Array.isArray(node)) return node.forEach(collectText);
+    if (typeof node === "string") labels.push(node);
+    else if (node?.props) collectText(node.props.children);
+  };
+  collectText(header.props.children);
+  assert.deepEqual(labels, ["Grupo", "Obras", "Episodios", "Media"]);
 });

@@ -89,67 +89,7 @@ function handleTitlebarMouseDown(event: ReactMouseEvent<HTMLElement>) {
   runWindowAction("mover", (window) => window.startDragging());
 }
 
-const moduleCopy: Record<
-  ModuleId,
-  { eyebrow: string; title: string; description: string }
-> = {
-  inicio: {
-    eyebrow: "TU ESPACIO",
-    title: "Todo, en un mismo lugar.",
-    description: "Todo lo importante, de un vistazo.",
-  },
-  comidas: {
-    eyebrow: "PLANIFICACIÓN",
-    title: "Comidas y compras",
-    description:
-      "Crea tu catálogo de productos para construir comidas y planificar la compra.",
-  },
-  finanzas: {
-    eyebrow: "PATRIMONIO PERSONAL",
-    title: "Finanzas",
-    description: "Registra cuentas, movimientos y presupuesto mensual.",
-  },
-  documentos: {
-    eyebrow: "ARCHIVO PERSONAL",
-    title: "Documentos",
-    description: "Guarda y encuentra tus documentos importantes.",
-  },
-  proyectos: {
-    eyebrow: "TRABAJO PROFUNDO",
-    title: "Proyectos",
-    description: "Define objetivos y mantén visibles los próximos pasos.",
-  },
-  habitos: {
-    eyebrow: "CONSTANCIA",
-    title: "Hábitos",
-    description: "Crea pequeñas rutinas y observa cómo se acumulan.",
-  },
-  lectura: {
-    eyebrow: "BIBLIOTECA",
-    title: "Lectura",
-    description: "Conserva tu lista de lectura y tus notas.",
-  },
-  anime: {
-    eyebrow: "ANIME",
-    title: "Anime",
-    description: "Temporadas, películas, OVA y especiales en su orden recomendado.",
-  },
-  series: {
-    eyebrow: "PARA VER",
-    title: "Series",
-    description: "Recuerda qué estás viendo y por qué temporada y episodio vas.",
-  },
-  peliculas: {
-    eyebrow: "CINE",
-    title: "Películas",
-    description: "Conserva tus pendientes, visionados, puntuaciones y opiniones.",
-  },
-  videojuegos: {
-    eyebrow: "VIDEOJUEGOS",
-    title: "Videojuegos",
-    description: "Guarda tus partidas, rejugadas, puntuaciones y opiniones.",
-  },
-};
+const moduleTitles: Record<ModuleId, string> = Object.fromEntries(navigation.map(({ id, label }) => [id, label])) as Record<ModuleId, string>;
 
 function Placeholder({
   activeModule,
@@ -159,28 +99,26 @@ function Placeholder({
     "inicio" | "comidas" | "documentos" | "habitos" | "anime" | "series" | "peliculas" | "lectura" | "videojuegos"
   >;
 }) {
-  const Icon = navigation.find((item) => item.id === activeModule)!.icon;
+  const module = navigation.find((item) => item.id === activeModule)!;
+  const Icon = module.icon;
   return (
     <section className="placeholder-card">
       <div className="placeholder-icon">
         <Icon size={25} />
       </div>
-      <h2>Este módulo está preparado.</h2>
-      <p>
-        Su estructura llegará después. De momento, el planificador de comidas ya
-        está listo para usar.
-      </p>
+      <h2>{module.label} llegará más adelante</h2>
+      <p>Este módulo todavía no se ha diseñado. Su alcance se definirá antes de empezar a desarrollarlo.</p>
     </section>
   );
 }
 
 export default function App() {
   const [activeModule, setActiveModule] = useState<ModuleId>("inicio");
-  const [activeView, setActiveView] = useState<string | null>(null);
+  const [, setActiveView] = useState<string | null>(null);
   const activeModuleRef = useRef<ModuleId>("inicio");
   const navigationDepth = useRef(0);
   const [collapsed, setCollapsed] = useState(false);
-  const content = moduleCopy[activeModule];
+  const title = moduleTitles[activeModule];
   const isEntertainmentModule = entertainmentNavigation.some((item) => item.id === activeModule);
 
   const navigateTo = useCallback((destination: ModuleId) => {
@@ -207,7 +145,8 @@ export default function App() {
     const onMouseUp = (event: MouseEvent) => {
       if (event.button !== 3) return;
       event.preventDefault();
-      const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
+      const dialogs = Array.from(document.querySelectorAll<HTMLElement>('[role="dialog"], [role="alertdialog"]'));
+      const dialog = dialogs.reverse().find((element) => !element.closest("[inert]"));
       if (dialog) {
         dialog.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
         return;
@@ -259,6 +198,7 @@ export default function App() {
           {mainNavigation.map(({ id, label, icon: Icon }) => (
             <button
               className={activeModule === id ? "nav-item active" : "nav-item"}
+              aria-label={label}
               aria-current={activeModule === id ? "page" : undefined}
               key={id}
               onClick={() => navigateTo(id)}
@@ -273,7 +213,7 @@ export default function App() {
           <div className="sidebar-navigation-group entertainment-group">
             <span className="sidebar-navigation-label">Entretenimiento</span>
             {entertainmentNavigation.map(({ id, label, icon: Icon }) => (
-              <button aria-current={activeModule === id ? "page" : undefined} className={activeModule === id ? "nav-item active" : "nav-item"} key={id} onClick={() => navigateTo(id)} title={collapsed ? label : undefined} type="button">
+              <button aria-label={label} aria-current={activeModule === id ? "page" : undefined} className={activeModule === id ? "nav-item active" : "nav-item"} key={id} onClick={() => navigateTo(id)} title={collapsed ? label : undefined} type="button">
                 <i aria-hidden="true" className="nav-item-icon"><Icon size={18} strokeWidth={1.8} /></i>
                 <span className="nav-item-label">{label}</span>
               </button>
@@ -293,13 +233,6 @@ export default function App() {
       </aside>
       <AppViewProvider value={setActiveView}>
       <section className="workspace-pane">
-        <header className="app-context-bar">
-          <nav aria-label="Ruta actual" className="app-breadcrumbs">
-            <button onClick={() => navigateTo("inicio")} type="button">NubeOS</button>
-            <ChevronRight aria-hidden="true" size={13} />
-            {activeView ? <><span>{content.title}</span><ChevronRight aria-hidden="true" size={13} /><strong aria-current="page">{activeView}</strong></> : <strong aria-current="page">{content.title}</strong>}
-          </nav>
-        </header>
         <main className="content" id="main-content" tabIndex={-1}>
         {activeModule !== "inicio" && !isEntertainmentModule && (
           <header
@@ -310,9 +243,7 @@ export default function App() {
             }
           >
             <div>
-              <p className="eyebrow">{content.eyebrow}</p>
-              <h1>{content.title}</h1>
-              <p className="subtitle">{content.description}</p>
+              <h1>{title}</h1>
             </div>
           </header>
         )}

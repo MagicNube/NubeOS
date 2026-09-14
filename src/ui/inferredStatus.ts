@@ -111,13 +111,17 @@ function showStatusChoice<T>({ heading, message: description, currentStatus, sug
     dialog.append(actions);
     backdrop.append(dialog);
 
+    let restoreBackground: () => void = () => undefined;
+
     const finish = (accepted: T) => {
       document.removeEventListener("keydown", onKeyDown, true);
+      restoreBackground();
       backdrop.remove();
       previousFocus?.focus();
       resolve(accepted);
     };
     const onKeyDown = (event: KeyboardEvent) => {
+      if (backdrop.inert) return;
       if (event.key === "Escape") {
         event.preventDefault();
         event.stopImmediatePropagation();
@@ -136,6 +140,8 @@ function showStatusChoice<T>({ heading, message: description, currentStatus, sug
     });
     document.addEventListener("keydown", onKeyDown, true);
     document.body.append(backdrop);
+    restoreBackground = makeBackgroundInert(backdrop);
     buttons[choices.findIndex((choice) => choice.recommended)]?.focus();
   });
 }
+import { makeBackgroundInert } from "./modalA11y";

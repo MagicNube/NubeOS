@@ -54,6 +54,7 @@ type DraftIngredient = {
   unit: QuantityUnit;
 };
 type PlannerTarget = { weekday: number; slot: MealSlot };
+type PlannerPickerMode = "meals" | "products";
 
 const slots: Array<{ id: MealSlot; label: string }> = [
   { id: "breakfast", label: "Desayuno" },
@@ -144,6 +145,8 @@ function gramsPerUnit(product: Product) {
   if (!presentation) return undefined;
   if (presentation.kind === "package" && presentation.unitsPerPackage)
     return presentation.totalGrams / presentation.unitsPerPackage;
+  if (presentation.kind === "bulkByWeight")
+    return presentation.approximateGramsPerUnit;
   return presentation.kind === "bulkByUnit"
     ? presentation.gramsPerUnit
     : undefined;
@@ -903,9 +906,6 @@ function MealsPage({
       )}
       <div className="section-heading">
         <div>
-          <p className="section-kicker">
-            {status === "active" ? "RECETAS" : "ARCHIVO"}
-          </p>
           <h2>{status === "active" ? "Tus comidas" : "Comidas archivadas"}</h2>
         </div>
       </div>
@@ -1290,6 +1290,11 @@ function PlannerPage({
   const [editing, setEditing] = useState<PlannedInstance | null>(null);
   const [editingForm, setEditingForm] = useState<PlannedInstance | null>(null);
   const [pickerQuery, setPickerQuery] = useState("");
+  const [pickerMode, setPickerMode] = useState<PlannerPickerMode>("meals");
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [productQuantity, setProductQuantity] = useState("");
+  const [productUnit, setProductUnit] = useState<QuantityUnit>("grams");
+  const [pickerError, setPickerError] = useState<string | null>(null);
   const plannerGridRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   const beginRequest = useLatestRequest(weekStart);
@@ -1334,10 +1339,56 @@ function PlannerPage({
       });
       setTarget(null);
       setPickerQuery("");
+      setSelectedProduct(null);
       await refresh();
     } catch (reason) {
-      setError(errorMessage(reason));
+      setPickerError(errorMessage(reason));
     }
+  }
+  async function addProduct(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!target || !selectedProduct) return;
+    try {
+      await mealsApi.createPlannedProduct({
+        weekStart,
+        weekday: target.weekday,
+        slot: target.slot,
+        productId: selectedProduct.id,
+        quantity: Number(productQuantity),
+        unit: productUnit,
+      });
+      setTarget(null);
+      setPickerQuery("");
+      setSelectedProduct(null);
+      setProductQuantity("");
+      setProductUnit("grams");
+      await refresh();
+    } catch (reason) {
+      setPickerError(errorMessage(reason));
+    }
+  }
+  function closePicker() {
+    setTarget(null);
+    setPickerQuery("");
+    setSelectedProduct(null);
+    setProductQuantity("");
+    setProductUnit("grams");
+    setPickerError(null);
+  }
+  function choosePickerMode(mode: PlannerPickerMode) {
+    setPickerMode(mode);
+    setPickerQuery("");
+    setSelectedProduct(null);
+    setProductQuantity("");
+    setProductUnit("grams");
+    setPickerError(null);
+  }
+  function chooseProduct(product: Product) {
+    const unit = gramsPerUnit(product) ? "units" : "grams";
+    setSelectedProduct(product);
+    setProductUnit(unit);
+    setProductQuantity(unit === "units" ? "1" : "");
+    setPickerError(null);
   }
   async function remove(instance: PlannedInstance) {
     try {
@@ -1510,7 +1561,9 @@ function PlannerPage({
   }, [plan, weekStart]);
   const mealName = (instance: PlannedInstance) =>
     meals.find((meal) => meal.id === instance.sourceMealId)?.name ??
-    "Comida planificada";
+    (instance.ingredients.length === 1
+      ? instance.ingredients[0].productName
+      : "Comida personalizada");
   const pickerMeals = useMemo(() => {
     if (!target) return [];
     const normalized = pickerQuery.trim().toLocaleLowerCase("es");
@@ -1527,6 +1580,16 @@ function PlannerPage({
           left.name.localeCompare(right.name, "es"),
       );
   }, [meals, pickerQuery, target]);
+  const pickerProducts = useMemo(() => {
+    const normalized = pickerQuery.trim().toLocaleLowerCase("es");
+    return products
+      .filter(
+        (product) =>
+          product.status === "active" &&
+          product.name.toLocaleLowerCase("es").includes(normalized),
+      )
+      .sort((left, right) => left.name.localeCompare(right.name, "es"));
+  }, [pickerQuery, products]);
   return (
     <section className="planner-section">
       <div className="planner-toolbar">
@@ -1680,7 +1743,7 @@ function PlannerPage({
         </div>
       </div>
       {target && (
-        <Modal className="picker-card" labelledBy="meal-picker-title" onClose={() => setTarget(null)}>
+        <Modal className="picker-card" labelledBy="meal-picker-title" onClose={closePicker}>
             <div className="picker-card-header">
               <div className="meal-editor-heading">
                 <div>
@@ -1692,28 +1755,50 @@ function PlannerPage({
                 <button
                   aria-label="Cerrar selector"
                   className="product-icon-button"
-                  onClick={() => setTarget(null)}
+                  onClick={closePicker}
                   type="button"
                 >
                   <X size={17} />
                 </button>
               </div>
+              <div aria-label="Qué quieres añadir" className="picker-mode-switch" role="group">
+                <button
+                  aria-pressed={pickerMode === "meals"}
+                  onClick={() => choosePickerMode("meals")}
+                  type="button"
+                >
+                  Comidas
+                </button>
+                <button
+                  aria-pressed={pickerMode === "products"}
+                  onClick={() => choosePickerMode("products")}
+                  type="button"
+                >
+                  Productos
+                </button>
+              </div>
               <div className="catalog-search picker-search">
-                <Search size={17} />
+                <Search aria-hidden="true" size={17} />
                 <input
                   autoFocus
+                  aria-label={pickerMode === "meals" ? "Buscar comida" : "Buscar producto"}
                   onChange={(event) => setPickerQuery(event.target.value)}
-                  placeholder="Buscar comida"
+                  placeholder={pickerMode === "meals" ? "Buscar comida" : "Buscar producto"}
                   value={pickerQuery}
                 />
               </div>
+              {pickerError && (
+                <p className="form-error picker-error" role="alert">
+                  {pickerError}
+                </p>
+              )}
             </div>
             <div className="picker-card-body">
-              {!pickerMeals.length ? (
+              {pickerMode === "meals" && !pickerMeals.length ? (
                 <p className="inline-note">
                   No hay comidas activas que coincidan.
                 </p>
-              ) : (
+              ) : pickerMode === "meals" ? (
                 <div className="meal-choice-list">
                   {pickerMeals.map((meal) => (
                     <button
@@ -1734,8 +1819,86 @@ function PlannerPage({
                     </button>
                   ))}
                 </div>
+              ) : !pickerProducts.length ? (
+                <p className="inline-note">
+                  No hay productos activos que coincidan.
+                </p>
+              ) : (
+                <div className="product-choice-list">
+                  {pickerProducts.map((product) => {
+                    const perUnit = gramsPerUnit(product);
+                    return (
+                      <button
+                        aria-pressed={selectedProduct?.id === product.id}
+                        key={product.id}
+                        onClick={() => chooseProduct(product)}
+                        type="button"
+                      >
+                        <strong>{product.name}</strong>
+                        <span>
+                          {categoryLabels[product.category]} · {formatNumber(product.kilocaloriesPer100g)} kcal/100 g
+                          {perUnit ? ` · ≈ ${formatNumber(perUnit, 1)} g/ud` : ""}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               )}
             </div>
+            {pickerMode === "products" && selectedProduct && (
+              <form className="picker-product-footer" onSubmit={addProduct}>
+                <div>
+                  <strong>{selectedProduct.name}</strong>
+                  <span>Indica cuánto quieres añadir a esta franja.</span>
+                </div>
+                <label className="picker-product-quantity">
+                  <span>Cantidad</span>
+                  <input
+                    inputMode="decimal"
+                    min="0.01"
+                    onChange={(event) => setProductQuantity(event.target.value)}
+                    placeholder={productUnit === "units" ? "1" : "150"}
+                    required
+                    step="0.01"
+                    type="number"
+                    value={productQuantity}
+                  />
+                </label>
+                {gramsPerUnit(selectedProduct) ? (
+                  <label className="picker-product-unit">
+                    <span>Unidad</span>
+                    <SelectControl>
+                      <select
+                        onChange={(event) => {
+                          const nextUnit = event.target.value as QuantityUnit;
+                          setProductQuantity(
+                            convertedQuantity(
+                              productQuantity,
+                              productUnit,
+                              nextUnit,
+                              selectedProduct,
+                            ),
+                          );
+                          setProductUnit(nextUnit);
+                        }}
+                        value={productUnit}
+                      >
+                        <option value="grams">Gramos</option>
+                        <option value="units">Unidades</option>
+                      </select>
+                    </SelectControl>
+                  </label>
+                ) : (
+                  <div className="picker-product-unit-fixed">
+                    <span>Unidad</span>
+                    <strong>Gramos</strong>
+                  </div>
+                )}
+                <button className="primary-button" type="submit">
+                  Añadir producto
+                </button>
+              </form>
+            )}
         </Modal>
       )}
       {editing && (

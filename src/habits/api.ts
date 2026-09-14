@@ -126,6 +126,7 @@ export const habitsApi = {
   setLog: (habitId: string, date: string, logState: HabitLogState | null) =>
     invoke<void>("set_habit_log", { habitId, date, logState }),
   pause: (habitId: string) => invoke<void>("pause_habit", { habitId }),
+  pauseAll: () => invoke<number>("pause_all_habits"),
   resume: (habitId: string) => invoke<void>("resume_habit", { habitId }),
   archive: (habitId: string) => invoke<void>("archive_habit", { habitId }),
   restore: (habitId: string) => invoke<void>("restore_habit", { habitId }),

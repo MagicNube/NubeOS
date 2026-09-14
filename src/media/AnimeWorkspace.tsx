@@ -26,6 +26,7 @@ import FavoriteFilter from "../ui/FavoriteFilter";
 import ArchiveItemActions from "../ui/ArchiveItemActions";
 import MediaStatisticsDashboard from "../ui/MediaStatisticsDashboard";
 import { readDefaultSort, saveDefaultSort } from "../ui/sortPreference";
+import { confirmAction } from "../ui/confirmAction";
 import type {
   MediaContent,
   MediaContentInput,
@@ -433,7 +434,7 @@ export default function AnimeWorkspace() {
                 if (await runAction(() => mediaApi.restore(id))) await load(false);
               }}
               remove={async (id, name) => {
-                if (!window.confirm(`¿Eliminar definitivamente “${name}” y todo su historial?`)) return;
+                if (!await confirmAction({ title: `Eliminar “${name}”`, message: "Se eliminarán definitivamente el título, sus contenidos y todo su historial.", confirmLabel: "Eliminar título", destructive: true })) return;
                 if (await runAction(() => mediaApi.delete(id))) await load(false);
               }}
             />
@@ -441,7 +442,7 @@ export default function AnimeWorkspace() {
           {view === "statistics" && (
             <StatisticsView contents={statisticsContents} history={statisticsHistory} items={statisticsItems} open={openDetail} scope={statisticsScope} setScope={setStatisticsScope} showUnscored={statisticsScope === "content" ? undefined : () => { changeLibrarySection(statisticsScope === "movie" ? "movies" : "anime"); setScoreFilter("unscored"); changeView("library"); }} />
           )}
-          {view === "history" && <HistoryView busy={busy} content={historyContent} entries={history} month={historyMonth} oldestFirst={historyOldestFirst} options={historyOptions} selected={historySelection} setContent={setHistoryContent} setMonth={setHistoryMonth} setOldestFirst={setHistoryOldestFirst} setTitle={setHistoryTitle} setYear={setHistoryYear} title={historyTitle} titles={historyTitles} year={historyYear} updateDate={async (id, date) => { if (await runAction(() => mediaApi.updateHistoryDate(id, date))) await load(false); }} deleteEntry={async (entry) => { if (!window.confirm("¿Eliminar esta visualización y actualizar el progreso?")) return; if (await runAction(() => mediaApi.deleteHistoryEntry(entry.id))) await load(false); }} />}
+          {view === "history" && <HistoryView busy={busy} content={historyContent} entries={history} month={historyMonth} oldestFirst={historyOldestFirst} options={historyOptions} selected={historySelection} setContent={setHistoryContent} setMonth={setHistoryMonth} setOldestFirst={setHistoryOldestFirst} setTitle={setHistoryTitle} setYear={setHistoryYear} title={historyTitle} titles={historyTitles} year={historyYear} updateDate={async (id, date) => { if (await runAction(() => mediaApi.updateHistoryDate(id, date))) await load(false); }} deleteEntry={async (entry) => { if (!await confirmAction({ title: "Eliminar visualización", message: "Se retirará este registro y se actualizará el progreso calculado.", confirmLabel: "Eliminar visualización", destructive: true })) return; if (await runAction(() => mediaApi.deleteHistoryEntry(entry.id))) await load(false); }} />}
         </>
       )}
 
@@ -467,7 +468,7 @@ export default function AnimeWorkspace() {
             await mutateDetail(() => mediaApi.updateContent(content.id, contentInput(content, { score })));
           }}
           removeContent={async (content) => {
-            if (!window.confirm(`¿Eliminar “${content.name}” y su historial?`)) return;
+            if (!await confirmAction({ title: `Eliminar “${content.name}”`, message: "Se eliminarán definitivamente el contenido y todo su historial.", confirmLabel: "Eliminar contenido", destructive: true })) return;
             await mutateDetail(async () => {
               await mediaApi.deleteContent(content.id);
               return resolveContentStateSuggestion(detail, await mediaApi.get(detail.title.id));
@@ -502,7 +503,7 @@ export default function AnimeWorkspace() {
             }
           }}
           removeTitle={async () => {
-            if (!window.confirm(`¿Eliminar definitivamente “${detail.title.name}” y todo su historial?`)) return;
+            if (!await confirmAction({ title: `Eliminar “${detail.title.name}”`, message: "Se eliminarán definitivamente el título, sus contenidos y todo su historial.", confirmLabel: "Eliminar título", destructive: true })) return;
             if (await runAction(() => mediaApi.delete(detail.title.id))) {
               setDetail(null);
               await load(false);

@@ -19,6 +19,7 @@ import { useAppView } from "../ui/AppViewContext";
 import { readDefaultSort, saveDefaultSort } from "../ui/sortPreference";
 import { notifyCoverChanged } from "../ui/coverRefresh";
 import { confirmInferredStatusChange } from "../ui/inferredStatus";
+import { confirmAction } from "../ui/confirmAction";
 import { pastedCoverAsJpeg } from "../ui/pastedCover";
 import { formatScore, scoreColor } from "../ui/score";
 import type { PendingReadingCover, ReadingBook, ReadingBookInput, ReadingDetail, ReadingHistoryEntry, ReadingRun, ReadingRunInput, ReadingStatus } from "./api";
@@ -216,7 +217,7 @@ export default function ReadingWorkspace() {
       {view === "statistics" && !archived ? (
         <Statistics books={books} entries={allHistory} open={(id) => void openBook(id)} showUnscored={() => { setLibraryScore("unscored"); setView("library"); setArchived(false); }} />
       ) : view === "history" && !archived ? (
-        <ReadingHistory entries={history} books={books} bookId={historyBook} year={historyYear} years={historyYears} setBookId={setHistoryBook} setYear={setHistoryYear} edit={(entry) => setRunForm({ bookId: entry.run.bookId, run: entry.run })} remove={(entry) => { if (window.confirm(`¿Eliminar esta lectura de “${entry.bookTitle}”?`)) void action(async () => { const book = await readingApi.get(entry.run.bookId); await mutateRunKeepingChoice(book, () => readingApi.deleteRun(entry.run.id)); }); }} />
+        <ReadingHistory entries={history} books={books} bookId={historyBook} year={historyYear} years={historyYears} setBookId={setHistoryBook} setYear={setHistoryYear} edit={(entry) => setRunForm({ bookId: entry.run.bookId, run: entry.run })} remove={async (entry) => { if (await confirmAction({ title: `Eliminar lectura de “${entry.bookTitle}”`, message: "Se retirará este periodo del historial y se recalculará el estado sugerido del libro.", confirmLabel: "Eliminar lectura", destructive: true })) await action(async () => { const book = await readingApi.get(entry.run.bookId); await mutateRunKeepingChoice(book, () => readingApi.deleteRun(entry.run.id)); }); }} />
       ) : (
         <>
           <div className={`reading-filters${view !== "library" || archived ? " without-favorite" : ""}`}>
@@ -242,7 +243,7 @@ export default function ReadingWorkspace() {
                 open={() => void openBook(book.id)}
                 favorite={() => void action(async () => { const updated = await readingApi.favorite(book.id, !book.favorite); if (selected?.id === updated.id) setSelected(await readingApi.get(updated.id)); })}
                 restore={() => void action(() => readingApi.restore(book.id))}
-                remove={() => { if (window.confirm(`¿Eliminar definitivamente “${book.title}”?`)) void action(() => readingApi.delete(book.id)); }}
+                remove={async () => { if (await confirmAction({ title: `Eliminar “${book.title}”`, message: "Se eliminarán definitivamente el libro, su portada y todo su historial.", confirmLabel: "Eliminar libro", destructive: true })) await action(() => readingApi.delete(book.id)); }}
               />)}
             </div>
           )}
@@ -258,7 +259,7 @@ export default function ReadingWorkspace() {
         finish={(run) => void action(async () => setSelected(await mutateRunKeepingChoice(selected, () => readingApi.finishRun(run.id, readingToday()))))}
         addRun={() => setRunForm({ bookId: selected.id })}
         editRun={(run) => setRunForm({ bookId: selected.id, run })}
-        deleteRun={(run) => { if (window.confirm("¿Eliminar esta lectura del historial?")) void action(async () => setSelected(await mutateRunKeepingChoice(selected, () => readingApi.deleteRun(run.id)))); }}
+        deleteRun={async (run) => { if (await confirmAction({ title: "Eliminar lectura", message: "Se retirará este periodo del historial y se recalculará el estado sugerido del libro.", confirmLabel: "Eliminar lectura", destructive: true })) await action(async () => setSelected(await mutateRunKeepingChoice(selected, () => readingApi.deleteRun(run.id)))); }}
         setCoverCrop={async (x, y, zoom) => action(async () => { await readingApi.setCoverCrop(selected.id, x, y, zoom); setSelected(await readingApi.get(selected.id)); })}
       />}
       {form && <BookForm
@@ -320,7 +321,7 @@ function BookForm({ book, authors, busy, close, save }: { book: ReadingBook | nu
   const [coverBusy, setCoverBusy] = useState(false);
   const changed = JSON.stringify(draft) !== JSON.stringify(initial) || cover !== null;
   async function discardPending() { if (cover) await readingApi.discardCover(cover.token).catch(() => undefined); }
-  function requestClose() { if (!changed || window.confirm("Hay cambios sin guardar. ¿Quieres cerrar el formulario?")) { void discardPending(); close(); } }
+  async function requestClose() { if (!changed || await confirmAction({ title: "Descartar cambios", message: "Los cambios que no hayas guardado se perderán.", confirmLabel: "Descartar cambios", destructive: true })) { await discardPending(); close(); } }
   async function selectCover() { setCoverBusy(true); try { const selected = await readingApi.selectCover(); if (!selected) return; await discardPending(); setCover(selected); setDraft({ ...draft, coverToken: selected.token, removeCover: false }); } finally { setCoverBusy(false); } }
   async function pasteCover(event: React.ClipboardEvent<HTMLElement>) { setCoverBusy(true); try { const bytes = await pastedCoverAsJpeg(event); if (!bytes) return; const selected = await readingApi.preparePastedCover(bytes); await discardPending(); setCover(selected); setDraft({ ...draft, coverToken: selected.token, removeCover: false }); } catch (reason) { window.alert(readingErrorMessage(reason)); } finally { setCoverBusy(false); } }
   function toggleGenre(value: string) { setDraft({ ...draft, genres: draft.genres.includes(value) ? draft.genres.filter((item) => item !== value) : [...draft.genres, value] }); }
@@ -339,7 +340,7 @@ function BookForm({ book, authors, busy, close, save }: { book: ReadingBook | nu
 function ReadingRunForm({ run, busy, close, save }: { run: ReadingRun | null; busy: boolean; close: () => void; save: (input: ReadingRunInput) => Promise<boolean> }) {
   const initial = useMemo<ReadingRunInput>(() => ({ startedOn: run?.startedOn ?? null, finishedOn: run?.finishedOn ?? null, completed: run?.completed ?? false }), [run]);
   const [draft, setDraft] = useState(initial);
-  return <Modal className="reading-run-modal" labelledBy="reading-run-title" onClose={close}><form onSubmit={async (event) => { event.preventDefault(); if (await save(draft)) close(); }}><div className="reading-form-header"><div><h2 id="reading-run-title">{run ? "Editar lectura" : "Registrar lectura"}</h2><p>La fecha final cierra el periodo; no implica necesariamente terminar el libro.</p></div><button className="reading-icon-action" onClick={close} type="button"><X size={18} /></button></div><div className="reading-form-grid"><label>Fecha de inicio<SmartDateInput max={readingToday()} onChange={(value) => setDraft({ ...draft, startedOn: value || null })} required value={draft.startedOn ?? ""} /></label><label>Fecha final (opcional)<SmartDateInput max={readingToday()} min={draft.startedOn ?? undefined} onChange={(value) => { const finishedOn = value || null; setDraft({ ...draft, finishedOn, completed: Boolean(finishedOn) }); }} value={draft.finishedOn ?? ""} /></label></div>{draft.finishedOn && <label className="tracker-run-completion" title="El periodo quedará cerrado y se sugerirá marcar el libro como Pausado."><input checked={!draft.completed} onChange={(event) => setDraft({ ...draft, completed: !event.target.checked })} type="checkbox" /><span>No terminé el libro</span></label>}<div className="reading-form-footer"><button className="secondary-button" onClick={close} type="button">Cancelar</button><button className="primary-button" disabled={busy || !draft.startedOn} type="submit">Guardar</button></div></form></Modal>;
+  return <Modal className="reading-run-modal" labelledBy="reading-run-title" onClose={close}><form onSubmit={async (event) => { event.preventDefault(); if (await save(draft)) close(); }}><div className="reading-form-header"><div><h2 id="reading-run-title">{run ? "Editar lectura" : "Registrar lectura"}</h2><p>La fecha final cierra el periodo; no implica necesariamente terminar el libro.</p></div><button aria-label="Cerrar formulario de lectura" className="reading-icon-action" onClick={close} type="button"><X aria-hidden="true" size={18} /></button></div><div className="reading-form-grid"><label>Fecha de inicio<SmartDateInput max={readingToday()} onChange={(value) => setDraft({ ...draft, startedOn: value || null })} required value={draft.startedOn ?? ""} /></label><label>Fecha final (opcional)<SmartDateInput max={readingToday()} min={draft.startedOn ?? undefined} onChange={(value) => { const finishedOn = value || null; setDraft({ ...draft, finishedOn, completed: Boolean(finishedOn) }); }} value={draft.finishedOn ?? ""} /></label></div>{draft.finishedOn && <label className="tracker-run-completion" title="El periodo quedará cerrado y se sugerirá marcar el libro como Pausado."><input checked={!draft.completed} onChange={(event) => setDraft({ ...draft, completed: !event.target.checked })} type="checkbox" /><span>No terminé el libro</span></label>}<div className="reading-form-footer"><button className="secondary-button" onClick={close} type="button">Cancelar</button><button className="primary-button" disabled={busy || !draft.startedOn} type="submit">Guardar</button></div></form></Modal>;
 }
 
 function ReadingHistory({ entries, books, bookId, year, years, setBookId, setYear, edit, remove }: { entries: ReadingHistoryEntry[]; books: ReadingBook[]; bookId: string; year: string; years: string[]; setBookId: (value: string) => void; setYear: (value: string) => void; edit: (entry: ReadingHistoryEntry) => void; remove: (entry: ReadingHistoryEntry) => void }) {

@@ -4,6 +4,7 @@ import { ImagePlus, Star, Trash2, X } from "lucide-react";
 import Modal from "../ui/Modal";
 import SelectControl from "../ui/SelectControl";
 import SmartDateInput from "../ui/SmartDateInput";
+import { confirmAction } from "../ui/confirmAction";
 import { notifyCoverChanged } from "../ui/coverRefresh";
 import { pastedCoverAsJpeg } from "../ui/pastedCover";
 import type {
@@ -118,7 +119,7 @@ export function MediaTitleForm({
   }
 
   async function cancel() {
-    if (dirty && !window.confirm("Hay cambios sin guardar. ¿Quieres salir igualmente?")) return;
+    if (dirty && !await confirmAction({ title: "Descartar cambios", message: "Los cambios que no hayas guardado se perderán.", confirmLabel: "Descartar cambios", destructive: true })) return;
     if (cover) await mediaApi.discardCover(cover.token).catch(() => undefined);
     close();
   }
@@ -262,8 +263,8 @@ export function MediaContentForm({
   }), [content]);
   const dirty = JSON.stringify({ name, kind, status, canonStatus, total, score,
     opinion, notes, startedOn, releasedOn, finishedOn }) !== initialFingerprint;
-  function requestClose() {
-    if (dirty && !window.confirm("Hay cambios sin guardar. ¿Quieres salir igualmente?")) return;
+  async function requestClose() {
+    if (dirty && !await confirmAction({ title: "Descartar cambios", message: "Los cambios que no hayas guardado se perderán.", confirmLabel: "Descartar cambios", destructive: true })) return;
     close();
   }
 

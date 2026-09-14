@@ -52,6 +52,7 @@ type ProductFormValues = {
   packagePriceEur: string;
   packageUnits: string;
   bulkWeightPriceEur: string;
+  bulkApproximateGramsPerUnit: string;
   legacyPresentation: boolean;
 };
 
@@ -68,6 +69,7 @@ const initialValues: ProductFormValues = {
   packagePriceEur: "",
   packageUnits: "",
   bulkWeightPriceEur: "",
+  bulkApproximateGramsPerUnit: "",
   legacyPresentation: false,
 };
 
@@ -94,11 +96,21 @@ function presentationSummary(presentation?: PurchasePresentation) {
     const details = [`${presentation.totalGrams} g`];
     if (presentation.unitsPerPackage)
       details.push(`${presentation.unitsPerPackage} uds`);
+    if (presentation.unitsPerPackage)
+      details.push(
+        `≈ ${decimal(presentation.totalGrams / presentation.unitsPerPackage)} g/ud`,
+      );
     if (presentation.priceEur) details.push(`${presentation.priceEur} €`);
     return `Paquete (${details.join(", ")})`;
   }
-  if (presentation.kind === "bulkByWeight")
-    return `A granel por peso${presentation.priceEurPerKilogram ? ` (${presentation.priceEurPerKilogram} €/kg)` : ""}`;
+  if (presentation.kind === "bulkByWeight") {
+    const details = [];
+    if (presentation.priceEurPerKilogram)
+      details.push(`${presentation.priceEurPerKilogram} €/kg`);
+    if (presentation.approximateGramsPerUnit)
+      details.push(`≈ ${decimal(presentation.approximateGramsPerUnit)} g/ud`);
+    return `A granel por peso${details.length ? ` (${details.join(", ")})` : ""}`;
+  }
   return `Formato heredado (a granel por unidad${presentation.gramsPerUnit ? `, ${presentation.gramsPerUnit} g/ud` : ""})`;
 }
 
@@ -129,6 +141,9 @@ function valuesFromProduct(product: Product): ProductFormValues {
       ...base,
       presentationKind: "bulkByWeight",
       bulkWeightPriceEur: product.presentation.priceEurPerKilogram ?? "",
+      bulkApproximateGramsPerUnit: product.presentation.approximateGramsPerUnit
+        ? String(product.presentation.approximateGramsPerUnit)
+        : "",
     };
   return { ...base, legacyPresentation: true };
 }
@@ -147,6 +162,9 @@ function inputFromValues(values: ProductFormValues): ProductInput {
       : {
           kind: "bulkByWeight" as const,
           priceEurPerKilogram: optional(values.bulkWeightPriceEur),
+          approximateGramsPerUnit: optional(values.bulkApproximateGramsPerUnit)
+            ? number(values.bulkApproximateGramsPerUnit)
+            : undefined,
         };
   return {
     name: values.name,
@@ -212,6 +230,12 @@ function ProductForm({
     key: Key,
     value: ProductFormValues[Key],
   ) => setValues((current) => ({ ...current, [key]: value }));
+  const packageTotalGrams = Number(values.packageTotalGrams);
+  const packageUnits = Number(values.packageUnits);
+  const derivedPackageUnitWeight =
+    packageTotalGrams > 0 && packageUnits > 0
+      ? packageTotalGrams / packageUnits
+      : null;
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -380,10 +404,15 @@ function ProductForm({
                 value={values.packagePriceEur}
               />
             </label>
+            {derivedPackageUnitWeight !== null && (
+              <p className="product-derived-value">
+                Cada unidad pesa aproximadamente {decimal(derivedPackageUnitWeight)} g.
+              </p>
+            )}
           </div>
         )}
         {values.presentationKind === "bulkByWeight" && (
-          <div className="product-presentation-fields">
+          <div className="product-form-grid product-presentation-fields">
             <label className="product-field">
               <span>Precio por kg (€) (opcional)</span>
               <input
@@ -395,6 +424,16 @@ function ProductForm({
                 value={values.bulkWeightPriceEur}
               />
             </label>
+            <NumberField
+              label="Peso aproximado por unidad (g) (opcional)"
+              min="1"
+              onChange={(value) =>
+                update("bulkApproximateGramsPerUnit", value)
+              }
+              placeholder="150"
+              step="1"
+              value={values.bulkApproximateGramsPerUnit}
+            />
           </div>
         )}
       </fieldset>
@@ -615,9 +654,6 @@ export default function ProductsPage({
       )}
       <div className="products-catalog-heading">
         <div>
-          <p className="section-kicker">
-            {status === "active" ? "CATÁLOGO" : "ARCHIVO"}
-          </p>
           <h2>
             {status === "active" ? "Tus productos" : "Productos archivados"}
           </h2>

@@ -330,6 +330,13 @@
   font-size: 12px;
   line-height: 1.45;
 }
+.product-derived-value {
+  grid-column: 1 / -1;
+  margin: -2px 0 0;
+  color: var(--ui-color-text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+}
 .product-macro-grid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }

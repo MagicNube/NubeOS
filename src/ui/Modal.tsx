@@ -1,5 +1,7 @@
 import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
+import { makeBackgroundInert } from "./modalA11y";
 import "./ui.css";
 
 const focusableSelector = [
@@ -30,28 +32,30 @@ export default function Modal({
   onClose: () => void;
 }) {
   const dialogRef = useRef<HTMLElement>(null);
+  const backdropRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const previousFocus = document.activeElement as HTMLElement | null;
     const dialog = dialogRef.current;
+    const backdrop = backdropRef.current;
+    const restoreBackground = backdrop ? makeBackgroundInert(backdrop) : () => undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     const requestedFocus = dialog?.querySelector<HTMLElement>("[autofocus]");
     const firstFocusable = (dialog ? modalControls(dialog) : [])
       .find((element) => !element.classList.contains("ui-cover-adjust-button"));
     (initialFocus === "dialog" ? dialog : requestedFocus ?? firstFocusable ?? dialog)?.focus();
-    return () => previousFocus?.focus();
-  }, []);
-
-  useEffect(() => {
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = previousOverflow;
+      restoreBackground();
+      previousFocus?.focus();
     };
   }, []);
 
   function handleKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
     if (event.key === "Escape") {
       event.preventDefault();
+      event.stopPropagation();
       onClose();
       return;
     }
@@ -67,12 +71,13 @@ export default function Modal({
     if (!controls.length) dialog.focus();
   }
 
-  return (
+  return createPortal(
     <div
       className="ui-modal-backdrop"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
+      ref={backdropRef}
     >
       <section
         aria-labelledby={labelledBy}
@@ -87,6 +92,7 @@ export default function Modal({
         {children}
         <span className="ui-focus-guard" data-focus-guard="" onFocus={() => wrapFocus("first")} tabIndex={0} />
       </section>
-    </div>
+    </div>,
+    document.body,
   );
 }

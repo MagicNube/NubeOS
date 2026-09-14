@@ -26,6 +26,7 @@ import FavoriteFilter from "../ui/FavoriteFilter";
 import ArchiveItemActions from "../ui/ArchiveItemActions";
 import SelectControl from "../ui/SelectControl";
 import SmartDateInput from "../ui/SmartDateInput";
+import { confirmAction } from "../ui/confirmAction";
 import ScoreTile from "../ui/ScoreTile";
 import { TrackerDetailTabs, TrackerMetricGrid } from "../ui/TrackerDetail";
 import MediaStatisticsDashboard from "../ui/MediaStatisticsDashboard";
@@ -292,7 +293,7 @@ export default function SimpleMediaWorkspace({ area }: { area: SimpleArea }) {
         </div>
       )}
 
-      {view === "statistics" ? <SimpleMediaStatistics area={area} entries={allViewings} items={items} open={open} runs={allSeriesRuns} showUnscored={() => { setScoreFilter("unscored"); setView("library"); setArchived(false); }} /> : view === "history" && area === "movies" ? <MovieHistory entries={allViewings} titles={items} edit={async (entry, date) => { const result = await run(async () => { const before = await mediaApi.get(entry.titleId); return mutateViewingKeepingChoice(before, () => mediaApi.updateMovieViewing(entry.id, date)); }); if (result) await load(false); }} remove={async (entry) => { if (!window.confirm("¿Eliminar este visionado del historial?")) return; const result = await run(async () => { const before = await mediaApi.get(entry.titleId); return mutateViewingKeepingChoice(before, () => mediaApi.deleteMovieViewing(entry.id)); }); if (result) await load(false); }} /> : <><div className="media-filters">
+      {view === "statistics" ? <SimpleMediaStatistics area={area} entries={allViewings} items={items} open={open} runs={allSeriesRuns} showUnscored={() => { setScoreFilter("unscored"); setView("library"); setArchived(false); }} /> : view === "history" && area === "movies" ? <MovieHistory entries={allViewings} titles={items} edit={async (entry, date) => { const result = await run(async () => { const before = await mediaApi.get(entry.titleId); return mutateViewingKeepingChoice(before, () => mediaApi.updateMovieViewing(entry.id, date)); }); if (result) await load(false); }} remove={async (entry) => { if (!await confirmAction({ title: "Eliminar visionado", message: "Se retirará este visionado del historial y se recalculará el estado sugerido.", confirmLabel: "Eliminar visionado", destructive: true })) return; const result = await run(async () => { const before = await mediaApi.get(entry.titleId); return mutateViewingKeepingChoice(before, () => mediaApi.deleteMovieViewing(entry.id)); }); if (result) await load(false); }} /> : <><div className="media-filters">
         <label className="media-search">
           <Search size={17} />
           <input onChange={(event) => setSearch(event.target.value)} placeholder={`Buscar ${copy.plural}`} value={search} />
@@ -345,7 +346,7 @@ export default function SimpleMediaWorkspace({ area }: { area: SimpleArea }) {
               {!archived && <button aria-label={item.favorite ? `Quitar ${item.name} de favoritos` : `Añadir ${item.name} a favoritos`} className={`library-favorite-toggle${item.favorite ? " active" : ""}`} disabled={busy} onClick={() => void (async () => { if (await runAction(() => mediaApi.setTitleFavorite(item.id, !item.favorite))) await load(false); })()} title={item.favorite ? "Quitar de favoritos" : "Añadir a favoritos"} type="button"><Star fill={item.favorite ? "currentColor" : "none"} size={17} /></button>}
               {archived && <ArchiveItemActions busy={busy} itemLabel={item.name}
                 restore={() => void (async () => { if (await runAction(() => mediaApi.restore(item.id))) await load(false); })()}
-                remove={() => void (async () => { if (!window.confirm(`¿Eliminar definitivamente “${item.name}” y todo su historial?`)) return; if (await runAction(() => mediaApi.delete(item.id))) await load(false); })()}
+                remove={() => void (async () => { if (!await confirmAction({ title: `Eliminar “${item.name}”`, message: "Se eliminarán definitivamente el título y todo su historial.", confirmLabel: "Eliminar título", destructive: true })) return; if (await runAction(() => mediaApi.delete(item.id))) await load(false); })()}
               />}
             </article>
           ))}
@@ -376,7 +377,7 @@ export default function SimpleMediaWorkspace({ area }: { area: SimpleArea }) {
             }
           }}
           remove={async () => {
-            if (!window.confirm(`¿Eliminar definitivamente “${detail.title.name}” y todo su historial?`)) return;
+            if (!await confirmAction({ title: `Eliminar “${detail.title.name}”`, message: "Se eliminarán definitivamente el título y todo su historial.", confirmLabel: "Eliminar título", destructive: true })) return;
             if (await runAction(() => mediaApi.delete(detail.title.id))) {
               setDetail(null);
               await load(false);
@@ -512,7 +513,7 @@ function SimpleMediaDetail({
               <strong className="tracker-history-count"><History size={17} /> {seriesRuns.length} {seriesRuns.length === 1 ? "visionado registrado" : "visionados registrados"}</strong>
               {!title.archived && <div className="simple-watch-history-actions"><button className="primary-button" disabled={busy} onClick={() => setSeriesRunForm("new")} type="button"><Plus size={16} /> Registrar visionado</button></div>}
             </header>
-            {seriesRuns.length === 0 ? <p className="simple-watch-empty">No hay visionados registrados.</p> : <div className="simple-movie-history">{seriesRuns.map((run, index) => <article key={run.id}><div><strong>{seriesRuns.length - index === 1 ? "Primer visionado" : `Visionado ${seriesRuns.length - index}`}</strong><span>{formatDate(run.startedOn)} → {run.finishedOn ? formatDate(run.finishedOn) : "En curso"}</span></div>{!title.archived && <div className="simple-movie-history-actions"><button aria-label="Editar visionado" className="media-icon-button" disabled={busy} onClick={() => setSeriesRunForm(run)} title="Editar" type="button"><Edit3 size={15} /></button><button aria-label="Eliminar visionado" className="media-icon-button danger" disabled={busy} onClick={() => { if (window.confirm("¿Eliminar este visionado del historial?")) void deleteSeriesRun(run.id); }} title="Eliminar" type="button"><Trash2 size={15} /></button></div>}</article>)}</div>}
+            {seriesRuns.length === 0 ? <p className="simple-watch-empty">No hay visionados registrados.</p> : <div className="simple-movie-history">{seriesRuns.map((run, index) => <article key={run.id}><div><strong>{seriesRuns.length - index === 1 ? "Primer visionado" : `Visionado ${seriesRuns.length - index}`}</strong><span>{formatDate(run.startedOn)} → {run.finishedOn ? formatDate(run.finishedOn) : "En curso"}</span></div>{!title.archived && <div className="simple-movie-history-actions"><button aria-label="Editar visionado" className="media-icon-button" disabled={busy} onClick={() => setSeriesRunForm(run)} title="Editar" type="button"><Edit3 size={15} /></button><button aria-label="Eliminar visionado" className="media-icon-button danger" disabled={busy} onClick={async () => { if (await confirmAction({ title: "Eliminar visionado", message: "Se retirará este recorrido del historial y se recalculará el estado sugerido.", confirmLabel: "Eliminar visionado", destructive: true })) await deleteSeriesRun(run.id); }} title="Eliminar" type="button"><Trash2 size={15} /></button></div>}</article>)}</div>}
           </section>
         )}
 
@@ -527,7 +528,7 @@ function SimpleMediaDetail({
                 <button className="primary-button" disabled={busy} onClick={() => { setViewingDate(todayMadrid()); setViewingForm("new"); }} type="button"><Plus size={16} /> Registrar visionado</button>
               </div>}
             </header>
-            {viewings.length === 0 ? <p className="simple-watch-empty">No hay visionados registrados.</p> : <div className="simple-movie-history">{viewings.map((viewing, index) => <article key={viewing.id}><div><strong>{index === viewings.length - 1 ? "Primer visionado" : `Visionado ${viewings.length - index}`}</strong><span>{formatDate(viewing.watchedOn)}</span></div>{!title.archived && <div className="simple-movie-history-actions"><button aria-label="Editar visionado" className="media-icon-button" disabled={busy} onClick={() => { setViewingDate(viewing.watchedOn); setViewingForm(viewing); }} title="Editar" type="button"><Edit3 size={15} /></button><button aria-label="Eliminar visionado" className="media-icon-button danger" disabled={busy} onClick={() => { if (window.confirm("¿Eliminar este visionado del historial?")) void deleteViewing(viewing.id); }} title="Eliminar" type="button"><Trash2 size={15} /></button></div>}</article>)}</div>}
+            {viewings.length === 0 ? <p className="simple-watch-empty">No hay visionados registrados.</p> : <div className="simple-movie-history">{viewings.map((viewing, index) => <article key={viewing.id}><div><strong>{index === viewings.length - 1 ? "Primer visionado" : `Visionado ${viewings.length - index}`}</strong><span>{formatDate(viewing.watchedOn)}</span></div>{!title.archived && <div className="simple-movie-history-actions"><button aria-label="Editar visionado" className="media-icon-button" disabled={busy} onClick={() => { setViewingDate(viewing.watchedOn); setViewingForm(viewing); }} title="Editar" type="button"><Edit3 size={15} /></button><button aria-label="Eliminar visionado" className="media-icon-button danger" disabled={busy} onClick={async () => { if (await confirmAction({ title: "Eliminar visionado", message: "Se retirará este visionado del historial y se recalculará el estado sugerido.", confirmLabel: "Eliminar visionado", destructive: true })) await deleteViewing(viewing.id); }} title="Eliminar" type="button"><Trash2 size={15} /></button></div>}</article>)}</div>}
           </section>
         )}
 

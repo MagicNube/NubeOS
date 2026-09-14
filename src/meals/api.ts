@@ -120,6 +120,16 @@ export const mealsApi = {
   }) {
     return invoke<PlannedInstance>("create_planned_instance", { input });
   },
+  createPlannedProduct(input: {
+    weekStart: string;
+    weekday: number;
+    slot: MealSlot;
+    productId: string;
+    quantity: number;
+    unit: QuantityUnit;
+  }) {
+    return invoke<PlannedInstance>("create_planned_product", { input });
+  },
   updatePlannedInstance(id: string, ingredients: MealIngredientInput[]) {
     return invoke<void>("update_planned_instance", {
       id,

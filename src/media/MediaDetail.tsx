@@ -20,6 +20,7 @@ import Modal from "../ui/Modal";
 import ScoreTile from "../ui/ScoreTile";
 import SelectControl from "../ui/SelectControl";
 import SmartDateInput from "../ui/SmartDateInput";
+import { confirmAction } from "../ui/confirmAction";
 import ContentWatchDate from "./ContentWatchDate";
 import AnimeWatchForm, { runLabel } from "./AnimeRunForm";
 import { TrackerDetailTabs, TrackerMetricGrid } from "../ui/TrackerDetail";
@@ -260,7 +261,7 @@ export default function MediaDetailView({
                 <button aria-label="Editar título" className="media-icon-button" onClick={editTitle} title="Editar título" type="button">
                   <Edit3 size={17} />
                 </button>
-                <button className="media-icon-button" disabled={busy} onClick={() => void archive()} title="Archivar" type="button">
+                <button aria-label="Archivar título" className="media-icon-button" disabled={busy} onClick={() => void archive()} title="Archivar" type="button">
                   <Archive size={17} />
                 </button>
               </>
@@ -281,22 +282,17 @@ export default function MediaDetailView({
           </div>
         </header>
 
-        <section className="media-overview-strip">
-          <div>
-            <span>Progreso</span>
-            <strong>{progressLabel(title.progress)}</strong>
-            {upcomingLabel(title.progress) && <small>{upcomingLabel(title.progress)}</small>}
-            {title.progress.totalIncomplete && <small>Total aún desconocido</small>}
-          </div>
-          <div>
-            <span>{title.kind === "movie" ? "Visionados" : "Contenidos"}</span>
-            <strong>{title.kind === "movie" ? movieViewings.length : title.contentsCount}</strong>
-          </div>
-          <div>
-            <span>Estado</span>
-            <strong title={statusHelp(title.status)}>{statusLabel(title.status)}</strong>
-          </div>
-        </section>
+        <div className="anime-detail-overview">
+          <TrackerMetricGrid metrics={[
+            {
+              label: "Progreso",
+              value: progressLabel(title.progress),
+              details: [upcomingLabel(title.progress), title.progress.totalIncomplete ? "Total aún desconocido" : null].filter((detail): detail is string => Boolean(detail)),
+            },
+            { label: title.kind === "movie" ? "Visionados" : "Contenidos", value: title.kind === "movie" ? movieViewings.length : title.contentsCount },
+            { label: "Estado", value: statusLabel(title.status), help: statusHelp(title.status) },
+          ]} />
+        </div>
         {title.opinion && (
           <section className="media-opinion">
             <span>Opinión general</span>
@@ -313,7 +309,7 @@ export default function MediaDetailView({
               { label: "Estado", value: statusLabel(title.status) },
             ]} /> : <div className="media-anime-movie-history">
               <header><strong className="tracker-history-count"><History size={17} /> {movieViewings.length} {movieViewings.length === 1 ? "visionado registrado" : "visionados registrados"}</strong>{!title.archived && <div className="media-anime-movie-history-header-actions"><button className="secondary-button" disabled={busy} onClick={() => void addMovieViewing(todayMadrid())} type="button">Registrar hoy</button><button className="primary-button" disabled={busy} onClick={() => setRegisteringMovieWatch(true)} type="button"><Plus size={16} /> Registrar visionado</button></div>}</header>
-              {movieViewings.length === 0 ? <p className="media-muted">No hay visionados registrados.</p> : <div className="media-anime-movie-history-list">{movieViewings.map((viewing, index) => <article key={viewing.id}><CalendarDays size={16} /><div><strong>{index === movieViewings.length - 1 ? "Primer visionado" : `Visionado ${movieViewings.length - index}`}</strong><span>{formatDate(viewing.watchedOn)}</span></div>{!title.archived && <div className="media-anime-movie-history-actions"><button aria-label="Editar fecha del visionado" className="media-icon-button" disabled={busy} onClick={() => setEditingMovieViewing(viewing)} title="Editar" type="button"><Edit3 size={15} /></button><button aria-label="Eliminar visionado" className="media-icon-button danger" disabled={busy} onClick={() => { if (window.confirm("¿Eliminar este visionado del historial?")) void deleteMovieViewing(viewing.id); }} title="Eliminar" type="button"><Trash2 size={15} /></button></div>}</article>)}</div>}
+              {movieViewings.length === 0 ? <p className="media-muted">No hay visionados registrados.</p> : <div className="media-anime-movie-history-list">{movieViewings.map((viewing, index) => <article key={viewing.id}><CalendarDays size={16} /><div><strong>{index === movieViewings.length - 1 ? "Primer visionado" : `Visionado ${movieViewings.length - index}`}</strong><span>{formatDate(viewing.watchedOn)}</span></div>{!title.archived && <div className="media-anime-movie-history-actions"><button aria-label="Editar fecha del visionado" className="media-icon-button" disabled={busy} onClick={() => setEditingMovieViewing(viewing)} title="Editar" type="button"><Edit3 size={15} /></button><button aria-label="Eliminar visionado" className="media-icon-button danger" disabled={busy} onClick={async () => { if (await confirmAction({ title: "Eliminar visionado", message: "Se retirará este visionado del historial y se actualizará el progreso calculado.", confirmLabel: "Eliminar visionado", destructive: true })) await deleteMovieViewing(viewing.id); }} title="Eliminar" type="button"><Trash2 size={15} /></button></div>}</article>)}</div>}
             </div>}
           </section>
         ) : (
@@ -564,7 +560,7 @@ export function AnimeHistoryPanel({ error, archived, busy, contents, sessions, r
     </div>{!archived && <div className="media-anime-history-actions">
       <button aria-label={`Editar ${watchGroupLabel(group)}`} className="media-icon-button" disabled={busy} onClick={() => setEditing(group)} title="Editar intervalo y fecha" type="button"><Edit3 size={15} /></button>
       <button aria-label={`Eliminar ${watchGroupLabel(group)}`} className="media-icon-button danger" disabled={busy || !group.canDelete}
-        onClick={() => { if (window.confirm("¿Eliminar este registro?")) void deleteGroup(group.sessionIds); }}
+        onClick={async () => { if (await confirmAction({ title: "Eliminar registro", message: "Se retirará este registro del historial y se actualizará el progreso calculado.", confirmLabel: "Eliminar registro", destructive: true })) await deleteGroup(group.sessionIds); }}
         title={group.canDelete ? "Eliminar registro" : "Solo se puede retirar el último bloque del progreso principal"} type="button"><Trash2 size={15} /></button>
     </div>}</article>;
   }
