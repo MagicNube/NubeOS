@@ -8,12 +8,7 @@
 
 A local-first desktop application that replaces the dozens of tools I used every day with a single, unified workspace tailored to my own workflow.
 
-Built with **React, Tauri and Rust**.
-
-<br>
-
-![GitHub stars](https://img.shields.io/github/stars/MagicNube/NubeOS?style=flat-square)
-![GitHub last commit](https://img.shields.io/github/last-commit/MagicNube/NubeOS?style=flat-square)
+Built with **React, Tauri, Rust and SQLite**.
 
 <br>
 
@@ -57,14 +52,16 @@ Every module exists because I genuinely use it.
 
 Nothing is included unless it solves a real problem for me.
 
+**Instead of adapting my workflow to existing software, I built software that adapts to my workflow.**
+
 ---
 
 # ✨ Features
 
 - 🏠 Unified personal dashboard
 - 🍽 Meal planner with automatic shopping list generation
-- 💰 Personal finance tracking
-- 📄 Private document manager with PDF preview
+- 💰 Personal finance module *(planned)*
+- 📄 Private document manager with built-in PDF viewer
 - ✅ Habit tracker
 - 📚 Reading library and statistics
 - 🎮 Video game tracker
@@ -84,57 +81,63 @@ Nothing is included unless it solves a real problem for me.
 Everything important at a glance.
 
 <p align="center">
-<img src="./docs/screenshots/dashboard.png" width="100%">
+<img src="./docs/assets/screenshots/dashboard.jpeg" width="100%">
 </p>
 
----
+## Meals
 
-## Meal Planning
-
-Weekly planning, recipes, nutrition and automatic shopping lists.
+Manage recipes, ingredients and nutritional information.
 
 <p align="center">
-<img src="./docs/screenshots/planner.png" width="100%">
+<img src="./docs/assets/screenshots/meals.jpeg" width="100%">
 </p>
 
----
+## Weekly Planner
+
+Plan your meals for the week and automatically generate your shopping list.
+
+<p align="center">
+<img src="./docs/assets/screenshots/planner.jpeg" width="100%">
+</p>
 
 ## Habit Tracking
 
 Track recurring habits and monitor long-term consistency.
 
 <p align="center">
-<img src="./docs/screenshots/habits.png" width="100%">
+<img src="./docs/assets/screenshots/habits.jpeg" width="100%">
 </p>
 
----
+## Document Management
 
-## Personal Documents
-
-Store important documents locally with metadata, expiration dates and built-in PDF preview.
+Store important documents with categories, tags and expiration dates.
 
 <p align="center">
-<img src="./docs/screenshots/docs.png" width="100%">
+<img src="./docs/assets/screenshots/docs.jpeg" width="100%">
 </p>
 
----
+## Built-in PDF Viewer
+
+Preview your documents without leaving the application.
+
+<p align="center">
+<img src="./docs/assets/screenshots/document-preview.jpeg" width="100%">
+</p>
 
 ## Reading Library
 
-Track books, reading progress and personal ratings.
+Track books, reading sessions and personal ratings.
 
 <p align="center">
-<img src="./docs/screenshots/reading.png" width="100%">
+<img src="./docs/assets/screenshots/reading.jpeg" width="100%">
 </p>
-
----
 
 ## Entertainment Library
 
-Manage anime, movies, TV series and games from one place.
+Manage your anime collection, watch progress and ratings.
 
 <p align="center">
-<img src="./docs/screenshots/anime.png" width="100%">
+<img src="./docs/assets/screenshots/anime.jpeg" width="100%">
 </p>
 
 ---
@@ -143,9 +146,9 @@ Manage anime, movies, TV series and games from one place.
 
 NubeOS follows a **local-first desktop architecture**.
 
-The user interface is built with React, while all business logic is implemented in Rust through Tauri commands.
+The user interface is built with React, while all business logic lives in Rust behind Tauri commands.
 
-Application data is stored locally using SQLite together with private files such as PDFs, images and media.
+SQLite stores structured application data, while PDFs, covers and other media are managed as private local files.
 
 No backend server is required.
 
@@ -159,7 +162,7 @@ No backend server is required.
 - ⚡ Native desktop performance
 - 📦 Works entirely offline
 - 🧠 Strong separation between UI and business logic
-- 🚀 Easily extensible with new modules
+- 🚀 Easily extensible through independent modules
 
 ---
 
@@ -173,6 +176,7 @@ No backend server is required.
 | Database | SQLite |
 | Styling | Area-scoped CSS and shared tokens |
 | State Management | Local React state |
+| Tooling | pnpm · Cargo |
 
 ---
 
@@ -192,17 +196,17 @@ pnpm tauri dev
 
 # 📖 Documentation
 
-The project documentation includes:
+The project includes detailed documentation covering:
 
 - Vision
 - Architecture
 - Design principles
 - Module specifications
-- Technical decisions (ADRs)
+- Architecture Decision Records (ADRs)
 - Roadmap
-- Learning notes
+- Development notes
 
-See the `docs/` directory for more information.
+See the `docs/` directory for the complete documentation.
 
 ---
 
@@ -210,7 +214,7 @@ See the `docs/` directory for more information.
 
 NubeOS is my long-term personal project and is under active development.
 
-New modules and refinements are added continuously as my own workflow evolves.
+New modules and improvements are continuously added as my own workflow evolves.
 
 ---
 
