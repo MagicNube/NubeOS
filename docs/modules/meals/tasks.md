@@ -472,3 +472,24 @@ Estas tareas aplican la spec y el diseño aprobados el 2026-08-03. Nube aprobó 
 - Verificación: `pnpm build`, revisión de foco y recorrido visual de ambos catálogos.
 
 **Resultado:** los dos catálogos reutilizan los tokens tipográficos y el scrollbar global; editar y las acciones de menú aparecen al interactuar con la tarjeta, conservando la alternativa visible en dispositivos sin puntero fino.
+
+## T-048 — Añadir equivalencia a granel y productos directos al plan
+
+- Estado: Implementada el 2026-09-08.
+- Dependencias: T-038, T-043, T-045, T-046.
+- Alcance: guardar un peso aproximado por unidad en productos a granel por peso; mostrar en paquetes la equivalencia derivada sin duplicar entradas; añadir productos activos directamente a una franja con cantidad en gramos o unidades; reducir el alto del selector y separar Comidas de Productos.
+- Criterios de aceptación: 320 g y 8 unidades muestran aproximadamente 40 g/ud sin un tercer campo; un plátano a 1,50 €/kg puede guardar 150 g/ud; las unidades quedan disponibles en recetas, compra y planificación directa; la recomendación física redondea piezas hacia arriba; una instancia directa no crea una receta oculta y participa en macros y compra.
+- Restricciones: Rust sigue siendo responsable de validación, normalización, redondeo y persistencia; no se modifican recetas al planificar un producto; se conservan presentaciones y planes existentes.
+- Verificación: migración sobre SQLite existente, pruebas Rust de conversión, redondeo y creación directa; build, pruebas de interfaz y recorrido visual del selector compacto con Comidas y Productos.
+
+**Resultado:** la migración `0038` añade el peso unitario aproximado solo a productos a granel. Los paquetes derivan su equivalencia del peso total y sus unidades; Rust normaliza las unidades, redondea hacia arriba las piezas físicas de compra y permite crear una instancia planificada de un solo producto sin receta oculta. El selector separa Comidas y Productos en un diálogo de 560 px como máximo, con búsqueda desplazable y confirmación estable. Pasan las pruebas de migración, dominio, repositorio, comandos e interfaz, además del build de producción.
+
+## T-049 — Simplificar el campo Cantidad del planificador
+
+- Estado: Implementada el 2026-09-08.
+- Dependencias: T-048.
+- Alcance: retirar del campo «Cantidad» para productos directos los controles nativos de incremento y decremento, conservando la escritura directa y la validación numérica existente.
+- Restricciones: el cambio se limita a este campo; no altera cantidades, unidades, conversiones ni reglas de dominio.
+- Verificación: build, prueba de interfaz y comprobación visual del campo en el selector de Productos.
+
+**Resultado:** «Cantidad» conserva el campo numérico, su teclado decimal, pegado y validación, pero oculta de forma acotada los botones nativos de incremento y decremento en Chromium/WebView y Firefox. El build de producción y las 43 pruebas de interfaz pasan correctamente.

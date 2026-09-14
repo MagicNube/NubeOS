@@ -218,3 +218,24 @@ El orden desarrolla primero reglas y persistencia, después un vertical mínimo 
 - Verificación: `pnpm build` y recorrido manual de un PDF de varias páginas, foco de teclado, Archivo y favorito.
 
 **Resultado:** las acciones principales y de ciclo de vida preceden al visor; la colección conserva una jerarquía más limpia y adopta la escala tipográfica y el scrollbar transversales sin modificar contratos, persistencia ni archivos administrados.
+
+## T-022 — Corregir accesibilidad y confirmaciones de Documentos
+
+- Estado: Implementada el 2026-09-08.
+- Alcance: nombrar las acciones de cierre, anunciar avisos, dar activación nativa por teclado a cada fila y sustituir confirmaciones del navegador por el diálogo compartido.
+- Restricciones: no modificar PDFs, metadatos, persistencia ni contratos Tauri.
+- Verificación: build, pruebas de interfaz, navegación con Enter y Espacio y árbol de accesibilidad.
+
+**Resultado:** avisos y errores tienen regiones y cierres nombrados; las filas se activan con Enter o Espacio y los borrados y descartes usan la confirmación visual compartida.
+
+## T-023 — Recuperar sustituciones interrumpidas (R-02)
+
+- Estado: Implementada por petición directa de Nube el 2026-09-09; comprobaciones técnicas superadas.
+- Alcance: concretar ADR-006 con identidad de sustitución confirmada en SQLite y marcador de staging; reconciliar antes y después del commit sin confundir versiones.
+- Verificación: fallos en cada frontera, metadatos idénticos, reinicios repetidos y migración aislada. No operar sobre datos personales.
+
+
+- Ajuste de verificación T-023: actualizar las dos fixtures de migración Media que simulan un esquema antiguo para retirar también la columna de 0039 antes de bajar artificialmente user_version. Solo cambia la preparación de pruebas, no el dominio Media.
+
+
+**Resultado T-023:** implementada con migración 0039, revisión confirmada y marcador privado. Se verifican siete fronteras de interrupción y reconciliación repetida con PDFs de igual nombre y tamaño. Pasan 157 pruebas Rust; no se aplicó la migración a los datos personales ni se actualizó la instalación.

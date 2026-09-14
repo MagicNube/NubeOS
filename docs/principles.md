@@ -1,7 +1,7 @@
 # Principios de NubeOS
 
 - Estado: Aprobada por Nube
-- Última actualización: 2026-09-06
+- Última actualización: 2026-09-08
 
 Estos principios guían las decisiones cotidianas del proyecto. Una excepción debe ser explícita, acotada y justificada; si afecta a la arquitectura, requiere una ADR.
 
@@ -45,7 +45,7 @@ Estos principios guían las decisiones cotidianas del proyecto. Una excepción d
 
 ## Coherencia de interfaz
 
-- La aplicación dispone de una barra contextual fija: la ruta útil identifica producto, módulo y vista (`NubeOS › Lectura › Biblioteca`). No incluye agrupaciones sin destino, como `Entretenimiento`.
+- La aplicación dedica el espacio vertical principal al contenido: el módulo se identifica en su cabecera y la vista activa en sus pestañas, sin una segunda fila global de ruta.
 - Los patrones transversales ya consolidados se reutilizan desde `src/ui/`; un módulo no crea otra variante de modal, selector o aviso temporal sin una necesidad documentada.
 - Los modales bloquean y atenúan el contenido de fondo, contienen el foco, permiten cierre coherente y restauran el foco al elemento que los abrió.
 - Los selectores nativos comparten chevrón, margen derecho, tema oscuro y estados morados de `hover` y foco. Los desplegables personalizados conservan la misma geometría y respuesta visual.
@@ -55,10 +55,10 @@ Estos principios guían las decisiones cotidianas del proyecto. Una excepción d
 - Los botones iconográficos no destructivos de Anime, Lectura, Videojuegos, Películas y Series comparten borde, fondo y texto morados en `hover` y `focus-visible`; las acciones destructivas conservan su aviso rojo.
 - Todas las áreas desplazables reutilizan un scrollbar oscuro con acento morado y contraste suficiente; ningún módulo depende del estilo claro predeterminado del sistema.
 - Los formularios modales avisan antes de cerrar mediante botón, fondo o tecla Escape cuando contienen cambios sin guardar.
-- En una cabecera de colección, la acción secundaria `Archivo` se coloca inmediatamente antes de la acción principal de creación. En los módulos de entretenimiento ambas aparecen a la derecha de las pestañas de vista, mientras la barra contextual queda reservada para la ruta.
+- En una cabecera de colección, la acción secundaria `Archivo` se coloca inmediatamente antes de la acción principal de creación. En los módulos de entretenimiento ambas aparecen a la derecha de las pestañas de vista.
 - Los antetítulos de colección e historial usan el mismo tamaño tipográfico compartido en todos los módulos de entretenimiento.
 - Los módulos de entretenimiento muestran su título una sola vez, sin una etiqueta superior redundante. Cuando disponen de navegación, el orden es `Biblioteca`, actividad en curso cuando proceda, `Historial` y `Estadísticas`.
-- Cada pantalla de Media contiene un único `h1` con el nombre del módulo. La vista activa se comunica en la ruta y en las pestañas secundarias situadas inmediatamente debajo.
+- Cada pantalla de Media contiene un único `h1` con el nombre del módulo. La vista activa se comunica en las pestañas secundarias situadas inmediatamente debajo.
 - La navegación activa se comunica visualmente y mediante `aria-current`; el foco de teclado siempre es visible, existe un salto directo al contenido y las animaciones respetan la preferencia de movimiento reducido.
 - El botón lateral Atrás del ratón respeta la navegación de NubeOS: primero cierra el diálogo o detalle activo y, fuera de él, recupera el módulo visitado anteriormente sin abandonar la aplicación.
 - Los filtros booleanos de favoritos usan el control compacto compartido con estrella vacía o rellena; no usan corazones, casillas ni texto largo.
@@ -105,6 +105,9 @@ Estos principios guían las decisiones cotidianas del proyecto. Una excepción d
 - Al incorporar una técnica nueva, se añade una nota breve a `docs/learning/rust.md` o `docs/learning/tauri.md`.
 - La explicación debe ser suficiente para que el propietario pueda revisar y modificar el cambio con autonomía creciente.
 
-# Filtros progresivos en colecciones
+## Filtros progresivos en colecciones
 
 Las bibliotecas de Media muestran búsqueda, favoritos y dos accesos independientes para filtrar y ordenar. Las condiciones se añaden de forma progresiva mediante un constructor compartido; Estado admite varias selecciones simultáneas y las presenta como opciones marcables, no como una etiqueta de estado de la obra. La ordenación usa su propio panel, con una etiqueta plana y un único selector delimitado, y no cuenta como filtro activo. Título alfabético es el valor predeterminado y no marca el acceso; elegir otra opción colorea el icono de ordenar. Los empates se resuelven alfabéticamente y Anime puede ordenar también por porcentaje visto. Cada condición debe poder retirarse de manera independiente y todos los controles deben conservar etiqueta accesible y navegación por teclado.
+
+### Refinamiento de General — 2026-09-09
+Las cabeceras principales de General muestran únicamente el nombre del módulo, sin antetítulos ornamentales ni frases introductorias. Los datos operativos se conservan. Hover no desplaza horizontalmente los destinos de la barra lateral. En Actividades, Reanudar permanece visible en morado cuando la actividad está pausada, sin alterar la posición de su frecuencia.

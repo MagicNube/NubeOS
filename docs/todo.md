@@ -1,7 +1,7 @@
 # TODO de NubeOS
 
 - Estado: Lista operativa activa
-- Última actualización: 2026-09-04
+- Última actualización: 2026-09-07
 
 ## Propósito
 
@@ -22,7 +22,7 @@ No sustituye al roadmap, las specs, los diseños ni las tareas de cada módulo. 
 ### Revisiones abiertas
 
 - [ ] **TODO-010 — Diseñar un Wrapped global MEDIA.** Resumir Anime, Lectura, Videojuegos, Películas y Series sin mezclar sus escalas; queda fuera de la versión 1.0 por decisión de Nube.
-- [ ] **TODO-011 — Instalar y validar la candidata 0.1.0 actual.** Crear copia preventiva, ejecutar el instalador NSIS generado el 2026-09-03 y comprobar la migración 0037, los recorridos Anime y las sugerencias de estado con los datos reales.
+- [ ] **TODO-011 — Completar la validación de la candidata 0.1.0 instalada.** La copia preventiva, la instalación, la conservación por hash de los archivos administrados, el icono incrustado y el registro de inicio ya están verificados. Falta comprobar visualmente el icono en la barra de tareas, reiniciar Windows para confirmar el arranque automático y validar la migración 0037 y los recorridos Anime con los datos personales.
 
 ### Módulos pendientes
 

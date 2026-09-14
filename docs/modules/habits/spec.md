@@ -126,3 +126,6 @@ El módulo debe cubrir tanto hábitos orientados a constancia —leer, estudiar 
 - [x] Las estadísticas actualizan porcentaje, rachas y progreso tras cada cambio.
 - [x] Archivar conserva el historial; restaurar reactiva; eliminar definitivamente exige confirmación.
 - [x] Todo el módulo funciona sin red y React no calcula reglas de cumplimiento.
+
+### Pausa general — T-031
+Actividades permite Pausar todos los hábitos y tareas recurrentes activos, incluidos los ocultos por filtros. La acción es atómica, no altera pausas previas ni archivados y usa la misma exclusión temporal que pausar individualmente. La reanudación sigue disponible por actividad. El botón Reanudar permanece visible en morado; el estado no desplaza la frecuencia, que usa 14 px.

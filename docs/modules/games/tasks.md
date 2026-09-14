@@ -1,7 +1,7 @@
 # Tareas — Videojuegos
 
 - Estado: Aprobado por Nube (módulo cerrado)
-- Última actualización: 2026-09-06
+- Última actualización: 2026-09-09
 - Aprobación de cierre: Nube, 2026-09-04. Cierre del alcance implementado; los trabajos futuros y las verificaciones de instalación no se consideran realizados por esta aprobación.
 
 ## Cómo usar este documento
@@ -206,3 +206,21 @@ La valoración de la tarjeta adopta también el contenedor compartido de `58 × 
 - Estado: Implementada; revisión visual pendiente de Nube.
 - Alcance: separar el orden temporal del predeterminado, mantener Título A–Z como inicio neutro y ofrecer Guardar como predeterminado dentro del panel de ordenación compartido.
 - Verificación: elegir, guardar y sustituir una preferencia; TypeScript/Vite correcto.
+
+## T-G30 — Unificar confirmaciones accesibles
+
+- Estado: Implementada el 2026-09-08.
+- Alcance: usar el diálogo compartido para eliminaciones y descartes de formularios.
+- Restricciones: no modificar partidas, estados ni persistencia salvo tras confirmación explícita.
+- Verificación: pruebas de interfaz, build y recorrido de cancelación y confirmación.
+
+**Resultado:** eliminaciones de videojuegos y partidas y descartes de formularios usan la confirmación visual compartida.
+
+## T-G31 — Delimitar las tarjetas de Historial
+
+- Estado: Implementada el 2026-09-09 por petición directa de Nube.
+- Alcance: aplicar el contorno estructural compartido a las partidas del detalle y de la vista Historial.
+- Restricciones: conservar contenido, acciones en hover o foco y geometría existente; el borde permanece neutro.
+- Verificación: revisar reposo, hover, foco y adaptación estrecha; ejecutar pruebas de interfaz y build TypeScript/Vite.
+
+**Resultado:** cada partida se percibe como una tarjeta independiente y coherente con el resto de Media.

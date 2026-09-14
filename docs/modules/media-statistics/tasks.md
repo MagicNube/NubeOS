@@ -25,3 +25,4 @@
 | MS-017 | Probar en Anime una jerarquía menos densa para Resumen, Rankings, Explorar, Evolución y Calendario | Implementada; revisión visual pendiente de Nube |
 | MS-018 | Desacoplar la ventana de género del filtro, ordenar tablas por métricas, mostrar episodios por obra y alinear la actividad mensual en Anime | Implementada; revisión visual pendiente de Nube |
 | MS-019 | Extender la jerarquía refinada, tablas ordenables, exploración desacoplada y resumen mensual a Lectura, Videojuegos, Películas y Series | Implementada; revisión visual pendiente de Nube |
+| MS-020 | Reparar la prueba aislada de estadísticas tras ampliar sus iconos y exponer un comando de pruebas estable | Implementada el 2026-09-08: el doble de React/Lucide cubre la interfaz actual y `npm test` ejecuta las 39 pruebas |

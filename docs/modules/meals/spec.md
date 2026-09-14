@@ -36,9 +36,11 @@ Las kcal y los pesos en gramos se introducen y muestran como enteros, sin contro
 Cada producto nuevo tiene una presentación de compra. El formulario pide solo los datos del tipo elegido:
 
 - **Paquete, bolsa o bandeja:** peso total en gramos, precio estimado por paquete en euros y número de unidades (opcional). El nombre que aparece en compra es siempre el nombre del producto; no se pide una etiqueta independiente.
-- **A granel por peso:** precio estimado por kg (opcional).
+- **A granel por peso:** precio estimado por kg (opcional) y peso aproximado por unidad (opcional) para productos que se compran por peso pero se usan por piezas, como plátanos.
 
 El número de unidades de un paquete es opcional. Cuando se conoce junto con el peso total, la aplicación obtiene los gramos por unidad y permite utilizar unidades al crear recetas. Si no se conoce, el producto se usa en gramos.
+
+El peso aproximado por unidad no se introduce en los paquetes porque duplicaría `peso total ÷ unidades`. El formulario muestra esa equivalencia derivada como ayuda. En productos a granel sí se guarda el peso aproximado porque no existe un paquete del que calcularlo. Las equivalencias informativas pueden tener decimales; cuando la recomendación representa piezas físicas, se redondea hacia arriba.
 
 Ejemplos:
 
@@ -75,6 +77,7 @@ El usuario puede:
 - Ver la semana actual de lunes a domingo y navegar a semanas anteriores o posteriores.
 - Planificar una o más comidas en desayuno, comida, merienda, cena y extra.
 - Añadir una comida desde una colección con buscador de texto, ordenada primero por el momento del día que coincide con la franja elegida y después por nombre. La cabecera, el contexto y el buscador permanecen visibles; solo la colección de resultados se desplaza.
+- Añadir directamente un producto activo indicando gramos o unidades válidas, sin crear una comida de un único ingrediente. La instancia conserva ese producto y participa en macros y compra igual que cualquier ingrediente planificado.
 - En una instancia, añadir productos, retirar ingredientes o modificar cantidades en gramos o unidades cuando sea válido.
 - Quitar instancias y arrastrarlas para reordenarlas dentro de una franja o moverlas a otro día y franja.
 - Distinguir visualmente una instancia modificada de su receta base.
@@ -123,7 +126,7 @@ Cada entrada tiene además una casilla de verificación semanal. Solo registra v
 
 ## Casos límite
 
-- Sin productos no se puede crear una comida; sin comidas se muestra un estado vacío al planificar.
+- Sin productos no se puede crear una comida ni añadir un producto directo; sin comidas todavía se pueden planificar productos activos.
 - Una semana vacía muestra macros cero y lista vacía.
 - Un paquete sin número de unidades se usa únicamente en gramos y sigue pudiendo recomendarse para la compra.
 - Una fracción de paquete redondea la compra hacia arriba y muestra el sobrante teórico.
@@ -159,4 +162,5 @@ Cada entrada tiene además una casilla de verificación semanal. Solo registra v
 - [x] La lista agrega productos, calcula paquetes o compra a granel, sobrantes y costes cuando existen datos suficientes.
 - [x] Se puede indicar «Tienes» en gramos o unidades válidas sin crear inventario global; la recomendación y el coste pendiente se recalculan al escribir.
 - [x] Se puede añadir y retirar una necesidad manual semanal desde productos activos del catálogo; se agrega a la línea existente e identifica visualmente que no procede del plan.
+- [x] Un producto a granel puede definir un peso aproximado por unidad; el planificador permite añadir comidas o productos directos y la compra redondea hacia arriba las recomendaciones por piezas.
 - [x] Una semana sin comidas no produce errores.

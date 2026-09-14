@@ -1,7 +1,7 @@
 # Tareas — Películas
 
 - Estado: Aprobado por Nube (módulo cerrado)
-- Última actualización: 2026-09-06
+- Última actualización: 2026-09-09
 - Aprobación de cierre: Nube, 2026-09-04. Cierre del alcance implementado; los trabajos futuros y las verificaciones de instalación no se consideran realizados por esta aprobación.
 
 ## T-P01 — Separar Películas de Anime
@@ -165,3 +165,21 @@
 - Estado: Implementada; revisión visual pendiente de Nube.
 - Alcance: separar el orden temporal del predeterminado, mantener Título A–Z como inicio neutro y ofrecer Guardar como predeterminado dentro del panel de ordenación compartido.
 - Verificación: elegir, guardar y sustituir una preferencia; TypeScript/Vite correcto.
+
+## T-P26 — Unificar confirmaciones accesibles
+
+- Estado: Implementada el 2026-09-08.
+- Alcance: usar el diálogo compartido para eliminar títulos y visionados y para descartar formularios con cambios.
+- Restricciones: no modificar estados, visionados ni persistencia salvo tras confirmación explícita.
+- Verificación: pruebas de interfaz, build y recorrido de cancelación y confirmación.
+
+**Resultado:** eliminaciones de títulos y visionados y descartes de formularios usan la confirmación visual compartida.
+
+## T-P27 — Delimitar las tarjetas de Historial
+
+- Estado: Implementada el 2026-09-09 por petición directa de Nube.
+- Alcance: aplicar el contorno estructural compartido a cada visionado del detalle y de la vista Historial.
+- Restricciones: conservar contenido, acciones en hover o foco y geometría existente; el borde permanece neutro.
+- Verificación: revisar reposo, hover, foco y adaptación estrecha; ejecutar pruebas de interfaz y build TypeScript/Vite.
+
+**Resultado:** cada visionado se percibe como una tarjeta independiente y coherente con el resto de Media.

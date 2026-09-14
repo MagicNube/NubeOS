@@ -1,7 +1,7 @@
 # Roadmap de NubeOS
 
 - Estado: Aprobado por Nube
-- Última actualización: 2026-09-04
+- Última actualización: 2026-09-07
 
 ## Propósito
 
@@ -17,7 +17,7 @@ No contiene fechas. La prioridad es cerrar y revisar cada módulo antes de conce
 - Hábitos y rutinas está implementado, revisado y cerrado.
 - Anime, Series, Películas, Lectura, Videojuegos, Inicio y Estadísticas MEDIA tienen su alcance implementado aprobado y cerrado por Nube el 2026-09-04.
 - La aprobación documental no sustituye pruebas técnicas: las comprobaciones de instalación y los trabajos futuros conservan su estado independiente.
-- Existe una build NSIS candidata 0.1.0; su instalación y migración final todavía deben comprobarse.
+- Existe una build NSIS candidata 0.1.0 generada el 2026-09-07; su instalación, el nuevo icono y el arranque tras reiniciar todavía deben comprobarse.
 - Los datos continúan siendo locales, sin copias ni sincronización durante esta etapa.
 
 ## Hito 0 — Fundaciones documentadas
@@ -116,10 +116,11 @@ El alcance concreto se determinará mediante una nueva actualización de spec, d
 
 **Objetivo:** cerrar los detalles de distribución cuando NubeOS tenga una build estable.
 
-- [ ] Añadir inicio automático opcional al iniciar sesión en Windows mediante una tarea y ADR específica.
-- [ ] Decidir si el inicio automático se activa por defecto o desde Preferencias.
+- [x] Registrar el ejecutable de producción al iniciar sesión en Windows, sin afectar a las builds de desarrollo.
+- [ ] Comprobar el inicio automático tras reiniciar Windows.
+- [ ] Diseñar una preferencia visible para activarlo o desactivarlo si se desea sustituir la configuración actual.
 
-**Salida:** instalador de Windows con las opciones de inicio revisadas, sin afectar al flujo de desarrollo.
+**Salida provisional:** el arranque de producción se registra para el usuario actual; falta validarlo tras reinicio y decidir si merece una preferencia dentro de NubeOS.
 
 ## Hito 8 — Lectura
 

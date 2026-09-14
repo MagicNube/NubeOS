@@ -1,7 +1,7 @@
 # Tareas — Series
 
 - Estado: Aprobado por Nube (módulo cerrado)
-- Última actualización: 2026-09-06
+- Última actualización: 2026-09-09
 - Aprobación de cierre: Nube, 2026-09-04. Cierre del alcance implementado; los trabajos futuros y las verificaciones de instalación no se consideran realizados por esta aprobación.
 
 ## T-S01 — Separar Series de Anime
@@ -146,3 +146,21 @@
 - Estado: Implementada; revisión visual pendiente de Nube.
 - Alcance: separar el orden temporal del predeterminado, mantener Título A–Z como inicio neutro y ofrecer Guardar como predeterminado dentro del panel de ordenación compartido.
 - Verificación: elegir, guardar y sustituir una preferencia; TypeScript/Vite correcto.
+
+## T-S23 — Unificar confirmaciones accesibles
+
+- Estado: Implementada el 2026-09-08.
+- Alcance: usar el diálogo compartido para eliminar títulos y recorridos y para descartar formularios con cambios.
+- Restricciones: no modificar estados, episodios, recorridos ni persistencia salvo tras confirmación explícita.
+- Verificación: pruebas de interfaz, build y recorrido de cancelación y confirmación.
+
+**Resultado:** eliminaciones de títulos y recorridos y descartes de formularios usan la confirmación visual compartida.
+
+## T-S24 — Delimitar las tarjetas de Historial
+
+- Estado: Implementada el 2026-09-09 por petición directa de Nube.
+- Alcance: aplicar el contorno estructural compartido a cada visionado del detalle.
+- Restricciones: conservar contenido, acciones en hover o foco y geometría existente; el borde permanece neutro.
+- Verificación: revisar reposo, hover, foco y adaptación estrecha; ejecutar pruebas de interfaz y build TypeScript/Vite.
+
+**Resultado:** cada visionado se percibe como una tarjeta independiente y coherente con el resto de Media.

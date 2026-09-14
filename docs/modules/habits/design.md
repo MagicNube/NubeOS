@@ -167,3 +167,6 @@ Las solicitudes de filtros conservan el resultado previo y descartan respuestas 
 - Cantidades, notas y varias realizaciones diarias.
 - Pausas con fecha final.
 - Pruebas end-to-end de interfaz.
+
+### Pausa general — T-031
+El comando pause_all_habits no recibe filtros ni identificadores desde React. Rust determina las actividades activas y abre sus pausas con el mismo día de Madrid dentro de una transacción. Devuelve cuántas cambió. Se reutiliza open_pause y se conserva la semántica histórica existente.

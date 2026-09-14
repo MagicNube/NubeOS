@@ -46,3 +46,9 @@ Ofrecer una entrada útil a NubeOS que resuma lo que requiere atención hoy y pe
 - [x] Un fallo parcial no oculta el resto del Dashboard.
 - [x] La cabecera aprovecha el espacio disponible con fecha, saludo y métricas reales de actividad.
 - [ ] La composición, jerarquía y densidad se revisan visualmente con datos reales.
+
+### Correcciones aprobadas el 2026-09-09
+La identidad de Inicio se limita a Inicio. Cambiar de día o semana renueva sus consultas; un check obsoleto no se registra como actividad de hoy. Los errores de escritura son visibles y los productos directos y recetas archivadas del plan mantienen un nombre reconocible.
+
+### T-I17 — Apertura única
+Abrir NubeOS varias veces conserva una sola instancia y devuelve el foco a su ventana, restaurándola si estaba minimizada. Windows identifica la ventana como NubeOS; la cabecera propia continúa sin ese texto.

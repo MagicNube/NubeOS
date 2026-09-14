@@ -1,7 +1,7 @@
 # Tareas — Anime
 
 - Estado: Aprobado por Nube (módulo cerrado)
-- Última actualización: 2026-09-06
+- Última actualización: 2026-09-09
 - Aprobación de cierre: Nube, 2026-09-04. Cierre del alcance implementado; los trabajos futuros y las verificaciones de instalación no se consideran realizados por esta aprobación.
 - Verificación consolidada: build de producción e instalador NSIS generados el 2026-09-03; 149 pruebas Rust y 29 pruebas aisladas de nombres y confirmaciones correctas. Instalación y validación con datos reales pendientes.
 
@@ -568,27 +568,6 @@
 
 **Resultado:** la migración 0035 identifica cada bloque de registro y distingue los revisionados. El formulario cambia de modo al elegir un contenido completo, las instancias pueden repetirse, editarse y eliminarse, y el contador principal permanece independiente. El editor permite corregir fecha y cantidad, acota los episodios durante la escritura y vuelve a validarlos en Rust; la nota del contenido se edita con autoguardado desde su tarjeta. 32 pruebas Media y build TypeScript/Vite correctos; comprobación visual en Tauri pendiente.
 
-## T-A54 — Alinear el historial global con Lectura
-
-- Estado: Implementada y aprobada por Nube.
-- Alcance: reunir episodio, contenido y anime en el título de cada entrada; colocar la fecha del visionado debajo, conservar el estreno como contexto a la derecha y reutilizar el icono morado de calendario de Lectura.
-- Restricciones: no modificar sesiones ni reglas de edición y eliminación; mantener las acciones secundarias en `hover` o foco.
-- Verificación: revisar temporadas, OVA, especiales y películas con y sin estreno, además de la adaptación a anchura estrecha.
-
-**Resultado:** el historial global adopta la jerarquía compacta de Lectura sin perder la identidad del contenido ni el contexto objetivo de estreno.
-
-## T-A55 — Limpiar cabecera y conservar Historial
-
-- Estado: Implementada; revisión visual pendiente de Nube.
-- Alcance: usar un título plano, colocar Archivo y Añadir anime junto a las vistas, excluir la ordenación del contador de filtros y reutilizar Historial al volver con los mismos filtros.
-- Verificación: TypeScript correcto y comprobación visual de la cabecera compartida; sin build instalable.
-
-## T-A60 — Ampliar filtros de Biblioteca
-
-- Estado: Implementada; revisión visual pendiente de Nube.
-- Alcance: filtrar por género, disponibilidad y rango de puntuación, año de actividad, progreso y contenido por salir mediante un constructor progresivo compartido; separar la ordenación en un acceso propio, usar título alfabético como valor neutro y señalar en morado cualquier alternativa.
-- Resultado: los filtros actúan sobre la colección cargada, la búsqueda por título alternativo se conserva y «Omitidos» sustituye a la etiqueta ambigua anterior.
-
 ## T-A67 — Igualar selectores y jerarquía lateral
 
 - Estado: Implementada; revisión visual pendiente de Nube.
@@ -622,3 +601,86 @@
 - Alcance: calcular el número de cada tarjeta después de aplicar búsqueda, filtros y orden; retirar Catálogo del selector y permitir guardar explícitamente cualquier orden como predeterminado para Anime y Películas Anime por separado.
 - Restricciones: el orden alfabético continúa siendo el valor inicial neutro y todo empate se resuelve por título.
 - Verificación: combinar filtro y orden, comprobar numeración consecutiva y volver a cada tipo de biblioteca tras guardar una preferencia. TypeScript/Vite correcto.
+
+## T-A72 — Alinear el historial global con Lectura
+
+- Estado: Implementada y aprobada por Nube.
+- Alcance: reunir episodio, contenido y anime en el título de cada entrada; colocar la fecha del visionado debajo, conservar el estreno como contexto a la derecha y reutilizar el icono morado de calendario de Lectura.
+- Restricciones: no modificar sesiones ni reglas de edición y eliminación; mantener las acciones secundarias en `hover` o foco.
+- Verificación: revisar temporadas, OVA, especiales y películas con y sin estreno, además de la adaptación a anchura estrecha.
+
+**Resultado:** el historial global adopta la jerarquía compacta de Lectura sin perder la identidad del contenido ni el contexto objetivo de estreno.
+
+## T-A73 — Limpiar cabecera y conservar Historial
+
+- Estado: Implementada; revisión visual pendiente de Nube.
+- Alcance: usar un título plano, colocar Archivo y Añadir anime junto a las vistas, excluir la ordenación del contador de filtros y reutilizar Historial al volver con los mismos filtros.
+- Verificación: TypeScript correcto y comprobación visual de la cabecera compartida; sin build instalable.
+
+## T-A74 — Ampliar filtros de Biblioteca
+
+- Estado: Implementada; revisión visual pendiente de Nube.
+- Alcance: filtrar por género, disponibilidad y rango de puntuación, año de actividad, progreso y contenido por salir mediante un constructor progresivo compartido; separar la ordenación en un acceso propio, usar título alfabético como valor neutro y señalar en morado cualquier alternativa.
+- Resultado: los filtros actúan sobre la colección cargada, la búsqueda por título alternativo se conserva y «Omitidos» sustituye a la etiqueta ambigua anterior.
+
+## T-A75 — Unificar confirmaciones accesibles
+
+- Estado: Implementada el 2026-09-08.
+- Alcance: sustituir las confirmaciones nativas de eliminación y descarte del núcleo Media por el diálogo compartido accesible.
+- Restricciones: no modificar progreso, estados derivados, historial ni contratos.
+- Verificación: pruebas de interfaz, build y recorrido de cancelación y confirmación.
+
+**Resultado:** Media ya no usa confirmaciones nativas; títulos, contenidos, visionados y formularios muestran consecuencias y acciones concretas en un diálogo accesible compartido.
+
+## T-A76 — Recuperar el borde visible de las tarjetas
+
+- Estado: Implementada el 2026-09-09 por petición directa de Nube.
+- Alcance: aumentar el contraste estructural del borde en las tarjetas de Biblioteca Anime y en las tarjetas de Contenidos del detalle.
+- Restricciones: conservar dimensiones, fondos, radios, estados de arrastre y distribución existentes; no modificar Películas, Series ni datos.
+- Verificación: revisar reposo, `hover`, foco interior, arrastre y destino de arrastre; ejecutar pruebas de interfaz y build TypeScript/Vite.
+
+**Resultado:** ambos tipos de tarjeta recuperan un borde gris-violeta perceptible sobre el fondo oscuro y lo refuerzan en `hover` o foco, sin competir con el morado de los estados de arrastre.
+
+**Corrección visual:** la primera subida de contraste de un solo píxel seguía perdiéndose en la superficie del diálogo. Tras revisar la captura real se añadió una superficie diferenciada y profundidad interior/exterior al contorno, con una prueba de regresión que exige borde, fondo y sombra en ambos tipos de tarjeta.
+
+**Sustituida por T-A78:** la revisión conjunta de Media confirmó que ese refuerzo rompía la coherencia con Lectura y las demás bibliotecas.
+
+## T-A77 — Unificar las superficies del detalle Anime
+
+- Estado: Implementada el 2026-09-09 por petición directa de Nube.
+- Alcance: revisar el detalle completo y delimitar con el mismo sistema el resumen de Progreso/Contenidos/Estado, las tarjetas de Contenidos, los recorridos y las listas de Historial.
+- Restricciones: conservar el detalle sin cajas alrededor de las puntuaciones, la cuadrícula de dos columnas, el historial persistido y los estados de arrastre.
+- Verificación: revisar Contenidos e Historial con y sin recorridos, etiquetas secundarias, foco y anchura estrecha; ejecutar pruebas de interfaz y build instalable.
+
+**Resultado:** el detalle dispone de tokens locales para borde, separador, superficie y texto secundario; resumen, contenidos e historial comparten una jerarquía perceptible. Los números de orden, fechas y controles de arrastre recuperan contraste, y el botón Archivar recibe un nombre accesible explícito.
+
+**Sustituida visualmente por T-A78:** se conserva la mejora de legibilidad secundaria y se retiran los tokens locales de superficie y borde en favor del sistema compartido.
+
+## T-A78 — Alinear Anime con la jerarquía compartida de Media
+
+- Estado: Implementada el 2026-09-09 por petición directa de Nube.
+- Alcance: retirar la iluminación violeta permanente de las tarjetas de Anime y reutilizar en su resumen el mismo componente de métricas que Lectura y el resto de trackers.
+- Restricciones: conservar el morado para interacción y arrastre; no modificar las superficies del resto de Media ni los datos mostrados.
+- Verificación: comprobar reposo, `hover`, foco, arrastre, separadores del resumen y adaptación estrecha; ejecutar pruebas de interfaz y build instalable.
+
+**Resultado:** las tarjetas parten de borde y superficie neutros, se realzan solo al interactuar y Progreso, Contenidos y Estado usan la cuadrícula compartida con separadores reales.
+
+## T-A79 — Recuperar contornos neutros perceptibles en el detalle
+
+- Estado: Implementada el 2026-09-09 por petición directa de Nube y revisión de capturas reales.
+- Alcance: aumentar el contraste neutro de las tarjetas de Contenidos, los recorridos y las listas de Historial sin volver al borde violeta permanente.
+- Restricciones: no modificar Biblioteca ni el resto de Media; conservar morado para selección, foco de controles y arrastre.
+- Verificación: revisar tarjetas completas, recorridos, entradas agrupadas y películas Anime en reposo e interacción; ejecutar pruebas de interfaz y build instalable.
+
+**Resultado:** las superficies extensas del detalle quedan delimitadas por un gris neutro visible y sus divisores internos conservan un contraste secundario.
+
+**Consolidada por T-A80:** el contraste deja de ser una excepción local de Anime y pasa a formar parte del sistema compartido de tarjetas históricas.
+
+## T-A80 — Hacer visibles las tarjetas de Contenidos e Historial
+
+- Estado: Implementada el 2026-09-09 por petición directa de Nube.
+- Alcance: aplicar el contorno estructural compartido a las tarjetas de Contenidos, recorridos y entradas de Historial, separar cada registro como tarjeta y aumentar la información de contenido por salir del resumen.
+- Restricciones: usar un borde neutro en reposo, reservar el morado para foco, selección y arrastre, y conservar radios, datos y acciones existentes.
+- Verificación: comprobar reposo, hover, foco, recorridos, películas Anime, historial global, arrastre y destino de arrastre; ejecutar pruebas de interfaz y build TypeScript/Vite.
+
+**Resultado:** cada contenido y cada entrada histórica se reconoce como una tarjeta delimitada; el detalle deja de parecer texto flotante y el aviso de contenido por salir usa un tamaño legible.

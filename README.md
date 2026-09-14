@@ -171,8 +171,8 @@ No backend server is required.
 | Desktop | Tauri |
 | Backend | Rust |
 | Database | SQLite |
-| Styling | Tailwind CSS |
-| State Management | Zustand |
+| Styling | Area-scoped CSS and shared tokens |
+| State Management | Local React state |
 
 ---
 

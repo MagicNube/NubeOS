@@ -407,3 +407,6 @@ La integración `CF_HDROP` permanece como decisión local del módulo y se docum
 - [PDF.js: ejemplos oficiales](https://mozilla.github.io/pdf.js/examples/)
 - [Microsoft: formatos de archivos en el portapapeles](https://learn.microsoft.com/en-us/windows/win32/shell/clipboard)
 - [`clipboard-win`: formato `FileList`](https://docs.rs/clipboard-win/latest/clipboard_win/formats/struct.FileList.html)
+
+### Recuperación de sustituciones — T-023
+La corrección concreta staging y reconciliación de ADR-006 sin cambiar la ubicación de PDFs ni los contratos públicos. La migración 0039 añade una identidad técnica pdf_revision, nullable para documentos existentes. Antes de apartar el PDF se sincroniza un marcador privado con el token. La misma transacción que actualiza nombre y tamaño confirma ese token. Al iniciar, la reconciliación compara marcador y revisión: restaura el anterior si no se confirmó, conserva el nuevo si hubo commit. Los marcadores solo se retiran al finalizar la compensación o limpieza; no se infiere la versión por nombre, tamaño ni fecha, que pueden coincidir. No es historial de versiones ni un nuevo mecanismo de copias.

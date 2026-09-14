@@ -30,3 +30,10 @@ Esta composición no crea dependencia entre los dominios: cada módulo sigue cal
 ## Dependencias
 
 No se añaden dependencias. Se reutilizan React, Lucide y los clientes Tauri existentes.
+
+### Correcciones de Inicio y General — T-I16
+Inicio renueva fecha y semana al cambiar de día, recuperar foco o actualizar. Un check con fecha obsoleta refresca y solicita repetir la acción; nunca escribe ayer como si fuera hoy. Las consultas descartan respuestas antiguas y los fallos de escritura muestran aviso. Los nombres incluyen recetas archivadas y productos directos. El cascarón cierra la capa modal superior, incluidos alertdialog, antes de navegar; hover conserva la posición de los destinos. Las cabeceras de General muestran únicamente su título, conservando métricas y datos operativos.
+
+### T-I17 — Integración de escritorio
+Se registra primero el plugin oficial tauri-plugin-single-instance v2, antes del inicio automático y de abrir persistencia. Su callback muestra, restaura y enfoca main. El título se configura en Tauri con decorations false; React no dibuja otro título.
+Revisión de dependencia: plugin oficial mantenido junto a Tauri, limitado a escritorio y coordinación local, sin permisos frontend ni servicio remoto. Evita implementar mutex e IPC nativos propios con unsafe. El incremento del binario se comprueba al compilar. Referencia: https://v2.tauri.app/plugin/single-instance/

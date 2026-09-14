@@ -153,3 +153,16 @@ Los iteradores de `rusqlite::query_map` toman prestada la sentencia SQL. Si la c
 - **Qué problema evitan:** sobrescribir fechas antiguas al rejugar y crear accidentalmente dos partidas actuales para el mismo título.
 - **¿Es idiomático?:** sí. El dominio valida la intención y SQLite refuerza la invariante en persistencia; iniciar o finalizar combina el historial y el estado general dentro de una transacción.
 - **Ejemplo pequeño:** `CREATE UNIQUE INDEX ... WHERE finished_on IS NULL` permite muchas partidas terminadas, pero rechaza una segunda fila abierta del mismo juego.
+
+## Equivalencias físicas sin duplicar fuentes de verdad
+
+- Un paquete ya contiene dos hechos suficientes —peso total y unidades—, por lo que sus gramos por unidad se derivan y no se persisten como un tercer valor potencialmente contradictorio.
+- Un producto a granel no tiene esa relación: su peso aproximado por pieza sí es un dato opcional propio. El dominio lo valida y lo reutiliza para normalizar unidades en recetas, planificación y compra.
+- La equivalencia informativa puede ser decimal, pero una recomendación de compra expresada en piezas debe redondear hacia arriba. Mantener ese redondeo en Rust garantiza el mismo resultado en cualquier interfaz.
+- Una instancia planificada con origen de receta opcional permite añadir un producto directo sin inventar una receta oculta. Los mismos ingredientes planificados alimentan macros y compra, evitando dos recorridos de cálculo paralelos.
+
+## Revisión de integridad del 2026-09-09
+
+- T-R45: devolver un error no deshace escrituras SQLite anteriores en autocommit. La operación de historial y su sincronización deben compartir transacción. Una prueba con trigger de fallo detecta persistencia parcial en alta, edición y borrado.
+- T-023: nombre, tamaño e instante no identifican una versión PDF. Un token confirmado junto a los metadatos permite resolver el staging tras interrupciones. El marcador se sincroniza antes de mover archivos y se retira después de compensar; la recuperación debe ser idempotente también con metadatos idénticos.
+- T-031: una acción masiva no debe ejecutar una lista de comandos desde React. Rust selecciona el conjunto activo, reutiliza los intervalos de pausa y confirma todo junto, sin depender de filtros de presentación.

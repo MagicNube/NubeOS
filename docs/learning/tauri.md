@@ -116,3 +116,21 @@ Una vista aislada de Vite puede montar el mismo componente React con datos ficti
 - El Administrador de tareas puede conservar un acceso de inicio obsoleto aunque su destino ya no exista. La presencia visual de la entrada no garantiza que Windows tenga un comando ejecutable.
 - Una build de producción puede resolver su ubicación estable con `std::env::current_exe` y registrar esa ruta entre comillas en `HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run`. Las builds de desarrollo se excluyen para no guardar una ruta temporal de `target/debug`.
 - `reg.exe` se ejecuta con `CREATE_NO_WINDOW` para evitar una consola fugaz. Un fallo se registra, pero no bloquea la apertura ni el acceso a los datos locales de NubeOS.
+- El instalador NSIS puede conservar una carpeta elegida anteriormente, aunque todavía exista otra copia antigua en `%LOCALAPPDATA%`. Proceso abierto, registro de inicio y accesos directos deben verificarse contra el mismo ejecutable; comprobar solo que «NubeOS está instalada» no detecta esa duplicidad.
+- La desinstalación o limpieza de una versión anterior puede retirar un valor de inicio escrito demasiado pronto durante la actualización. Conviene verificar el registro después de que el instalador termine y de abrir la build definitiva.
+- Una comprobación inmediata tampoco demuestra persistencia: en este equipo un proceso externo retiró repetidamente el valor `Run` y neutralizó después el destino de un acceso en la carpeta Inicio. Una tarea programada al iniciar sesión, con `InteractiveToken`, privilegios normales, directorio de trabajo explícito y política `IgnoreNew`, ofrece un respaldo local comprobable sin abrir una consola ni duplicar instancias.
+- El icono incrustado en el ejecutable permite separar un recurso de bundle incorrecto de una caché visual de Explorer. La comprobación completa añade el icono real de la barra de tareas tras sustituir la instalación o reiniciar la sesión.
+
+### Diagnóstico verificado del 2026-09-11
+- Código 101 de la tarea y DatabaseTooFarAhead en stderr identificaron un ejecutable instalado anterior al esquema de datos, no un acceso .disabled que cerrara la aplicación. Compilar no sustituye la instalación; cotejar binarios y abrir exactamente el destino del inicio.
+- Consultar tareas y registro fuera del sandbox cuando las lecturas iniciales devuelvan ausencia o acceso denegado. Las observaciones anteriores no bastan para atribuir la desaparición de entradas a un proceso externo.
+- La build actual usa tauri-plugin-autostart. Mantener una sola vía de arranque: se verificó Run y su estado habilitado en StartupApproved y se deshabilitó la tarea redundante. Una tarea Running con resultado 267009 indica ejecución en curso, no otro fallo.
+
+- Tras el reinicio real del 2026-09-11 se confirmó el arranque correcto y una sola instancia. Un .lnk.disabled persistente no demuestra regeneración: comparar fechas y ubicación antes de atribuirlo a otra aplicación. El acceso antiguo se apartó de Inicio conservando copia.
+
+### Instancia única y título nativo — T-I17
+- Registrar single-instance antes de autostart y de abrir datos; un segundo lanzamiento muestra, restaura y enfoca main. Plugin oficial v2.4.4, coordinación por identificador de aplicación, permite proteger copias en rutas distintas.
+- El título de Tauri identifica la ventana en Windows aunque decorations sea false. La barra React sigue sin texto; no vaciar el título nativo para ocultar la cabecera.
+- El 2026-09-13 reapareció una instalación activa en AppData\Local\NubeOS. Actualizar y verificar ambas copias cuando la ventana pueda cerrarse; el binario compilado todavía no está instalado.
+
+- T-I17 instalada y verificada tras el cierre del usuario: un proceso sin ventana puede permanecer tras cerrar la versión antigua. Se comprobó ruta y ausencia de ventana antes de retirarlo con la autorización posterior. Ambas instalaciones se actualizaron y el plugin impidió duplicados entre rutas distintas. El título nativo y la restauración se comprobaron en Windows; el encabezado propio solo contiene controles.

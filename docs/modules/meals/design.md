@@ -33,9 +33,9 @@ La presentación pertenece a un producto y no existe por separado. Solo hay una 
 | Modo                     | Datos                                                              | Ejemplo                 |
 | ------------------------ | ------------------------------------------------------------------ | ----------------------- |
 | Paquete, bolsa o bandeja | gramos totales, precio por paquete en euros, unidades (opcionales) | tortillas: 320 g, 8 uds |
-| A granel por peso        | precio (opcional) por kg                                           | patata: 2,00 €/kg       |
+| A granel por peso        | precio (opcional) por kg y gramos aproximados por unidad (opcionales) | plátano: 1,50 €/kg, 150 g/ud |
 
-Si un paquete tiene gramos totales y número de unidades, el dominio deriva `gramos_por_unidad`. Sin ese dato, el producto solo admite cantidades en gramos. El nombre de compra se deriva del nombre actual del producto; no existe una etiqueta adicional.
+Si un paquete tiene gramos totales y número de unidades, el dominio deriva `gramos_por_unidad`. El formulario presenta la equivalencia, pero no permite introducirla como un tercer dato redundante. En `bulk_by_weight`, `gramos_por_unidad_aproximados` es opcional y habilita el uso por piezas sin cambiar que el precio se calcule por kg. Sin ninguno de esos datos, el producto solo admite cantidades en gramos. El nombre de compra se deriva del nombre actual del producto; no existe una etiqueta adicional.
 
 Los importes se introducen como texto decimal en euros, aceptando coma o punto. El comando Rust los valida y convierte a céntimos antes de persistirlos; SQLite continúa usando enteros para evitar errores de precisión monetaria. La interfaz no muestra céntimos ni controles de incremento.
 
@@ -66,6 +66,8 @@ La cantidad normalizada se deriva, no se edita como una segunda fuente de verdad
 Una comida contiene nombre, estado, ingredientes y cero o más momentos del día. Los momentos usan el mismo conjunto cerrado que el calendario (`breakfast`, `lunch`, `snack`, `dinner`, `extra`) y se persisten en una relación propia de receta y franja.
 
 Una instancia planificada contiene semana identificada por su lunes, día, franja, posición, referencia opcional a la comida base, marca de modificación e ingredientes propios.
+
+Una instancia creada directamente desde un producto no tiene comida base y nace con un único ingrediente. Reutiliza la misma entidad, tabla y cálculos: no existe una receta oculta ni una segunda clase de planificación. Su nombre visible se deriva del producto mientras siga siendo una instancia de un solo ingrediente.
 
 Al planificar una comida, se copia su composición. Cambiar después la receta base no modifica la instancia; cambiar los macros, el peso unitario o la presentación de un producto sí recalcula macros y compra de las instancias que lo usan. La marca de modificación indica que la composición de la instancia difiere de la receta copiada inicialmente.
 
@@ -112,7 +114,8 @@ pendiente = máximo(0, necesidad - disponible)
 ```
 
 - Paquete: se recomienda `techo(pendiente / gramos_por_paquete)` paquetes.
-- A granel por peso o presentación heredada: se recomienda el pendiente en gramos.
+- A granel por peso sin peso unitario o presentación heredada: se recomienda el pendiente en gramos.
+- A granel por peso con peso unitario aproximado: se recomienda el número entero de piezas que cubre el pendiente y se conserva el precio calculado por kg sobre ese peso recomendado.
 
 El sobrante teórico es lo disponible menos lo planificado, más la compra recomendada cuando corresponda. El coste usa los paquetes recomendados o el precio por kg, según exista. El cálculo puede producir fracciones de céntimo en productos a granel: Rust redondea cada entrada al céntimo más cercano y los totales suman esos céntimos enteros. Si faltan datos, el resultado declara ese cálculo no disponible en vez de inventarlo.
 
@@ -140,7 +143,7 @@ El orden de ingredientes es parte de la receta y de la instancia: React envía e
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | Productos     | listar y buscar activos, crear, editar, archivar, restaurar, consultar afectadas, retirar de recetas                           |
 | Comidas       | listar y buscar activas, filtrar por producto, crear, editar, archivar, restaurar, consultar detalle y macros                  |
-| Planificación | consultar semana, crear/editar/retirar instancia, mover y reordenar entre franjas                                              |
+| Planificación | consultar semana, crear desde comida o producto, editar/retirar instancia, mover y reordenar entre franjas                    |
 | Resúmenes     | consultar macros diarios y semanales                                                                                           |
 | Compra        | consultar proyección semanal, indicar disponibilidad, añadir o retirar una necesidad manual y marcar una línea como comprobada |
 
@@ -167,7 +170,7 @@ Los comandos de búsqueda reciben texto opcional y filtros de categoría o produ
 
 ## Persistencia y atomicidad
 
-SQLite persiste productos, presentaciones, comidas e ingredientes, instancias e ingredientes planificados, coberturas semanales (disponibilidad y estado de comprobación), necesidades manuales semanales y la unidad de visualización preferida de Compra para cada producto. Esta preferencia no duplica cantidades: la disponibilidad sigue guardándose en gramos. Las operaciones que modifican una comida con ingredientes, crean una instancia copiada o retiran un producto de varias recetas son atómicas.
+SQLite persiste productos, presentaciones —incluido el peso aproximado por unidad de los productos a granel—, comidas e ingredientes, instancias e ingredientes planificados, coberturas semanales (disponibilidad y estado de comprobación), necesidades manuales semanales y la unidad de visualización preferida de Compra para cada producto. Esta preferencia no duplica cantidades: la disponibilidad sigue guardándose en gramos. Las operaciones que modifican una comida con ingredientes, crean una instancia desde comida o producto o retiran un producto de varias recetas son atómicas.
 
 La implementación usará `rusqlite` con la feature `bundled`, de modo que SQLite se compile junto a la aplicación y no dependa de una DLL o instalación externa del equipo. Las migraciones usarán `rusqlite_migration` y archivos SQL versionados en `src-tauri/migrations/`, registrados explícitamente desde Rust.
 
@@ -179,7 +182,7 @@ Esta decisión concreta la ADR-001 sin cambiar la fuente de verdad local, la fro
 - Comidas: buscador y filtros alineados por producto (búsqueda incremental desde tres caracteres) y momento del día, formulario con momentos del día, selector de producto por ingrediente con el mismo umbral y selector de gramos/unidades condicionado por el producto. Los desplegables se cierran al perder el foco salvo que este se desplace a una de sus opciones. Las tarjetas reservan una altura común y muestran hasta tres ingredientes; al pulsarlas, un modal presenta la receta completa y los macros por ingrediente calculados por Rust. La tipografía secundaria de tarjeta conserva una lectura cómoda sin competir con el título.
 - Formularios: crear o editar productos y comidas se presenta en un diálogo modal centrado y desplazable. El fondo queda atenuado y sin interacción; el diálogo contiene el foco, se cierra mediante botón, fondo o `Escape` cuando no se está guardando y devuelve el foco al control que lo abrió.
 - Controles compartidos: los selectores nativos usan un único contenedor con `appearance: none`, chevrón violeta, margen derecho estable y los mismos estados de foco. Los desplegables personalizados reutilizan la misma geometría visual. El contenedor modal y el selector son primitivas de presentación compartidas con Documentos, sin compartir estados ni reglas de negocio.
-- Calendario: navegación semanal centrada, buscador de comidas, orden por momento del día y arrastre basado en eventos de puntero. React conserva solo el gesto temporal, muestra una copia visual bajo el cursor y calcula la posición según la mitad superior o inferior de una tarjeta; Rust valida y persiste el movimiento. Las tarjetas muestran el nombre, que puede ocupar varias líneas, y señales de estado solo cuando proceden: un asterisco discreto junto al título si la instancia tiene ajustes propios y `RefreshCw` violeta junto a él si la receta base tiene una actualización disponible. El selector para añadir mantiene cabecera, contexto, cierre y búsqueda fuera del contenedor desplazable de resultados. El detalle de instancia presenta ingredientes, macros por ingrediente y total; allí se expresa el estado con texto completo y se muestra la acción de sincronización. Los macros diarios aparecen una sola vez en una fila final bajo Extra y el control de añadido aparece bajo interacción.
+- Calendario: navegación semanal centrada, selector compacto con modos Comidas y Productos, orden de comidas por momento del día y arrastre basado en eventos de puntero. React conserva solo el gesto temporal, la búsqueda, la selección de producto y el borrador de cantidad; Rust valida la unidad, normaliza a gramos y persiste la instancia. Las tarjetas muestran el nombre, que puede ocupar varias líneas, y señales de estado solo cuando proceden: un asterisco discreto junto al título si la instancia tiene ajustes propios y `RefreshCw` violeta junto a él si la receta base tiene una actualización disponible. La cabecera, el cierre, el modo y la búsqueda quedan fuera del contenedor desplazable; la cantidad del producto seleccionado permanece en un pie estable. El detalle presenta ingredientes, macros por ingrediente y total. Los macros diarios aparecen una sola vez en una fila final bajo Extra y el control de añadido aparece bajo interacción.
 - Compra: reutiliza el foco semanal global del planificador y ofrece la misma navegación entre semanas. Sitúa el resumen de coste junto al título y la acción de añadir producto en el extremo derecho; muestra el cero monetario normalizado como `0,00 €`. Cada entrada mantiene a la izquierda la recomendación de compra, el contenido por paquete, el total recomendado y su coste; a la derecha, necesidad, pendiente, sobrante y control «Tienes». Si existe una conversión de gramos por unidad, React presenta junto a los gramos la equivalencia derivada para los cuatro valores, con dos decimales como máximo y sin persistirla como una segunda cantidad. Al cambiar el selector convierte el borrador actual y solicita a Rust que guarde la unidad preferida del producto. Permite filtrar visualmente por varios supermercados con lógica inclusiva, reutilizando el mismo control del catálogo sin cambiar la proyección calculada en Rust. Un diálogo permite buscar un producto activo, indicar gramos o unidades válidas y añadirlo solo a la semana enfocada. La entrada agregada muestra una indicación visible de que no forma parte del plan y ofrece retirar solo esa aportación. React aplica una espera breve al persistir cada pulsación de «Tienes» para no saturar los comandos.
 
 Los filtros, búsquedas, modales, formularios sin confirmar, semana enfocada y estados de carga/error son estado efímero de React. El contenedor del módulo conserva filtros y búsquedas al cambiar de pestaña durante la sesión, pero no los guarda tras cerrar la aplicación.

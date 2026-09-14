@@ -296,3 +296,21 @@ El flujo habitual exige aprobación y ejecución individual. Excepcionalmente, N
 - Verificación: build TypeScript y recorrido visual con progreso vacío, parcial y completo en escritorio y anchura reducida.
 
 **Resultado:** la vista comienza con una cabecera diaria compacta y las dos columnas operativas recuperan jerarquía sin hacer crecer sus tarjetas.
+
+## T-030 — Unificar la confirmación de borrado
+
+- Estado: Implementada el 2026-09-08.
+- Alcance: sustituir la confirmación nativa al eliminar una actividad por el diálogo compartido accesible.
+- Restricciones: no modificar historial ni reglas de recurrencia salvo tras confirmación explícita.
+- Verificación: build y recorrido de cancelación y eliminación.
+
+**Resultado:** la eliminación permanente de una actividad usa el diálogo compartido, con foco inicial en Cancelar y una acción destructiva explícita.
+
+## T-031 — Pausar todas las actividades y estabilizar el catálogo
+
+- Estado: Implementada por petición directa de Nube el 2026-09-09; comprobaciones técnicas superadas.
+- Alcance: botón Pausar todos para hábitos y tareas recurrentes activos, independientemente de filtros; transacción Rust, pausas existentes y archivo intactos. Retirar etiqueta En pausa, dejar reanudar visible en morado y aumentar frecuencia a 14 px sin mover columnas.
+- Verificación: pausa masiva idempotente, rollback completo, periodos excluidos y reanudación individual; teclado, hover, filas estables, pruebas Rust y build.
+
+
+**Resultado T-031:** implementada. Pausar todos usa una transacción Rust, conserva pausas anteriores, archivo e historial y excluye los días pausados. Reanudar sigue visible en morado, la frecuencia usa 14 px y no cambia de posición. Verificado en navegador con datos ficticios a 1280 y 850 px, sin desbordamiento horizontal del catálogo, y con pruebas Rust de rollback y reanudación.
