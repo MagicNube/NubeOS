@@ -116,6 +116,7 @@ pub enum PurchasePresentationDto {
     },
     BulkByWeight {
         price_eur_per_kilogram: Option<String>,
+        approximate_grams_per_unit: Option<f64>,
     },
     /// Se devuelve para visualizar datos antiguos, pero no se acepta al guardar.
     BulkByUnit {
@@ -293,10 +294,12 @@ fn presentation_from_dto(
         )?),
         PurchasePresentationDto::BulkByWeight {
             price_eur_per_kilogram,
-        } => Ok(PurchasePresentation::bulk_by_weight(
+            approximate_grams_per_unit,
+        } => Ok(PurchasePresentation::bulk_by_weight_with_unit(
             price_eur_per_kilogram
                 .map(|price| euros_to_cents(&price))
                 .transpose()?,
+            approximate_grams_per_unit.map(Grams::new).transpose()?,
         )),
         PurchasePresentationDto::BulkByUnit { .. } => {
             Err(DomainError::LegacyPresentationCannotBeSaved.into())
@@ -377,8 +380,10 @@ fn presentation_to_dto(presentation: &PurchasePresentation) -> PurchasePresentat
         },
         PurchasePresentationKind::BulkByWeight {
             price_cents_per_kilogram,
+            approximate_grams_per_unit,
         } => PurchasePresentationDto::BulkByWeight {
             price_eur_per_kilogram: price_cents_per_kilogram.map(cents_to_euros),
+            approximate_grams_per_unit: approximate_grams_per_unit.map(Grams::value),
         },
         PurchasePresentationKind::BulkByUnit {
             grams_per_unit,

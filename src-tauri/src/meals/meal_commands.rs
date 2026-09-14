@@ -97,6 +97,17 @@ pub struct CreatePlannedInstanceInput {
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct CreatePlannedProductInput {
+    pub week_start: String,
+    pub weekday: u8,
+    pub slot: MealSlotDto,
+    pub product_id: String,
+    pub quantity: f64,
+    pub unit: QuantityUnitDto,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UpdatePlannedInstanceInput {
     pub ingredients: Vec<MealIngredientInput>,
 }
@@ -387,6 +398,47 @@ pub fn create_planned_instance(
         let products = all_products(connection)?;
         instance_to_dto(&instance, &products, false)
     })
+}
+
+#[tauri::command]
+pub fn create_planned_product(
+    state: State<'_, ProductDatabase>,
+    input: CreatePlannedProductInput,
+) -> Result<PlannedInstanceDto, String> {
+    with_connection(&state, |connection| {
+        create_planned_product_for_connection(connection, input)
+    })
+}
+
+fn create_planned_product_for_connection(
+    connection: &mut rusqlite::Connection,
+    input: CreatePlannedProductInput,
+) -> Result<PlannedInstanceDto, String> {
+    let week_start = WeekStart::new(input.week_start).map_err(domain_error)?;
+    let slot = slot_from_dto(input.slot);
+    let ingredient_input = MealIngredientInput {
+        product_id: input.product_id,
+        quantity: input.quantity,
+        unit: input.unit,
+    };
+    let (ingredients, products) = ingredients_from_input(connection, &[ingredient_input], &[])?;
+    let position = PlanningRepository::new(connection)
+        .next_position(&week_start, input.weekday, slot)
+        .map_err(meal_error)?;
+    let instance = PlannedInstance::new(
+        PlannedInstanceId::new(Uuid::new_v4().to_string()).map_err(domain_error)?,
+        week_start,
+        input.weekday,
+        slot,
+        position,
+        None,
+        ingredients,
+    )
+    .map_err(domain_error)?;
+    PlanningRepository::new(connection)
+        .create(&instance)
+        .map_err(meal_error)?;
+    instance_to_dto(&instance, &products, false)
 }
 
 #[tauri::command]
@@ -1012,6 +1064,47 @@ mod tests {
         let updated_plan = weekly_plan_to_dto(&mut connection, week).unwrap();
         assert!(updated_plan.instances[0].is_recipe_updated);
         assert_eq!(updated_plan.instances[0].ingredients[0].quantity, 100.0);
+    }
+
+    #[test]
+    fn plan_command_creates_a_direct_product_without_a_hidden_recipe() {
+        let mut connection = rusqlite::Connection::open_in_memory().unwrap();
+        apply_migrations(&mut connection).unwrap();
+        let product = Product::new(
+            ProductId::new("banana").unwrap(),
+            "Plátano",
+            ProductCategory::Fruit,
+            NutrientsPer100Grams::new(1.1, 22.8, 0.3, 89.0).unwrap(),
+            None,
+            Some(
+                super::super::product::PurchasePresentation::bulk_by_weight_with_unit(
+                    Some(150),
+                    Some(super::super::product::Grams::new(150.0).unwrap()),
+                ),
+            ),
+        )
+        .unwrap();
+        ProductRepository::new(&mut connection)
+            .create(&product)
+            .unwrap();
+
+        let created = create_planned_product_for_connection(
+            &mut connection,
+            CreatePlannedProductInput {
+                week_start: "2026-08-03".to_owned(),
+                weekday: 0,
+                slot: MealSlotDto::Snack,
+                product_id: product.id().as_str().to_owned(),
+                quantity: 1.0,
+                unit: QuantityUnitDto::Units,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(created.source_meal_id, None);
+        assert_eq!(created.ingredients.len(), 1);
+        assert_eq!(created.ingredients[0].product_name, "Plátano");
+        assert_eq!(created.macros.kilocalories, 133.5);
     }
 
     #[test]

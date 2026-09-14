@@ -355,6 +355,14 @@ pub fn pause_habit(state: State<'_, ProductDatabase>, habit_id: String) -> Resul
 }
 
 #[tauri::command]
+pub fn pause_all_habits(state: State<'_, ProductDatabase>) -> Result<usize, String> {
+    with_connection(&state, |connection| {
+        Ok(HabitRepository::new(connection).pause_all(madrid_today())?)
+    })
+    .map_err(error_message)
+}
+
+#[tauri::command]
 pub fn resume_habit(state: State<'_, ProductDatabase>, habit_id: String) -> Result<(), String> {
     mutate_id(&state, habit_id, |repository, id| {
         repository.resume(id, madrid_today())

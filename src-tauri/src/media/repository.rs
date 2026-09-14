@@ -1763,7 +1763,8 @@ mod tests {
         let mut connection = Connection::open_in_memory().unwrap();
         apply_migrations(&mut connection).unwrap();
         // Restore only the pre-0036 constraint to exercise a populated upgrade.
-        connection.execute_batch("DROP INDEX idx_media_watch_sessions_run_episode;
+        connection.execute_batch("ALTER TABLE documents DROP COLUMN pdf_revision; ALTER TABLE meals_product_presentations DROP COLUMN approximate_grams_per_unit;
+            DROP INDEX idx_media_watch_sessions_run_episode;
             ALTER TABLE media_watch_sessions DROP COLUMN run_id;
             DROP TABLE media_content_runs;
             PRAGMA writable_schema=ON;
@@ -2092,7 +2093,7 @@ mod tests {
             .register_content_rewatch(&season.id, 6, NaiveDate::from_ymd_opt(2022, 5, 2).unwrap())
             .unwrap();
         let before = repository.find_aggregate(&anime.id).unwrap().unwrap();
-        connection.execute_batch("DROP INDEX idx_media_watch_sessions_run_episode; ALTER TABLE media_watch_sessions DROP COLUMN run_id; DROP TABLE media_content_runs; PRAGMA user_version=36;").unwrap();
+        connection.execute_batch("ALTER TABLE documents DROP COLUMN pdf_revision; ALTER TABLE meals_product_presentations DROP COLUMN approximate_grams_per_unit; DROP INDEX idx_media_watch_sessions_run_episode; ALTER TABLE media_watch_sessions DROP COLUMN run_id; DROP TABLE media_content_runs; PRAGMA user_version=36;").unwrap();
         apply_migrations(&mut connection).unwrap();
         let mut repository = MediaRepository::new(&mut connection);
         let after = repository.find_aggregate(&anime.id).unwrap().unwrap();

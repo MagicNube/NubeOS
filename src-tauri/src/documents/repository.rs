@@ -207,6 +207,18 @@ impl<'connection> DocumentRepository<'connection> {
         Ok(names)
     }
 
+    pub fn pdf_revisions(
+        &self,
+    ) -> Result<std::collections::HashMap<String, String>, DocumentRepositoryError> {
+        let mut statement = self.connection.prepare(
+            "SELECT stored_file_name, pdf_revision FROM documents WHERE pdf_revision IS NOT NULL",
+        )?;
+        let revisions = statement
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+            .collect::<Result<_, _>>()?;
+        Ok(revisions)
+    }
+
     pub fn query(
         &mut self,
         query: &DocumentQuery,
@@ -382,18 +394,20 @@ impl<'connection> DocumentRepository<'connection> {
         original_name: &str,
         size_bytes: u64,
         updated_at: SystemTime,
+        revision: &str,
     ) -> Result<(), DocumentRepositoryError> {
         let size = i64::try_from(size_bytes)
             .map_err(|_| DocumentRepositoryError::InvalidStoredValue("file_size_bytes"))?;
         let affected = transaction.execute(
             "UPDATE documents SET original_file_name=?2, normalized_original_file_name=?3,
-             file_size_bytes=?4, updated_at=?5 WHERE id=?1",
+             file_size_bytes=?4, updated_at=?5, pdf_revision=?6 WHERE id=?1",
             params![
                 id.to_string(),
                 original_name,
                 normalize_search(original_name),
                 size,
-                format_instant(updated_at)
+                format_instant(updated_at),
+                revision
             ],
         )?;
         if affected == 0 {

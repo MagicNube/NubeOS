@@ -71,6 +71,21 @@ pub fn calculate(
         }
         PurchasePresentationKind::BulkByWeight {
             price_cents_per_kilogram,
+            approximate_grams_per_unit: Some(grams_per_unit),
+        } => {
+            let units = (pending_grams / grams_per_unit.value()).ceil() as u32;
+            let grams = f64::from(units) * grams_per_unit.value();
+            ShoppingCalculation {
+                pending_grams,
+                recommendation: Some(PurchaseRecommendation::Units { units, grams }),
+                estimated_cost_cents: price_cents_per_kilogram
+                    .and_then(|price| rounded_cents(grams * price as f64 / 1000.0)),
+                theoretical_leftover_grams: Some((available_grams + grams - needed_grams).max(0.0)),
+            }
+        }
+        PurchasePresentationKind::BulkByWeight {
+            price_cents_per_kilogram,
+            approximate_grams_per_unit: None,
         } => ShoppingCalculation {
             pending_grams,
             recommendation: Some(PurchaseRecommendation::Grams {
@@ -122,6 +137,13 @@ fn zero_recommendation(product: &Product) -> PurchaseRecommendation {
             grams: 0.0,
         },
         Some(PurchasePresentationKind::BulkByUnit { .. }) => PurchaseRecommendation::Units {
+            units: 0,
+            grams: 0.0,
+        },
+        Some(PurchasePresentationKind::BulkByWeight {
+            approximate_grams_per_unit: Some(_),
+            ..
+        }) => PurchaseRecommendation::Units {
             units: 0,
             grams: 0.0,
         },
@@ -225,5 +247,32 @@ mod tests {
             calculate(&product, 100.0, 0.0).estimated_cost_cents,
             Some(34)
         );
+    }
+
+    #[test]
+    fn bulk_products_with_unit_weight_round_up_physical_pieces() {
+        let product = Product::new(
+            ProductId::new("banana").unwrap(),
+            "Plátano",
+            ProductCategory::Fruit,
+            NutrientsPer100Grams::new(0.0, 0.0, 0.0, 0.0).unwrap(),
+            None,
+            Some(PurchasePresentation::bulk_by_weight_with_unit(
+                Some(150),
+                Some(Grams::new(150.0).unwrap()),
+            )),
+        )
+        .unwrap();
+
+        let calculated = calculate(&product, 510.0, 0.0);
+        assert_eq!(
+            calculated.recommendation,
+            Some(PurchaseRecommendation::Units {
+                units: 4,
+                grams: 600.0,
+            })
+        );
+        assert_eq!(calculated.estimated_cost_cents, Some(90));
+        assert_eq!(calculated.theoretical_leftover_grams, Some(90.0));
     }
 }

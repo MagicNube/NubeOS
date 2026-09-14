@@ -164,6 +164,7 @@ pub(crate) enum PurchasePresentationKind {
     },
     BulkByWeight {
         price_cents_per_kilogram: Option<u64>,
+        approximate_grams_per_unit: Option<Grams>,
     },
     /// Se conserva exclusivamente al leer registros creados por versiones anteriores.
     BulkByUnit {
@@ -193,9 +194,17 @@ impl PurchasePresentation {
     }
 
     pub fn bulk_by_weight(price_cents_per_kilogram: Option<u64>) -> Self {
+        Self::bulk_by_weight_with_unit(price_cents_per_kilogram, None)
+    }
+
+    pub fn bulk_by_weight_with_unit(
+        price_cents_per_kilogram: Option<u64>,
+        approximate_grams_per_unit: Option<Grams>,
+    ) -> Self {
         Self {
             kind: PurchasePresentationKind::BulkByWeight {
                 price_cents_per_kilogram,
+                approximate_grams_per_unit,
             },
         }
     }
@@ -221,6 +230,10 @@ impl PurchasePresentation {
             } => Grams::new(total_grams.value() / f64::from(*units)).ok(),
             PurchasePresentationKind::BulkByUnit {
                 grams_per_unit: Some(grams_per_unit),
+                ..
+            } => Some(*grams_per_unit),
+            PurchasePresentationKind::BulkByWeight {
+                approximate_grams_per_unit: Some(grams_per_unit),
                 ..
             } => Some(*grams_per_unit),
             _ => None,
@@ -418,6 +431,29 @@ mod tests {
                 .unwrap()
                 .normalize_to_grams(&product),
             Err(DomainError::UnitsRequireGramsPerUnit)
+        );
+    }
+
+    #[test]
+    fn normalizes_units_from_an_approximate_bulk_weight() {
+        let product = Product::new(
+            ProductId::new("banana").unwrap(),
+            "Plátano",
+            ProductCategory::Fruit,
+            NutrientsPer100Grams::new(1.1, 22.8, 0.3, 89.0).unwrap(),
+            None,
+            Some(PurchasePresentation::bulk_by_weight_with_unit(
+                Some(150),
+                Some(Grams::new(150.0).unwrap()),
+            )),
+        )
+        .unwrap();
+
+        assert_eq!(
+            IngredientQuantity::units(2.0)
+                .unwrap()
+                .normalize_to_grams(&product),
+            Ok(Grams::new(300.0).unwrap())
         );
     }
 

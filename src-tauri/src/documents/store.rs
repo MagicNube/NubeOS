@@ -4,7 +4,7 @@ use std::{
     collections::{HashMap, HashSet},
     fmt,
     fs::{self, File},
-    io::Read,
+    io::{Read, Write},
     path::{Path, PathBuf},
 };
 
@@ -228,6 +228,72 @@ impl PdfStore {
             if !referenced.contains(name) {
                 self.move_to_recovery(&path, name)?;
             }
+        }
+        Ok(())
+    }
+
+    fn replacement_marker(&self, id: DocumentId) -> PathBuf {
+        self.staging_dir().join(format!("replace-{id}.journal"))
+    }
+
+    pub fn begin_replacement(
+        &self,
+        id: DocumentId,
+        token: PendingPdfToken,
+    ) -> Result<(), PdfStoreError> {
+        // create_new prevents another replacement from overwriting unfinished recovery work.
+        let mut marker = File::options()
+            .write(true)
+            .create_new(true)
+            .open(self.replacement_marker(id))?;
+        marker.write_all(token.to_string().as_bytes())?;
+        marker.sync_all()?;
+        Ok(())
+    }
+
+    pub fn finish_replacement(&self, id: DocumentId) -> Result<(), PdfStoreError> {
+        remove_if_exists(&self.replacement_marker(id))?;
+        Ok(())
+    }
+
+    pub fn reconcile_replacements(
+        &self,
+        revisions: &HashMap<String, String>,
+    ) -> Result<(), PdfStoreError> {
+        for entry in fs::read_dir(self.staging_dir())? {
+            let path = entry?.path();
+            let Some(id_text) = path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .and_then(|name| name.strip_prefix("replace-"))
+                .and_then(|name| name.strip_suffix(".journal"))
+            else {
+                continue;
+            };
+            let id = DocumentId::parse(id_text).map_err(|_| PdfStoreError::InvalidToken)?;
+            let token_text = fs::read_to_string(&path)?;
+            let stored_name = id.stored_file_name();
+            let retired = self.staging_dir().join(format!("retired-{stored_name}"));
+            // An incomplete marker can only precede any file movement.
+            if PendingPdfToken::parse(&token_text).is_err() {
+                if retired.exists() {
+                    return Err(PdfStoreError::InvalidToken);
+                }
+                self.finish_replacement(id)?;
+                continue;
+            }
+            if revisions.get(&stored_name) == Some(&token_text) {
+                // Do not discard recovery evidence if the committed file is missing.
+                self.managed_path(id)?;
+                self.remove_retired(&retired)?;
+            } else if retired.exists() {
+                let final_path = self.final_path(id);
+                if final_path.exists() {
+                    self.move_to_recovery(&final_path, &stored_name)?;
+                }
+                self.restore_retired(&retired, id)?;
+            }
+            self.finish_replacement(id)?;
         }
         Ok(())
     }

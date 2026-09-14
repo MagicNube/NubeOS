@@ -106,6 +106,12 @@ pub fn apply_migrations(connection: &mut Connection) -> rusqlite_migration::Resu
         M::up(include_str!(
             "../../migrations/0037_add_anime_content_runs.sql"
         )),
+        M::up(include_str!(
+            "../../migrations/0038_add_bulk_unit_weight.sql"
+        )),
+        M::up(include_str!(
+            "../../migrations/0039_add_document_pdf_revision.sql"
+        )),
     ])
     .to_latest(connection)
 }
@@ -412,7 +418,8 @@ impl<'connection> ProductRepository<'connection> {
             .connection
             .query_row(
                 "SELECT kind, total_grams, price_cents, units_per_package,
-                        price_cents_per_kilogram, grams_per_unit, price_cents_per_unit
+                        price_cents_per_kilogram, grams_per_unit, price_cents_per_unit,
+                        approximate_grams_per_unit
                  FROM meals_product_presentations WHERE product_id = ?1",
                 [product_id],
                 StoredPresentation::from_row,
@@ -478,12 +485,18 @@ fn insert_presentation(
         )?,
         PurchasePresentationKind::BulkByWeight {
             price_cents_per_kilogram,
+            approximate_grams_per_unit,
         } => transaction.execute(
             "INSERT INTO meals_product_presentations (
                  product_id, kind, label, total_grams, price_cents, units_per_package,
-                 price_cents_per_kilogram, grams_per_unit, price_cents_per_unit
-             ) VALUES (?1, 'bulk_by_weight', NULL, NULL, NULL, NULL, ?2, NULL, NULL)",
-            params![product.id().as_str(), price_cents_per_kilogram],
+                 price_cents_per_kilogram, grams_per_unit, price_cents_per_unit,
+                 approximate_grams_per_unit
+             ) VALUES (?1, 'bulk_by_weight', NULL, NULL, NULL, NULL, ?2, NULL, NULL, ?3)",
+            params![
+                product.id().as_str(),
+                price_cents_per_kilogram,
+                approximate_grams_per_unit.map(Grams::value),
+            ],
         )?,
         PurchasePresentationKind::BulkByUnit {
             grams_per_unit,
@@ -540,6 +553,7 @@ struct StoredPresentation {
     price_cents_per_kilogram: Option<u64>,
     grams_per_unit: Option<f64>,
     price_cents_per_unit: Option<u64>,
+    approximate_grams_per_unit: Option<f64>,
 }
 
 impl StoredPresentation {
@@ -552,6 +566,7 @@ impl StoredPresentation {
             price_cents_per_kilogram: row.get(4)?,
             grams_per_unit: row.get(5)?,
             price_cents_per_unit: row.get(6)?,
+            approximate_grams_per_unit: row.get(7)?,
         })
     }
 
@@ -567,8 +582,12 @@ impl StoredPresentation {
                 self.units_per_package,
             )
             .map_err(ProductRepositoryError::InvalidStoredProduct),
-            "bulk_by_weight" => Ok(PurchasePresentation::bulk_by_weight(
+            "bulk_by_weight" => Ok(PurchasePresentation::bulk_by_weight_with_unit(
                 self.price_cents_per_kilogram,
+                self.approximate_grams_per_unit
+                    .map(Grams::new)
+                    .transpose()
+                    .map_err(ProductRepositoryError::InvalidStoredProduct)?,
             )),
             "bulk_by_unit" => Ok(PurchasePresentation::legacy_bulk_by_unit(
                 self.grams_per_unit
@@ -663,6 +682,80 @@ mod tests {
             )
             .unwrap();
         assert_eq!(table_count, 10);
+    }
+
+    #[test]
+    fn bulk_unit_weight_migration_preserves_existing_presentations() {
+        let connection = Connection::open_in_memory().unwrap();
+        connection
+            .execute_batch(include_str!(
+                "../../migrations/0001_create_meals_products.sql"
+            ))
+            .unwrap();
+        connection
+            .execute(
+                "INSERT INTO meals_products (
+                    id, name, category, protein_grams_per_100g,
+                    carbohydrate_grams_per_100g, fat_grams_per_100g,
+                    kilocalories_per_100g, status
+                 ) VALUES ('banana', 'Plátano', 'fruit', 1.1, 22.8, 0.3, 89, 'active')",
+                [],
+            )
+            .unwrap();
+        connection
+            .execute(
+                "INSERT INTO meals_product_presentations (
+                    product_id, kind, price_cents_per_kilogram
+                 ) VALUES ('banana', 'bulk_by_weight', 150)",
+                [],
+            )
+            .unwrap();
+
+        connection
+            .execute_batch(include_str!(
+                "../../migrations/0038_add_bulk_unit_weight.sql"
+            ))
+            .unwrap();
+
+        let stored: (u64, Option<f64>) = connection
+            .query_row(
+                "SELECT price_cents_per_kilogram, approximate_grams_per_unit
+                 FROM meals_product_presentations WHERE product_id = 'banana'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(stored, (150, None));
+    }
+
+    #[test]
+    fn bulk_unit_weight_persists_with_the_weight_price() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        apply_migrations(&mut connection).unwrap();
+        let banana = Product::new(
+            ProductId::new("banana").unwrap(),
+            "Plátano",
+            ProductCategory::Fruit,
+            NutrientsPer100Grams::new(1.1, 22.8, 0.3, 89.0).unwrap(),
+            None,
+            Some(PurchasePresentation::bulk_by_weight_with_unit(
+                Some(150),
+                Some(Grams::new(150.0).unwrap()),
+            )),
+        )
+        .unwrap();
+        let mut repository = ProductRepository::new(&mut connection);
+        repository.create(&banana).unwrap();
+
+        let stored = repository.find_by_id(banana.id()).unwrap().unwrap();
+        assert_eq!(stored.grams_per_unit(), Some(Grams::new(150.0).unwrap()));
+        assert!(matches!(
+            stored.presentation().map(PurchasePresentation::kind),
+            Some(PurchasePresentationKind::BulkByWeight {
+                price_cents_per_kilogram: Some(150),
+                ..
+            })
+        ));
     }
 
     #[test]

@@ -218,6 +218,28 @@ impl<'connection> HabitRepository<'connection> {
         Ok(())
     }
 
+    pub fn pause_all(&mut self, today: NaiveDate) -> Result<usize, HabitRepositoryError> {
+        let transaction = self.connection.transaction()?;
+        let ids = {
+            let mut statement = transaction
+                .prepare("SELECT id FROM habits WHERE status = 'active' ORDER BY position, id")?;
+            let ids = statement
+                .query_map([], |row| row.get::<_, String>(0))?
+                .collect::<Result<Vec<_>, _>>()?;
+            ids
+        };
+        for value in &ids {
+            let id = HabitId::new(value.clone())?;
+            open_pause(&transaction, &id, today)?;
+        }
+        transaction.execute(
+            "UPDATE habits SET status = 'paused', updated_at = ?1 WHERE status = 'active'",
+            [now_string()],
+        )?;
+        transaction.commit()?;
+        Ok(ids.len())
+    }
+
     pub fn resume(&mut self, id: &HabitId, today: NaiveDate) -> Result<(), HabitRepositoryError> {
         if self.status(id)? != HabitStatus::Paused {
             return Ok(());
@@ -749,6 +771,80 @@ mod tests {
             schedule,
         )
         .unwrap()
+    }
+
+    #[test]
+    fn pause_all_is_atomic_idempotent_and_preserves_existing_pauses() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        apply_migrations(&mut connection).unwrap();
+        let yesterday = NaiveDate::from_ymd_opt(2026, 9, 8).unwrap();
+        let today = yesterday.succ_opt().unwrap();
+        let first = habit("Gimnasio", yesterday, Schedule::Daily);
+        let mut second = habit("Rutina", yesterday, Schedule::Daily);
+        second.kind = HabitKind::Routine;
+        let paused = habit("Pausado", yesterday, Schedule::Daily);
+        let archived = habit("Archivado", yesterday, Schedule::Daily);
+        {
+            let mut repository = HabitRepository::new(&mut connection);
+            for value in [&first, &second, &paused, &archived] {
+                repository.create(value).unwrap();
+            }
+            repository.pause(&paused.id, yesterday).unwrap();
+            repository.archive(&archived.id, yesterday).unwrap();
+            repository
+                .set_log(&first.id, yesterday, Some(HabitLogState::Completed))
+                .unwrap();
+        }
+        connection.execute_batch("CREATE TRIGGER reject_pause BEFORE UPDATE OF status ON habits WHEN OLD.status = 'active' BEGIN SELECT RAISE(ABORT, 'simulated failure'); END;").unwrap();
+        assert!(HabitRepository::new(&mut connection)
+            .pause_all(today)
+            .is_err());
+        let unchanged = HabitRepository::new(&mut connection)
+            .find_aggregate(&first.id)
+            .unwrap();
+        assert_eq!(unchanged.habit.status, HabitStatus::Active);
+        assert!(!unchanged.is_paused_on(today));
+        connection
+            .execute_batch("DROP TRIGGER reject_pause")
+            .unwrap();
+        let mut repository = HabitRepository::new(&mut connection);
+        assert_eq!(repository.pause_all(today).unwrap(), 2);
+        assert_eq!(repository.pause_all(today).unwrap(), 0);
+        for id in [&first.id, &second.id] {
+            let aggregate = repository.find_aggregate(id).unwrap();
+            assert!(aggregate.is_paused_on(today));
+            assert!(!aggregate.is_paused_on(yesterday));
+            let overview = crate::habits::service::build_overview(
+                &[aggregate],
+                crate::habits::service::OverviewKind::Day,
+                today,
+                today,
+            );
+            assert!(overview
+                .rows
+                .iter()
+                .flat_map(|row| &row.cells)
+                .all(|cell| !cell.applicable));
+        }
+        assert_eq!(repository.find_aggregate(&first.id).unwrap().logs.len(), 1);
+        assert!(repository
+            .find_aggregate(&paused.id)
+            .unwrap()
+            .is_paused_on(yesterday));
+        assert_eq!(
+            repository
+                .find_aggregate(&archived.id)
+                .unwrap()
+                .habit
+                .status,
+            HabitStatus::Archived
+        );
+        repository
+            .resume(&first.id, today.succ_opt().unwrap())
+            .unwrap();
+        let resumed = repository.find_aggregate(&first.id).unwrap();
+        assert!(resumed.is_paused_on(today));
+        assert!(!resumed.is_paused_on(today.succ_opt().unwrap()));
     }
 
     #[test]

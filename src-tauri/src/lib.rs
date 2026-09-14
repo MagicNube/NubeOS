@@ -31,19 +31,20 @@ use games::{
 };
 use habits::commands::{
     archive_habit, create_habit, delete_habit, get_habit_statistics, get_habits_overview,
-    list_habits, pause_habit, reorder_habits, restore_habit, resume_habit, set_habit_log,
-    update_habit,
+    list_habits, pause_all_habits, pause_habit, reorder_habits, restore_habit, resume_habit,
+    set_habit_log, update_habit,
 };
 use meals::commands::{
     archive_product, create_product, delete_product, list_products, restore_product,
     update_product, ProductDatabase,
 };
 use meals::meal_commands::{
-    add_manual_shopping_need, archive_meal, create_meal, create_planned_instance, delete_meal,
-    list_meals, list_shopping_list, list_week, meals_affected_by_product, move_planned_instance,
-    remove_manual_shopping_need, remove_planned_instance, remove_product_from_meals,
-    reorder_planned_instance, restore_meal, set_product_shopping_unit, set_shopping_entry_checked,
-    set_weekly_available, sync_planned_instance_from_meal, update_meal, update_planned_instance,
+    add_manual_shopping_need, archive_meal, create_meal, create_planned_instance,
+    create_planned_product, delete_meal, list_meals, list_shopping_list, list_week,
+    meals_affected_by_product, move_planned_instance, remove_manual_shopping_need,
+    remove_planned_instance, remove_product_from_meals, reorder_planned_instance, restore_meal,
+    set_product_shopping_unit, set_shopping_entry_checked, set_weekly_available,
+    sync_planned_instance_from_meal, update_meal, update_planned_instance,
 };
 use media::{
     commands::{
@@ -71,44 +72,6 @@ use reading::commands::{
     ReadingCoverState,
 };
 use reading::cover::ReadingCoverStore;
-
-#[cfg(all(target_os = "windows", not(debug_assertions)))]
-fn ensure_startup_registration() -> Result<(), String> {
-    use std::os::windows::process::CommandExt;
-
-    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-    let executable = std::env::current_exe()
-        .map_err(|error| format!("unable to resolve the NubeOS executable: {error}"))?;
-    let startup_command = format!("\"{}\"", executable.display());
-    let status = std::process::Command::new("reg.exe")
-        .args([
-            "add",
-            r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run",
-            "/v",
-            "NubeOS",
-            "/t",
-            "REG_SZ",
-            "/d",
-        ])
-        .arg(startup_command)
-        .args(["/f"])
-        .creation_flags(CREATE_NO_WINDOW)
-        .status()
-        .map_err(|error| format!("unable to register NubeOS at startup: {error}"))?;
-
-    if status.success() {
-        Ok(())
-    } else {
-        Err(format!(
-            "unable to register NubeOS at startup: reg.exe exited with {status}"
-        ))
-    }
-}
-
-#[cfg(any(not(target_os = "windows"), debug_assertions))]
-fn ensure_startup_registration() -> Result<(), String> {
-    Ok(())
-}
 
 /// Coloca la ventana principal en una pantalla secundaria cuando existe y, en
 /// cualquier caso, inicia NubeOS maximizado pero conserva el modo ventana.
@@ -140,10 +103,37 @@ fn configure_main_window(window: &WebviewWindow) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+
+    // Debe preceder al resto de plugins y a la apertura de los datos locales.
+    #[cfg(desktop)]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _, _| {
+        if let Some(window) = app.get_webview_window("main") {
+            for result in [window.show(), window.unminimize(), window.set_focus()] {
+                if let Err(error) = result {
+                    eprintln!("unable to activate the existing NubeOS window: {error}");
+                }
+            }
+        }
+    }));
+
+    #[cfg(desktop)]
+    let builder = builder.plugin(tauri_plugin_autostart::init(
+        tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+        None,
+    ));
+
+    builder
         .setup(|app| {
-            if let Err(error) = ensure_startup_registration() {
-                eprintln!("{error}");
+            #[cfg(all(desktop, not(debug_assertions)))]
+            {
+                use tauri_plugin_autostart::ManagerExt;
+
+                // Se ejecuta en cada arranque de una build instalada para que
+                // las actualizaciones reparen cualquier ruta antigua del .exe.
+                if let Err(error) = app.autolaunch().enable() {
+                    eprintln!("unable to enable NubeOS autostart: {error}");
+                }
             }
 
             if let Some(window) = app.get_webview_window("main") {
@@ -162,10 +152,12 @@ pub fn run() {
                     .connection
                     .lock()
                     .map_err(|_| "database lock poisoned")?;
+                let revisions = DocumentRepository::new(&mut connection).pdf_revisions()?;
                 let referenced = DocumentRepository::new(&mut connection)
                     .stored_file_names()?
                     .into_iter()
                     .collect();
+                store.reconcile_replacements(&revisions)?;
                 store.reconcile(&referenced)?;
             }
             app.manage(database);
@@ -202,6 +194,7 @@ pub fn run() {
             remove_product_from_meals,
             list_week,
             create_planned_instance,
+            create_planned_product,
             update_planned_instance,
             sync_planned_instance_from_meal,
             remove_planned_instance,
@@ -235,6 +228,7 @@ pub fn run() {
             update_habit,
             set_habit_log,
             pause_habit,
+            pause_all_habits,
             resume_habit,
             archive_habit,
             restore_habit,
