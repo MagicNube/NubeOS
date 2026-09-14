@@ -49,11 +49,11 @@ impl From<rusqlite::Error> for ReadingRepositoryError {
 }
 
 pub struct ReadingRepository<'connection> {
-    connection: &'connection mut Connection,
+    connection: &'connection Connection,
 }
 
 impl<'connection> ReadingRepository<'connection> {
-    pub fn new(connection: &'connection mut Connection) -> Self {
+    pub fn new(connection: &'connection Connection) -> Self {
         Self { connection }
     }
 
@@ -229,6 +229,16 @@ impl<'connection> ReadingRepository<'connection> {
     }
 
     pub fn create_run(&mut self, run: &ReadingRun) -> Result<(), ReadingRepositoryError> {
+        let transaction = self.connection.unchecked_transaction()?;
+        ReadingRepository::new(&transaction).create_run_in_transaction(run)?;
+        transaction.commit()?;
+        Ok(())
+    }
+
+    fn create_run_in_transaction(
+        &mut self,
+        run: &ReadingRun,
+    ) -> Result<(), ReadingRepositoryError> {
         if let Some(start) = run.started_on {
             let first: Option<String> = self.connection.query_row(
                 "SELECT MIN(started_on) FROM reading_runs WHERE book_id=?1",
@@ -254,6 +264,16 @@ impl<'connection> ReadingRepository<'connection> {
     }
 
     pub fn update_run(&mut self, run: &ReadingRun) -> Result<(), ReadingRepositoryError> {
+        let transaction = self.connection.unchecked_transaction()?;
+        ReadingRepository::new(&transaction).update_run_in_transaction(run)?;
+        transaction.commit()?;
+        Ok(())
+    }
+
+    fn update_run_in_transaction(
+        &mut self,
+        run: &ReadingRun,
+    ) -> Result<(), ReadingRepositoryError> {
         if let Some(start) = run.started_on {
             let first: Option<(String, String)> = self
                 .connection
@@ -284,6 +304,16 @@ impl<'connection> ReadingRepository<'connection> {
     }
 
     pub fn delete_run(&mut self, id: &ReadingRunId) -> Result<BookId, ReadingRepositoryError> {
+        let transaction = self.connection.unchecked_transaction()?;
+        let book_id = ReadingRepository::new(&transaction).delete_run_in_transaction(id)?;
+        transaction.commit()?;
+        Ok(book_id)
+    }
+
+    fn delete_run_in_transaction(
+        &mut self,
+        id: &ReadingRunId,
+    ) -> Result<BookId, ReadingRepositoryError> {
         let run = self
             .find_run(id)?
             .ok_or(ReadingRepositoryError::RunNotFound)?;
@@ -478,9 +508,55 @@ mod tests {
     }
 
     #[test]
+    fn history_writes_roll_back_when_book_synchronization_fails() {
+        let connection = database();
+        let book = book();
+        let mut repository = ReadingRepository::new(&connection);
+        repository.create(&book).unwrap();
+        let mut run = ReadingRun::new(
+            book.id.clone(),
+            Some(NaiveDate::from_ymd_opt(2026, 9, 1).unwrap()),
+            None,
+            false,
+            Utc::now().to_rfc3339(),
+        )
+        .unwrap();
+        let reject = "CREATE TRIGGER reject_book_update BEFORE UPDATE ON reading_books BEGIN SELECT RAISE(ABORT, 'simulated failure'); END;";
+        connection.execute_batch(reject).unwrap();
+        assert!(repository.create_run(&run).is_err());
+        assert!(repository.runs_for(&book.id).unwrap().is_empty());
+        connection
+            .execute_batch("DROP TRIGGER reject_book_update")
+            .unwrap();
+        repository.create_run(&run).unwrap();
+        let before = repository.find(&book.id).unwrap().unwrap();
+        connection.execute_batch(reject).unwrap();
+        run.update(
+            run.started_on,
+            Some(NaiveDate::from_ymd_opt(2026, 9, 2).unwrap()),
+            true,
+            Utc::now().to_rfc3339(),
+        )
+        .unwrap();
+        assert!(repository.update_run(&run).is_err());
+        assert!(repository
+            .find_run(&run.id)
+            .unwrap()
+            .unwrap()
+            .finished_on
+            .is_none());
+        assert!(repository.delete_run(&run.id).is_err());
+        assert_eq!(repository.runs_for(&book.id).unwrap().len(), 1);
+        let after = repository.find(&book.id).unwrap().unwrap();
+        assert_eq!(after.status, before.status);
+        assert_eq!(after.started_on, before.started_on);
+        assert_eq!(after.finished_on, before.finished_on);
+    }
+
+    #[test]
     fn persists_and_requires_archive_before_delete() {
-        let mut connection = database();
-        let mut repository = ReadingRepository::new(&mut connection);
+        let connection = database();
+        let mut repository = ReadingRepository::new(&connection);
         let book = book();
         repository.create(&book).unwrap();
         assert_eq!(repository.list(false).unwrap().len(), 1);
@@ -495,8 +571,8 @@ mod tests {
 
     #[test]
     fn rereads_preserve_previous_periods_and_synchronize_status() {
-        let mut connection = database();
-        let mut repository = ReadingRepository::new(&mut connection);
+        let connection = database();
+        let mut repository = ReadingRepository::new(&connection);
         let book = book();
         repository.create(&book).unwrap();
         let start = NaiveDate::from_ymd_opt(2026, 8, 1).unwrap();
@@ -569,8 +645,8 @@ mod tests {
 
     #[test]
     fn a_reread_cannot_precede_the_first_reading() {
-        let mut connection = database();
-        let mut repository = ReadingRepository::new(&mut connection);
+        let connection = database();
+        let mut repository = ReadingRepository::new(&connection);
         let book = book();
         repository.create(&book).unwrap();
         let first = ReadingRun::new(

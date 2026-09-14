@@ -1,7 +1,7 @@
 # Tareas — Lectura
 
 - Estado: Aprobado por Nube (módulo cerrado)
-- Última actualización: 2026-09-06
+- Última actualización: 2026-09-09
 - Aprobación de cierre: Nube, 2026-09-04. Cierre del alcance implementado; los trabajos futuros y las verificaciones de instalación no se consideran realizados por esta aprobación.
 
 ## T-R01 — Auditar el modelo de Notion
@@ -294,3 +294,30 @@ Las etiquetas de género de tarjeta y detalle adoptan la misma geometría y tipo
 - Estado: Implementada; revisión visual pendiente de Nube.
 - Alcance: separar el orden temporal del predeterminado, mantener Título A–Z como inicio neutro y ofrecer Guardar como predeterminado dentro del panel de ordenación compartido.
 - Verificación: elegir, guardar y sustituir una preferencia; TypeScript/Vite correcto.
+
+## T-R43 — Corregir cierres y confirmaciones accesibles
+
+- Estado: Implementada el 2026-09-08.
+- Alcance: nombrar el cierre del formulario de lecturas y usar el diálogo compartido para descartes y eliminaciones.
+- Restricciones: no modificar periodos, estados derivados ni persistencia.
+- Verificación: build, pruebas de interfaz y recorrido por teclado de formularios e historial.
+
+**Resultado:** el cierre del formulario tiene nombre accesible y descartes, eliminaciones e historial comparten el mismo diálogo con foco seguro.
+
+## T-R44 — Delimitar las tarjetas de Historial
+
+- Estado: Implementada el 2026-09-09 por petición directa de Nube.
+- Alcance: aplicar el contorno estructural compartido a las lecturas del detalle y de la vista Historial.
+- Restricciones: conservar contenido, acciones en hover o foco y geometría existente; el borde permanece neutro.
+- Verificación: revisar reposo, hover, foco y adaptación estrecha; ejecutar pruebas de interfaz y build TypeScript/Vite.
+
+**Resultado:** cada periodo de lectura se percibe como una tarjeta independiente y coherente con el resto de Media.
+
+## T-R45 — Corregir la atomicidad del historial (R-01)
+
+- Estado: Implementada por petición directa de Nube el 2026-09-09; comprobaciones técnicas superadas.
+- Alcance: guardar alta, edición o eliminación y sincronización del libro en una transacción.
+- Verificación: fallos inducidos entre escrituras no conservan cambios parciales; pruebas Rust y Clippy.
+
+
+**Resultado T-R45:** implementada. Alta, edición y borrado del historial son atómicos; el fallo inducido de sincronización revierte registros y conserva el libro. Pasan 157 pruebas Rust y Clippy estricto.

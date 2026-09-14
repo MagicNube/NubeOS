@@ -105,3 +105,6 @@ Al crear un periodo, React compara el estado actual con el sugerido por las fech
 ## Encuadre de portada
 
 La portada conserva posición horizontal, posición vertical y zoom entre `1×` y `2×`. El dominio Rust valida y persiste el encuadre; React reutiliza el editor compartido de portadas y únicamente presenta la vista previa. Sustituir o retirar la imagen restablece el encuadre centrado.
+
+### Integridad del historial — T-R45
+Cada mutación y la sincronización de fechas y estado del libro forman una transacción SQLite única; un error revierte ambas escrituras.

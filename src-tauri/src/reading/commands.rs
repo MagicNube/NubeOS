@@ -229,11 +229,11 @@ pub fn list_reading_books(
     database: State<'_, ProductDatabase>,
     input: ListReadingBooksInputDto,
 ) -> Result<Vec<ReadingBookDto>, String> {
-    let mut connection = database
+    let connection = database
         .connection
         .lock()
         .map_err(|_| "No se ha podido acceder a la base de datos.".to_owned())?;
-    let mut books = ReadingRepository::new(&mut connection)
+    let mut books = ReadingRepository::new(&connection)
         .list(input.archived)
         .map_err(|error| error.to_string())?;
     let search = input
@@ -303,11 +303,11 @@ pub fn create_reading_run(
         Utc::now().to_rfc3339(),
     )
     .map_err(|error| error.to_string())?;
-    let mut connection = database
+    let connection = database
         .connection
         .lock()
         .map_err(|_| "No se ha podido acceder a la base de datos.".to_owned())?;
-    let mut repository = ReadingRepository::new(&mut connection);
+    let mut repository = ReadingRepository::new(&connection);
     repository
         .find(&id)
         .map_err(|error| error.to_string())?
@@ -325,11 +325,11 @@ pub fn finish_reading_run(
     finished_on: String,
 ) -> Result<ReadingDetailDto, String> {
     let id = ReadingRunId::parse(&run_id).map_err(|error| error.to_string())?;
-    let mut connection = database
+    let connection = database
         .connection
         .lock()
         .map_err(|_| "No se ha podido acceder a la base de datos.".to_owned())?;
-    let mut repository = ReadingRepository::new(&mut connection);
+    let mut repository = ReadingRepository::new(&connection);
     let mut run = repository
         .find_run(&id)
         .map_err(|error| error.to_string())?
@@ -355,11 +355,11 @@ pub fn update_reading_run(
     input: ReadingRunInputDto,
 ) -> Result<ReadingDetailDto, String> {
     let id = ReadingRunId::parse(&run_id).map_err(|error| error.to_string())?;
-    let mut connection = database
+    let connection = database
         .connection
         .lock()
         .map_err(|_| "No se ha podido acceder a la base de datos.".to_owned())?;
-    let mut repository = ReadingRepository::new(&mut connection);
+    let mut repository = ReadingRepository::new(&connection);
     let mut run = repository
         .find_run(&id)
         .map_err(|error| error.to_string())?
@@ -384,11 +384,11 @@ pub fn delete_reading_run(
     run_id: String,
 ) -> Result<ReadingDetailDto, String> {
     let id = ReadingRunId::parse(&run_id).map_err(|error| error.to_string())?;
-    let mut connection = database
+    let connection = database
         .connection
         .lock()
         .map_err(|_| "No se ha podido acceder a la base de datos.".to_owned())?;
-    let mut repository = ReadingRepository::new(&mut connection);
+    let mut repository = ReadingRepository::new(&connection);
     let book_id = repository
         .delete_run(&id)
         .map_err(|error| error.to_string())?;
@@ -406,11 +406,11 @@ pub fn list_reading_history(
         .map(BookId::parse)
         .transpose()
         .map_err(|error| error.to_string())?;
-    let mut connection = database
+    let connection = database
         .connection
         .lock()
         .map_err(|_| "No se ha podido acceder a la base de datos.".to_owned())?;
-    let mut repository = ReadingRepository::new(&mut connection);
+    let mut repository = ReadingRepository::new(&connection);
     let books = repository.list(false).map_err(|error| error.to_string())?;
     Ok(repository
         .all_runs()
@@ -441,11 +441,11 @@ fn reading_detail(
     database: State<'_, ProductDatabase>,
     id: &BookId,
 ) -> Result<ReadingDetailDto, String> {
-    let mut connection = database
+    let connection = database
         .connection
         .lock()
         .map_err(|_| "No se ha podido acceder a la base de datos.".to_owned())?;
-    reading_detail_from_repository(&mut ReadingRepository::new(&mut connection), id)
+    reading_detail_from_repository(&mut ReadingRepository::new(&connection), id)
 }
 
 fn reading_detail_from_repository(
@@ -476,7 +476,7 @@ pub fn create_reading_book(
         Utc::now().to_rfc3339(),
     )
     .map_err(|error| error.to_string())?;
-    let mut connection = database
+    let connection = database
         .connection
         .lock()
         .map_err(|_| "No se ha podido acceder a la base de datos.".to_owned())?;
@@ -487,7 +487,7 @@ pub fn create_reading_book(
     if let Some(token) = cover_token.as_deref() {
         book.cover = Some(store.promote(token).map_err(|error| error.to_string())?);
     }
-    if let Err(error) = ReadingRepository::new(&mut connection).create(&book) {
+    if let Err(error) = ReadingRepository::new(&connection).create(&book) {
         if let Some(cover) = book.cover.as_ref() {
             let _ = store.delete(cover);
         }
@@ -507,11 +507,11 @@ pub fn update_reading_book(
     let cover_token = input.cover_token.clone();
     let remove_cover = input.remove_cover;
     let draft: BookDraft = input.try_into()?;
-    let mut connection = database
+    let connection = database
         .connection
         .lock()
         .map_err(|_| "No se ha podido acceder a la base de datos.".to_owned())?;
-    let mut repository = ReadingRepository::new(&mut connection);
+    let mut repository = ReadingRepository::new(&connection);
     let mut book = repository
         .find(&id)
         .map_err(|error| error.to_string())?
@@ -557,11 +557,11 @@ pub fn set_reading_book_favorite(
     favorite: bool,
 ) -> Result<ReadingBookDto, String> {
     let id = BookId::parse(&book_id).map_err(|error| error.to_string())?;
-    let mut connection = database
+    let connection = database
         .connection
         .lock()
         .map_err(|_| "No se ha podido acceder a la base de datos.".to_owned())?;
-    let mut repository = ReadingRepository::new(&mut connection);
+    let mut repository = ReadingRepository::new(&connection);
     repository
         .set_favorite(&id, favorite)
         .map_err(|error| error.to_string())?;
@@ -594,11 +594,11 @@ fn set_archived(
     archived: bool,
 ) -> Result<(), String> {
     let id = BookId::parse(&book_id).map_err(|error| error.to_string())?;
-    let mut connection = database
+    let connection = database
         .connection
         .lock()
         .map_err(|_| "No se ha podido acceder a la base de datos.".to_owned())?;
-    ReadingRepository::new(&mut connection)
+    ReadingRepository::new(&connection)
         .archive(&id, archived)
         .map_err(|error| error.to_string())
 }
@@ -610,11 +610,11 @@ pub fn delete_reading_book(
     book_id: String,
 ) -> Result<(), String> {
     let id = BookId::parse(&book_id).map_err(|error| error.to_string())?;
-    let mut connection = database
+    let connection = database
         .connection
         .lock()
         .map_err(|_| "No se ha podido acceder a la base de datos.".to_owned())?;
-    let mut repository = ReadingRepository::new(&mut connection);
+    let mut repository = ReadingRepository::new(&connection);
     let cover = repository
         .find(&id)
         .map_err(|error| error.to_string())?
@@ -640,11 +640,11 @@ pub fn read_reading_cover(
     book_id: String,
 ) -> Result<tauri::ipc::Response, String> {
     let id = BookId::parse(&book_id).map_err(|error| error.to_string())?;
-    let mut connection = database
+    let connection = database
         .connection
         .lock()
         .map_err(|_| "No se ha podido acceder a la base de datos.".to_owned())?;
-    let cover = ReadingRepository::new(&mut connection)
+    let cover = ReadingRepository::new(&connection)
         .find(&id)
         .map_err(|error| error.to_string())?
         .and_then(|book| book.cover)
@@ -667,11 +667,11 @@ pub fn set_reading_cover_crop(
     zoom: f64,
 ) -> Result<ReadingBookDto, String> {
     let id = BookId::parse(&book_id).map_err(|error| error.to_string())?;
-    let mut connection = database
+    let connection = database
         .connection
         .lock()
         .map_err(|_| "No se ha podido acceder a la base de datos.".to_owned())?;
-    let mut repository = ReadingRepository::new(&mut connection);
+    let mut repository = ReadingRepository::new(&connection);
     let mut book = repository
         .find(&id)
         .map_err(|error| error.to_string())?
@@ -692,11 +692,11 @@ pub fn get_reading_statistics(
     database: State<'_, ProductDatabase>,
     input: ReadingStatisticsFilterDto,
 ) -> Result<ReadingStatisticsDto, String> {
-    let mut connection = database
+    let connection = database
         .connection
         .lock()
         .map_err(|_| "No se ha podido acceder a la base de datos.".to_owned())?;
-    let mut books = ReadingRepository::new(&mut connection)
+    let mut books = ReadingRepository::new(&connection)
         .list(false)
         .map_err(|error| error.to_string())?;
     if let Some(genre) = input.genre.filter(|value| !value.trim().is_empty()) {
