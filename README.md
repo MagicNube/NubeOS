@@ -2,222 +2,123 @@
 
 # NubeOS
 
-### My Personal Productivity Operating System
+**A private desktop workspace for everyday life.**
 
-**One application. Everything I need. Nothing I don't.**
+Habits, meals, documents and media collections in one local-first application.
 
-A local-first desktop application that replaces the dozens of tools I used every day with a single, unified workspace tailored to my own workflow.
+[Explore the project](https://jesuscaravaca.web.app/) · [Current state](docs/current-state.md) · [Architecture](docs/architecture.md)
 
-Built with **React, Tauri, Rust and SQLite**.
+![React](https://img.shields.io/badge/React-149eca?style=flat-square&logo=react&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178c6?style=flat-square&logo=typescript&logoColor=white)
+![Rust](https://img.shields.io/badge/Rust-Tauri-292929?style=flat-square&logo=rust)
+![SQLite](https://img.shields.io/badge/SQLite-003b57?style=flat-square&logo=sqlite)
 
-<br>
-
-![React](https://img.shields.io/badge/React-61DAFB?style=flat-square&logo=react&logoColor=black)
-![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)
-![Rust](https://img.shields.io/badge/Rust-000000?style=flat-square&logo=rust)
-![Tauri](https://img.shields.io/badge/Tauri-FFC131?style=flat-square&logo=tauri&logoColor=black)
-![SQLite](https://img.shields.io/badge/SQLite-003B57?style=flat-square&logo=sqlite)
-
-<br><br>
-
-<img src="./docs/assets/demo.gif" alt="NubeOS Demo">
+<img src="docs/assets/demo.gif" alt="NubeOS desktop workspace and its connected personal organisation modules" width="100%">
 
 </div>
 
----
+## Why I built it
 
-# Why I built NubeOS
+I used separate apps for nutrition and Notion for books, series and habits. As those collections grew, relationships between seasons, episodes and repeated viewings became awkward to maintain. Documents were scattered in folders, and I had no connected shopping planner.
 
-Over the years I ended up relying on dozens of different applications.
+I wanted one application I could keep open and adapt to the way I actually organise my day. NubeOS grew from those personal needs, with local data and a focus on interface design.
 
-One app for habits.
+## What is implemented
 
-Another for meal planning.
+| Area | What it does |
+| --- | --- |
+| Dashboard | Brings together today's habits, meals, documents and entertainment. |
+| Meals and shopping | Connects products, nutrition, weekly plans and derived shopping lists. |
+| Habits | Tracks recurring habits and tasks, history and statistics. |
+| Documents | Manages local PDFs with metadata, tags, expiry dates and an integrated viewer. |
+| Reading | Organises books, reading periods, rereads, ratings and history. |
+| Media and games | Tracks anime, series, films and video games, with separate progress and repeat histories. |
 
-Another for finances.
+**Not implemented yet:** finance and project-management modules, full-data export/restore and cloud sync. These are future work, not features of the current app.
 
-Another for reading.
+## The interface
 
-Another for documents.
+<img src="docs/assets/screenshots/dashboard.jpeg" alt="NubeOS dashboard with the daily overview" width="100%">
 
-Another for anime.
+<details>
+<summary>Meals, planning, habits and documents</summary>
 
-None of them worked together, many required subscriptions, and all forced me to adapt to someone else's workflow.
+### Meal planning
 
-So I decided to build the software I actually wanted.
+<img src="docs/assets/screenshots/planner.jpeg" alt="Weekly meal planner and shopping workflow" width="100%">
+<img src="docs/assets/screenshots/meals.jpeg" alt="Food and nutrition management" width="100%">
 
-**NubeOS is my own operating system for everyday life.**
+### Habits
 
-Every module exists because I genuinely use it.
+<img src="docs/assets/screenshots/habits.jpeg" alt="Recurring habits and completion tracking" width="100%">
 
-Nothing is included unless it solves a real problem for me.
+### Documents
 
-**Instead of adapting my workflow to existing software, I built software that adapts to my workflow.**
+<img src="docs/assets/screenshots/docs.jpeg" alt="Local document library" width="100%">
+<img src="docs/assets/screenshots/document-preview.jpeg" alt="PDF preview inside NubeOS" width="100%">
 
----
+</details>
 
-# ✨ Features
+<details>
+<summary>Reading and entertainment</summary>
 
-- 🏠 Unified personal dashboard
-- 🍽 Meal planner with automatic shopping list generation
-- 💰 Personal finance module *(planned)*
-- 📄 Private document manager with built-in PDF viewer
-- ✅ Habit tracker
-- 📚 Reading library and statistics
-- 🎮 Video game tracker
-- 🎬 Movie tracker
-- 📺 TV series tracker
-- 🍿 Anime tracker
-- 📦 Local-first architecture
-- 🔒 No cloud dependency
-- ⚡ Native desktop performance
+<img src="docs/assets/screenshots/reading.jpeg" alt="Reading library and book tracking" width="100%">
+<img src="docs/assets/screenshots/anime.jpeg" alt="Anime library with progress and ratings" width="100%">
 
----
+</details>
 
-# 📸 Screenshots
+## Architecture
 
-## Dashboard
+```text
+React / TypeScript
+       ↓ Tauri commands
+Rust application and domain logic
+       ↓
+SQLite + managed local files
+```
 
-Everything important at a glance.
+React owns presentation and temporary UI state. Small Tauri commands delegate to Rust, where domain validation and persistence live. SQLite evolves through versioned migrations; PDFs and covers are managed as local files. Daily use does not require a cloud account or a backend server.
 
-<p align="center">
-<img src="./docs/assets/screenshots/dashboard.jpeg" width="100%">
-</p>
+<details>
+<summary>Architecture diagram</summary>
 
-## Meals
+<img src="docs/assets/architecture.png" alt="React, Tauri commands, Rust domain logic and local persistence" width="100%">
 
-Manage recipes, ingredients and nutritional information.
+</details>
 
-<p align="center">
-<img src="./docs/assets/screenshots/meals.jpeg" width="100%">
-</p>
+## Run locally
 
-## Weekly Planner
+Install Node.js 24, pnpm, stable Rust and the [native prerequisites for Tauri](https://v2.tauri.app/start/prerequisites/). On Windows these include Microsoft C++ Build Tools and WebView2.
 
-Plan your meals for the week and automatically generate your shopping list.
-
-<p align="center">
-<img src="./docs/assets/screenshots/planner.jpeg" width="100%">
-</p>
-
-## Habit Tracking
-
-Track recurring habits and monitor long-term consistency.
-
-<p align="center">
-<img src="./docs/assets/screenshots/habits.jpeg" width="100%">
-</p>
-
-## Document Management
-
-Store important documents with categories, tags and expiration dates.
-
-<p align="center">
-<img src="./docs/assets/screenshots/docs.jpeg" width="100%">
-</p>
-
-## Built-in PDF Viewer
-
-Preview your documents without leaving the application.
-
-<p align="center">
-<img src="./docs/assets/screenshots/document-preview.jpeg" width="100%">
-</p>
-
-## Reading Library
-
-Track books, reading sessions and personal ratings.
-
-<p align="center">
-<img src="./docs/assets/screenshots/reading.jpeg" width="100%">
-</p>
-
-## Entertainment Library
-
-Manage your anime collection, watch progress and ratings.
-
-<p align="center">
-<img src="./docs/assets/screenshots/anime.jpeg" width="100%">
-</p>
-
----
-
-# 🏗 Architecture
-
-NubeOS follows a **local-first desktop architecture**.
-
-The user interface is built with React, while all business logic lives in Rust behind Tauri commands.
-
-SQLite stores structured application data, while PDFs, covers and other media are managed as private local files.
-
-No backend server is required.
-
-<p align="center">
-<img src="./docs/assets/architecture.png" width="100%">
-</p>
-
-### Why this architecture?
-
-- 🔒 Complete data ownership
-- ⚡ Native desktop performance
-- 📦 Works entirely offline
-- 🧠 Strong separation between UI and business logic
-- 🚀 Easily extensible through independent modules
-
----
-
-# 🛠 Tech Stack
-
-| Category | Technologies |
-|-----------|--------------|
-| Frontend | React · TypeScript · Vite |
-| Desktop | Tauri |
-| Backend | Rust |
-| Database | SQLite |
-| Styling | Area-scoped CSS and shared tokens |
-| State Management | Local React state |
-| Tooling | pnpm · Cargo |
-
----
-
-# 🚀 Running locally
-
-```bash
+```sh
 git clone https://github.com/MagicNube/NubeOS.git
-
 cd NubeOS
-
-pnpm install
-
+pnpm install --frozen-lockfile
 pnpm tauri dev
 ```
 
----
+`pnpm dev` starts the web interface alone; it does not replace the native Tauri backend used by the application.
 
-# 📖 Documentation
+## Checks and builds
 
-The project includes detailed documentation covering:
+```sh
+pnpm test
+cargo test --manifest-path src-tauri/Cargo.toml
+pnpm build
+pnpm tauri build
+```
 
-- Vision
-- Architecture
-- Design principles
-- Module specifications
-- Architecture Decision Records (ADRs)
-- Roadmap
-- Development notes
+Development tools and dependencies are needed to build from source. The app stores its data separately from the executable; the repository contains no personal database. Automated full-data backup and restore are not implemented yet.
 
-See the `docs/` directory for the complete documentation.
+## Project documentation
 
----
+- [Vision](docs/vision.md) and [design principles](docs/principles.md)
+- [Current implementation and known limits](docs/current-state.md)
+- [Architecture](docs/architecture.md) and [decision records](docs/decisions/README.md)
+- [Module specifications](docs/modules/README.md) and [roadmap](docs/roadmap.md)
 
-# 🚧 Project Status
+This is a personal project that evolves with my own use. Features and distribution status are documented separately so the source tree is not confused with a particular installed build.
 
-NubeOS is my long-term personal project and is under active development.
+## License
 
-New modules and improvements are continuously added as my own workflow evolves.
-
----
-
-# 📄 License
-
-MIT
+MIT, as declared by the original project README. The standalone `LICENSE` file is not yet included in the repository.
